@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Control de Agua Potable",
+  title: "Fluvib | Sistema de Agua Potable",
   description: "Sistema de control de pagos de agua potable comunitaria",
 };
 

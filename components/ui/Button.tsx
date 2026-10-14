@@ -24,7 +24,7 @@ export function Button({
   // Colores sólidos, nítidos, sin desvanecidos
   const variantStyles = {
     primary:
-      'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-900/20 active:bg-blue-800',
+      'bg-sky-400 hover:bg-sky-500 text-slate-950 shadow-md shadow-sky-400/30 active:bg-sky-600',
     secondary:
       'bg-slate-900 hover:bg-slate-800 text-white shadow-md shadow-slate-900/20 active:bg-black',
     outline:

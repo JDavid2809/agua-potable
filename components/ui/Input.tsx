@@ -1,60 +1,86 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   helperText?: string;
   icon?: React.ReactNode;
+  rightElement?: React.ReactNode;
+  inputSize?: 'sm' | 'md' | 'lg';
 }
 
-export function Input({
-  label,
-  error,
-  helperText,
-  icon,
-  className = '',
-  id,
-  ...props
-}: InputProps) {
-  const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  (
+    {
+      label,
+      error,
+      helperText,
+      icon,
+      rightElement,
+      inputSize = 'lg',
+      className = '',
+      id,
+      ...props
+    },
+    ref
+  ) => {
+    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
-  return (
-    <div className="w-full space-y-1.5">
-      {label && (
-        <label
-          htmlFor={inputId}
-          className="block text-xs font-bold uppercase tracking-wider text-slate-900"
-        >
-          {label}
-        </label>
-      )}
+    const sizeClasses = {
+      sm: 'py-2 px-3 text-xs',
+      md: 'py-2.5 px-4 text-sm',
+      lg: 'py-4 px-5 text-base font-medium',
+    }[inputSize];
 
-      <div className="relative flex items-center">
-        {icon && (
-          <div className="absolute left-3.5 pointer-events-none text-slate-500">
-            {icon}
-          </div>
+    return (
+      <div className="w-full space-y-1.5">
+        {label && (
+          <label
+            htmlFor={inputId}
+            className="block text-xs font-semibold text-slate-700 dark:text-slate-300 select-none"
+          >
+            {label}
+          </label>
         )}
 
-        <input
-          id={inputId}
-          className={`w-full text-sm bg-white text-slate-900 placeholder:text-slate-400 border rounded-xl transition-all duration-150 outline-none
-            ${icon ? 'pl-10' : 'pl-4'} pr-4 py-2.5
-            ${
-              error
-                ? 'border-red-600 focus:border-red-600 focus:ring-2 focus:ring-red-600'
-                : 'border-slate-300 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-600'
-            }
-            ${className}`}
-          {...props}
-        />
-      </div>
+        <div className="relative flex items-center">
+          {icon && (
+            <div className="absolute left-4 pointer-events-none text-slate-400 dark:text-slate-500 flex items-center justify-center">
+              {icon}
+            </div>
+          )}
 
-      {error ? (
-        <p className="text-xs font-bold text-red-600 pl-1">{error}</p>
-      ) : helperText ? (
-        <p className="text-xs font-bold text-slate-800 pl-1">{helperText}</p>
-      ) : null}
-    </div>
-  );
-}
+          <input
+            ref={ref}
+            id={inputId}
+            className={`w-full bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-xl transition-all duration-150 outline-none shadow-xs
+              ${icon ? 'pl-11' : ''}
+              ${rightElement ? 'pr-12' : ''}
+              ${sizeClasses}
+              ${
+                error
+                  ? 'border border-red-500 focus:border-red-500 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-red-500/15'
+                  : 'border border-transparent dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-blue-600/10'
+              }
+              ${className}`}
+            {...props}
+          />
+
+          {rightElement && (
+            <div className="absolute right-4 flex items-center justify-center text-slate-400 dark:text-slate-500">
+              {rightElement}
+            </div>
+          )}
+        </div>
+
+        {error ? (
+          <p className="text-xs font-medium text-red-500 pl-1">{error}</p>
+        ) : helperText ? (
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 pl-1">{helperText}</p>
+        ) : null}
+      </div>
+    );
+  }
+);
+
+Input.displayName = 'Input';
