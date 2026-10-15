@@ -26,9 +26,13 @@ export default async function DashboardLayout({
   // 2. Cargar perfil y organización
   const { data: perfil } = await supabase
     .from('perfiles')
-    .select('nombre_completo, rol, organizacion_id')
+    .select('nombre_completo, rol, organizacion_id, activo')
     .eq('id', user.id)
     .single();
+
+  if (!perfil || !perfil.activo) {
+    redirect('/login');
+  }
 
   const { data: organizacion } = await supabase
     .from('organizaciones')

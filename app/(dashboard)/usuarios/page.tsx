@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   UserPlus,
   Shield,
@@ -44,6 +45,7 @@ const PERMISOS_DISPONIBLES: { id: PermisoSistema; etiqueta: string; categoria: s
 ];
 
 export default function UsuariosPage() {
+  const router = useRouter();
   const [usuarios, setUsuarios] = useState<UsuarioItem[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -66,6 +68,15 @@ export default function UsuariosPage() {
     try {
       const res = await fetch('/api/admin/users');
       const data = await res.json();
+
+      if (res.status === 403 || res.status === 401) {
+        sileo.error({
+          title: 'Acceso restringido',
+          description: 'Solo los administradores pueden gestionar usuarios.',
+        });
+        router.push('/dashboard');
+        return;
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'No se pudieron cargar los usuarios');

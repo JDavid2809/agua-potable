@@ -43,6 +43,7 @@ export interface Organizacion {
 export interface Perfil {
   id: string;
   organizacion_id: string;
+  email?: string;
   nombre_completo: string;
   rol: RolUsuario;
   permisos: PermisoSistema[] | string[];
@@ -146,14 +147,20 @@ export interface PagoDetalle {
   toma?: Toma;
 }
 
+export interface TransaccionPagoData {
+  pago: Pago;
+  detalles: PagoDetalle[];
+}
+
 /** Objeto en la cola de sincronización para enviar a Supabase cuando vuelva internet */
 export interface ElementoColaSync {
   id?: number; // Autoincremental en IndexedDB
-  tabla: 'personas' | 'tomas' | 'pagos' | 'pago_detalles' | 'manzanas';
+  tabla: 'transaccion_pago' | 'pagos' | 'pago_detalles' | 'personas' | 'tomas' | 'manzanas';
   accion: 'INSERT' | 'UPDATE' | 'DELETE';
   registro_id: string;
   datos: any;
   creado_en: string;
   intentos: number;
   ultimo_error?: string;
+  estado?: 'pendiente' | 'procesando' | 'error';
 }

@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { RolUsuario } from '@/types/database';
+
+const ROLES_PERMITIDOS: RolUsuario[] = ['administrador', 'cajero', 'lector'];
 
 /**
  * GET /api/admin/users
  * Lista todos los usuarios pertenecientes a la organización del administrador en sesión.
+ * Utiliza la columna 'email' indexada directamente en perfiles (Solución C6).
  */
 export async function GET() {
   try {
@@ -34,10 +38,10 @@ export async function GET() {
       );
     }
 
-    // 3. Obtener perfiles de la organización
+    // 3. Obtener perfiles de la organización directamente desde la base de datos
     const { data: usuarios, error: listError } = await supabase
       .from('perfiles')
-      .select('id, nombre_completo, rol, permisos, telefono, activo, created_at, updated_at')
+      .select('id, email, nombre_completo, rol, permisos, telefono, activo, created_at, updated_at')
       .eq('organizacion_id', perfilAdmin.organizacion_id)
       .order('created_at', { ascending: false });
 
@@ -45,22 +49,7 @@ export async function GET() {
       return NextResponse.json({ error: listError.message }, { status: 500 });
     }
 
-    // 4. Cruzar con correos usando el cliente administrativo
-    const adminSupabase = createAdminClient();
-    const { data: authUsersData } = await adminSupabase.auth.admin.listUsers({
-      perPage: 1000,
-    });
-
-    const userEmailsMap = new Map(
-      (authUsersData?.users || []).map((u) => [u.id, u.email])
-    );
-
-    const usuariosConEmail = (usuarios || []).map((u) => ({
-      ...u,
-      email: userEmailsMap.get(u.id) || '',
-    }));
-
-    return NextResponse.json({ usuarios: usuariosConEmail });
+    return NextResponse.json({ usuarios: usuarios || [] });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || 'Error interno del servidor' },
@@ -72,6 +61,7 @@ export async function GET() {
 /**
  * POST /api/admin/users
  * Da de alta un nuevo usuario dentro de la organización del administrador.
+ * Envía credenciales y privilegios en 'app_metadata' (Solución C2 y C5).
  */
 export async function POST(request: Request) {
   try {
@@ -101,7 +91,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Validar datos del formulario
+    // 3. Validar datos del formulario (Solución C5)
     const body = await request.json();
     const { email, password, nombre_completo, rol, permisos, telefono } = body;
 
@@ -112,27 +102,51 @@ export async function POST(request: Request) {
       );
     }
 
-    if (password.length < 6) {
+    const emailLimpio = String(email).trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailLimpio)) {
+      return NextResponse.json(
+        { error: 'El formato de correo electrónico no es válido.' },
+        { status: 400 }
+      );
+    }
+
+    if (!ROLES_PERMITIDOS.includes(rol)) {
+      return NextResponse.json(
+        { error: `Rol no válido. Los roles permitidos son: ${ROLES_PERMITIDOS.join(', ')}.` },
+        { status: 400 }
+      );
+    }
+
+    if (typeof password !== 'string' || password.length < 6) {
       return NextResponse.json(
         { error: 'La contraseña debe tener al menos 6 caracteres.' },
         { status: 400 }
       );
     }
 
+    const permisosValidados = Array.isArray(permisos)
+      ? permisos.filter((p) => typeof p === 'string')
+      : [];
+
     // 4. Crear el usuario mediante Supabase Admin API
+    // IMPORTANTE (C2): organizacion_id, rol y permisos se envían en app_metadata
+    // para que solo puedan ser escritos por el service_role del backend.
     const adminSupabase = createAdminClient();
 
     const { data: newUserAuth, error: createError } =
       await adminSupabase.auth.admin.createUser({
-        email: email.trim(),
-        password: password.trim(),
-        email_confirm: true, // Confirmación automática de correo
-        user_metadata: {
-          nombre_completo: nombre_completo.trim(),
-          rol,
+        email: emailLimpio,
+        password: password, // No recortar con trim() para no alterar contraseñas intencionales
+        email_confirm: true,
+        app_metadata: {
           organizacion_id: perfilAdmin.organizacion_id,
-          permisos: Array.isArray(permisos) ? permisos : [],
-          telefono: telefono?.trim() || null,
+          rol,
+          permisos: rol === 'administrador' ? ['*'] : permisosValidados,
+        },
+        user_metadata: {
+          nombre_completo: String(nombre_completo).trim(),
+          telefono: telefono ? String(telefono).trim() : null,
         },
       });
 
@@ -140,8 +154,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: createError.message }, { status: 400 });
     }
 
-    // El trigger handle_new_user ya creó el registro en perfiles.
-    // Retornamos los datos creados
     return NextResponse.json({
       success: true,
       mensaje: `Usuario ${nombre_completo} creado con éxito.`,
@@ -151,7 +163,7 @@ export async function POST(request: Request) {
         nombre_completo,
         rol,
         organizacion_id: perfilAdmin.organizacion_id,
-        permisos,
+        permisos: rol === 'administrador' ? ['*'] : permisosValidados,
       },
     });
   } catch (err: any) {

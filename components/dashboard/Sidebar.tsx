@@ -129,7 +129,7 @@ export function Sidebar({
       <div className="h-20 px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 overflow-hidden min-w-0">
           {/* Isotipo/Logo Fluvib */}
-          <div className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/80 shadow-xs p-1">
+          <div className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl p-1">
             <img
               src="/Img/Logo_Fluvib_Face.png"
               alt="Fluvib"

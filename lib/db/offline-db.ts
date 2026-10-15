@@ -36,7 +36,81 @@ export class AguaPotableLocalDB extends Dexie {
       cola_sync: '++id, tabla, accion, registro_id, creado_en',
       config_sync: 'clave',
     });
+    this.version(2).stores({
+      cola_sync: '++id, tabla, accion, registro_id, estado, creado_en',
+    });
   }
 }
 
 export const dbLocal = new AguaPotableLocalDB();
+
+/**
+ * Limpia todas las tablas de datos locales (personas, tomas, manzanas, tarifas, pagos locales)
+ * garantizando que ningún dato de una organización permanezca en el navegador.
+ * Conserva el device_id físico si existe.
+ */
+export async function limpiarDatosLocales(opciones: { limpiarCola?: boolean } = {}) {
+  const { limpiarCola = true } = opciones;
+
+  await dbLocal.transaction(
+    'rw',
+    [
+      dbLocal.personas,
+      dbLocal.tomas,
+      dbLocal.manzanas,
+      dbLocal.tarifas,
+      dbLocal.pagos,
+      dbLocal.pago_detalles,
+      dbLocal.cola_sync,
+      dbLocal.config_sync,
+    ],
+    async () => {
+      await Promise.all([
+        dbLocal.personas.clear(),
+        dbLocal.tomas.clear(),
+        dbLocal.manzanas.clear(),
+        dbLocal.tarifas.clear(),
+        dbLocal.pagos.clear(),
+        dbLocal.pago_detalles.clear(),
+      ]);
+
+      if (limpiarCola) {
+        await dbLocal.cola_sync.clear();
+      }
+
+      // Limpiar claves de sesión de config_sync, preservando el device_id físico
+      const deviceIdReg = await dbLocal.config_sync.get('device_id');
+      await dbLocal.config_sync.clear();
+      if (deviceIdReg) {
+        await dbLocal.config_sync.put(deviceIdReg);
+      }
+    }
+  );
+}
+
+/**
+ * Valida la organización activa local contra la organización del usuario recién autenticado.
+ * Si es una organización diferente, purga los datos locales inmediatamente para evitar
+ * fugas de información entre comités en computadoras o tabletas compartidas.
+ */
+export async function aislarOrganizacionLocal(nuevaOrgId: string): Promise<boolean> {
+  const regOrgActual = await dbLocal.config_sync.get('organizacion_activa_id');
+  if (regOrgActual && regOrgActual.valor && regOrgActual.valor !== nuevaOrgId) {
+    console.info(`Cambiando de organización local (${regOrgActual.valor} -> ${nuevaOrgId}). Purgando caché local.`);
+    await limpiarDatosLocales({ limpiarCola: true });
+  }
+
+  await dbLocal.config_sync.put({
+    clave: 'organizacion_activa_id',
+    valor: nuevaOrgId,
+  });
+
+  return true;
+}
+
+/**
+ * Retorna la cantidad de cobros o acciones pendientes por sincronizar en este dispositivo.
+ */
+export async function obtenerConteoPendientesSync(): Promise<number> {
+  return await dbLocal.cola_sync.count();
+}

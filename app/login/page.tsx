@@ -13,6 +13,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Header } from '@/components/ui/Header';
+import { aislarOrganizacionLocal, limpiarDatosLocales } from '@/lib/db/offline-db';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,19 +38,16 @@ export default function LoginPage() {
 
     try {
       if (!isSupabaseConfigured) {
-        const esAdmin = email.toLowerCase().includes('admin');
-        const rolDetectado = esAdmin ? 'Administrador' : 'Cajero';
-        sileo.success({
-          title: 'Acceso autorizado',
-          description: `Bienvenido, detectado como ${rolDetectado}.`,
+        sileo.error({
+          title: 'Configuración pendiente',
+          description: 'Las variables de Supabase no están configuradas en el entorno.',
         });
-        setTimeout(() => router.push('/'), 900);
         return;
       }
 
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
+        email: email.trim().toLowerCase(),
+        password: password, // No recortar contraseña con trim()
       });
 
       if (authError) {
@@ -63,9 +61,23 @@ export default function LoginPage() {
       if (authData.user) {
         const { data: perfil } = await supabase
           .from('perfiles')
-          .select('rol, nombre_completo')
+          .select('rol, nombre_completo, activo, organizacion_id')
           .eq('id', authData.user.id)
           .single();
+
+        if (perfil && !perfil.activo) {
+          await limpiarDatosLocales({ limpiarCola: true });
+          await supabase.auth.signOut();
+          sileo.error({
+            title: 'Cuenta suspendida',
+            description: 'Tu cuenta ha sido desactivada. Contacta al administrador del comité.',
+          });
+          return;
+        }
+
+        if (perfil?.organizacion_id) {
+          await aislarOrganizacionLocal(perfil.organizacion_id);
+        }
 
         const rolNombre = perfil?.rol === 'administrador' ? 'Administrador' : 'Cajero';
         const usuarioNombre = perfil?.nombre_completo || authData.user.email;
