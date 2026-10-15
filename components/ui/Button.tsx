@@ -24,15 +24,15 @@ export function Button({
   // Colores sólidos, nítidos, sin desvanecidos
   const variantStyles = {
     primary:
-      'bg-sky-400 hover:bg-sky-500 text-slate-950 shadow-md shadow-sky-400/30 active:bg-sky-600',
+      'bg-blue-600 hover:bg-blue-700 text-white shadow-sm active:bg-blue-800',
     secondary:
-      'bg-slate-900 hover:bg-slate-800 text-white shadow-md shadow-slate-900/20 active:bg-black',
+      'bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-700 dark:hover:bg-slate-600 shadow-sm active:bg-slate-900',
     outline:
-      'bg-transparent text-blue-600 border-2 border-blue-600 hover:bg-blue-600 hover:text-white active:bg-blue-700',
+      'bg-transparent text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700',
     danger:
-      'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-900/20 active:bg-red-800',
+      'bg-red-600 hover:bg-red-700 text-white shadow-sm active:bg-red-800',
     ghost:
-      'bg-transparent text-slate-800 hover:bg-slate-200 active:bg-slate-300',
+      'bg-transparent text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200',
   };
 
   const sizeStyles = {

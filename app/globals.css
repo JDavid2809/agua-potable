@@ -26,29 +26,70 @@ body {
 }
 
 /* ==============================================================================
-   SILEO NOTIFICACIONES: TEXTO EN COLOR NEGRO (#000000) - GROSOR NORMAL
-   Anula cualquier color gris o transparencia por defecto de Sileo
+   SILEO NOTIFICACIONES: TEMA OPUESTO AL FONDO
+   - Modo Claro (fondo blanco): Alerta oscura (#0f172a) con texto blanco
+   - Modo Oscuro (fondo oscuro): Alerta clara (#ffffff) con texto oscuro
    ============================================================================== */
-[data-sileo-viewport] [data-sileo-description],
-[data-sileo-viewport][data-theme="dark"] [data-sileo-description],
-[data-sileo-viewport][data-theme="light"] [data-sileo-description],
-[data-sileo-toast] [data-sileo-description],
-[data-sileo-description] {
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
-  font-weight: 400 !important;
+[data-sileo-viewport] {
+  z-index: 99999 !important;
+}
+
+/* 1. Modo Claro: Alerta oscura que resalta sobre el fondo claro */
+html:not(.dark) [data-sileo-pill],
+html:not(.dark) [data-sileo-body] {
+  fill: #0f172a !important;
+}
+
+html:not(.dark) [data-sileo-toast] {
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.35));
+}
+
+html:not(.dark) [data-sileo-title] {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 600 !important;
   opacity: 1 !important;
 }
 
-[data-sileo-viewport] [data-sileo-title],
-[data-sileo-viewport][data-theme="dark"] [data-sileo-title],
-[data-sileo-viewport][data-theme="light"] [data-sileo-title],
-[data-sileo-toast] [data-sileo-title],
-[data-sileo-title] {
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
-  font-weight: 500 !important;
+html:not(.dark) [data-sileo-description] {
+  color: #f1f5f9 !important;
+  -webkit-text-fill-color: #f1f5f9 !important;
+  font-weight: 400 !important;
+  opacity: 0.95 !important;
+}
+
+html:not(.dark) [data-sileo-button] {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* 2. Modo Oscuro: Alerta clara (blanca) que resalta sobre el fondo oscuro */
+html.dark [data-sileo-pill],
+html.dark [data-sileo-body] {
+  fill: #ffffff !important;
+}
+
+html.dark [data-sileo-toast] {
+  filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.55));
+}
+
+html.dark [data-sileo-title] {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  font-weight: 600 !important;
   opacity: 1 !important;
+}
+
+html.dark [data-sileo-description] {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+  font-weight: 400 !important;
+  opacity: 0.95 !important;
+}
+
+html.dark [data-sileo-button] {
+  color: #0f172a !important;
+  background-color: rgba(15, 23, 42, 0.12) !important;
 }
 
 

@@ -75,7 +75,8 @@ export default function LoginPage() {
           description: `Turno iniciado automáticamente como ${rolNombre}.`,
         });
 
-        router.push('/');
+        router.push('/dashboard');
+        router.refresh();
       }
     } catch {
       sileo.error({

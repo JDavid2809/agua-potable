@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "sileo/styles.css";
-import { Toaster } from "sileo";
+import { AppToaster } from "@/components/ui/AppToaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,17 +29,8 @@ export default function RootLayout({
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-100 text-slate-900">
-        <Toaster
-          position="top-right"
-          options={{
-            styles: {
-              title: "!text-black !font-medium !opacity-100",
-              description: "!text-black !font-normal !opacity-100",
-              button: "!text-black !font-medium",
-            },
-          }}
-        />
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased">
+        <AppToaster />
         {children}
       </body>
     </html>

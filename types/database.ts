@@ -3,18 +3,60 @@ export type EstadoToma = 'activa' | 'suspendida' | 'cortada' | 'inactiva';
 export type TipoToma = 'domestica' | 'comercial' | 'comunal' | 'lote_baldio';
 export type MetodoPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'otro';
 
-export interface Perfil {
+/** Permisos del sistema para control de acceso granular (RBAC) */
+export type PermisoSistema =
+  | '*'                     // Superacceso / Administrador total
+  | 'usuarios.gestionar'    // Crear, editar y suspender usuarios
+  | 'organizacion.editar'   // Modificar datos del comité / organización
+  | 'cobros.crear'          // Registrar pagos y emitir recibos
+  | 'cobros.anular'         // Cancelar o anular recibos emitidos
+  | 'tomas.ver'             // Consultar padrón de tomas
+  | 'tomas.gestionar'       // Crear, editar o suspender tomas
+  | 'personas.ver'          // Consultar contribuyentes
+  | 'personas.gestionar'    // Crear y actualizar datos de contribuyentes
+  | 'tarifas.gestionar'     // Modificar cuotas anuales y recargos
+  | 'reportes.ver';         // Visualizar cortes de caja y balance financiero
+
+export interface OrganizacionConfig {
+  cuota_base: number;
+  recargo_mora: number;
+  moneda: string;
+  permitir_cobro_offline: boolean;
+}
+
+export interface Organizacion {
   id: string;
-  nombre_completo: string;
-  rol: RolUsuario;
+  nombre: string;
+  slug?: string;
+  estado: string;
+  municipio: string;
+  localidad: string;
   telefono?: string;
+  rfc_registro?: string;
+  logo_url?: string;
   activo: boolean;
+  config: OrganizacionConfig;
   created_at: string;
   updated_at: string;
 }
 
+export interface Perfil {
+  id: string;
+  organizacion_id: string;
+  nombre_completo: string;
+  rol: RolUsuario;
+  permisos: PermisoSistema[] | string[];
+  telefono?: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joins para UI
+  organizacion?: Organizacion;
+}
+
 export interface Manzana {
   id: string;
+  organizacion_id: string;
   barrio: string;
   seccion: string;
   numero_manzana: string;
@@ -28,6 +70,7 @@ export interface Manzana {
 
 export interface Persona {
   id: string;
+  organizacion_id: string;
   nombre_completo: string;
   documento_identidad?: string;
   telefono?: string;
@@ -41,6 +84,7 @@ export interface Persona {
 
 export interface Toma {
   id: string;
+  organizacion_id: string;
   codigo_toma: string;
   persona_id: string;
   manzana_id?: string;
@@ -59,6 +103,7 @@ export interface Toma {
 
 export interface Tarifa {
   id: string;
+  organizacion_id: string;
   anio: number;
   cuota_mensual: number;
   recargo_mora: number;
@@ -69,6 +114,7 @@ export interface Tarifa {
 
 export interface Pago {
   id: string;
+  organizacion_id: string;
   folio: string;
   persona_id: string;
   cajero_id?: string;
@@ -82,11 +128,13 @@ export interface Pago {
   updated_at: string;
   // UI joins
   persona?: Persona;
+  cajero?: Perfil;
   detalles?: PagoDetalle[];
 }
 
 export interface PagoDetalle {
   id: string;
+  organizacion_id: string;
   pago_id: string;
   toma_id: string;
   anio: number;
