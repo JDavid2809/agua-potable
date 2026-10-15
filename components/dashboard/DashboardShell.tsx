@@ -1,8 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { DashboardHeader } from './DashboardHeader';
+import { sileo } from 'sileo';
+
+function AccesoDenegadoListener() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const denegado = searchParams.get('denegado');
+    if (denegado) {
+      sileo.error({
+        title: 'Acceso restringido',
+        description: 'No tienes permisos de administrador para acceder a ese apartado.',
+      });
+      // Limpiar el parámetro de la URL para que no vuelva a dispararse al recargar
+      router.replace(pathname);
+    }
+  }, [searchParams, router, pathname]);
+
+  return null;
+}
 
 export interface DashboardShellProps {
   children: React.ReactNode;
@@ -52,6 +74,10 @@ export function DashboardShell({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex transition-colors duration-200">
+      <Suspense fallback={null}>
+        <AccesoDenegadoListener />
+      </Suspense>
+
       {/* 1. BARRA LATERAL (SIDEBAR) PRINCIPAL */}
       <Sidebar
         collapsed={collapsed}
@@ -62,7 +88,7 @@ export function DashboardShell({
         esAdmin={esAdmin}
       />
 
-      {/* 2. ÁREA PRINCIPAL: HEADER SUPERIOR (SIN LOGOTIPO DE FLUVIB NI UBICACIÓN) + CONTENIDO */}
+      {/* 2. ÁREA PRINCIPAL: HEADER SUPERIOR + CONTENIDO */}
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           onToggleMobileMenu={() => setMobileOpen(true)}

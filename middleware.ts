@@ -48,7 +48,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/usuarios') ||
     pathname.startsWith('/tomas') ||
+    pathname.startsWith('/personas') ||
     pathname.startsWith('/cobros') ||
+    pathname.startsWith('/lecturas') ||
+    pathname.startsWith('/reportes') ||
     pathname.startsWith('/configuracion');
 
   // Si no está logueado e intenta entrar a una ruta protegida -> redirigir a login

@@ -120,7 +120,7 @@ export default function UsuariosPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!nombreCompleto.trim() || !email.trim() || !password.trim()) {
+    if (!nombreCompleto.trim() || !email.trim() || !password) {
       sileo.warning({
         title: 'Campos requeridos',
         description: 'Por favor completa el nombre, correo y contraseña.',
@@ -145,7 +145,7 @@ export default function UsuariosPage() {
         body: JSON.stringify({
           nombre_completo: nombreCompleto.trim(),
           email: email.trim(),
-          password: password.trim(),
+          password: password, // No recortar contraseña con trim()
           telefono: telefono.trim() || undefined,
           rol,
           permisos: rol === 'administrador' ? ['*'] : permisosSeleccionados,
@@ -182,6 +182,14 @@ export default function UsuariosPage() {
       setGuardando(false);
     }
   };
+
+  if (cargando) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">

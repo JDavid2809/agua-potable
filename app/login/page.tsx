@@ -26,7 +26,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email.trim() || !password.trim()) {
+    if (!email.trim() || !password) {
       sileo.warning({
         title: 'Faltan datos',
         description: 'Por favor escribe tu correo y contraseña.',
@@ -65,7 +65,17 @@ export default function LoginPage() {
           .eq('id', authData.user.id)
           .single();
 
-        if (perfil && !perfil.activo) {
+        if (!perfil || !perfil.organizacion_id) {
+          await limpiarDatosLocales({ limpiarCola: true });
+          await supabase.auth.signOut();
+          sileo.error({
+            title: 'Acceso denegado',
+            description: 'Tu cuenta no está vinculada a ningún comité de agua potable. Contacta al administrador.',
+          });
+          return;
+        }
+
+        if (!perfil.activo) {
           await limpiarDatosLocales({ limpiarCola: true });
           await supabase.auth.signOut();
           sileo.error({
@@ -75,9 +85,23 @@ export default function LoginPage() {
           return;
         }
 
-        if (perfil?.organizacion_id) {
-          await aislarOrganizacionLocal(perfil.organizacion_id);
+        const { data: orgData } = await supabase
+          .from('organizaciones')
+          .select('id, activo')
+          .eq('id', perfil.organizacion_id)
+          .single();
+
+        if (!orgData || !orgData.activo) {
+          await limpiarDatosLocales({ limpiarCola: true });
+          await supabase.auth.signOut();
+          sileo.error({
+            title: 'Organización no disponible',
+            description: 'El comité de agua potable asociado no existe o se encuentra inactivo.',
+          });
+          return;
         }
+
+        await aislarOrganizacionLocal(perfil.organizacion_id);
 
         const rolNombre = perfil?.rol === 'administrador' ? 'Administrador' : 'Cajero';
         const usuarioNombre = perfil?.nombre_completo || authData.user.email;

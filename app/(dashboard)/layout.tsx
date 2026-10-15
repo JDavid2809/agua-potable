@@ -30,17 +30,21 @@ export default async function DashboardLayout({
     .eq('id', user.id)
     .single();
 
-  if (!perfil || !perfil.activo) {
+  if (!perfil || !perfil.activo || !perfil.organizacion_id) {
     redirect('/login');
   }
 
   const { data: organizacion } = await supabase
     .from('organizaciones')
-    .select('nombre, localidad, municipio, estado')
-    .eq('id', perfil?.organizacion_id || '')
+    .select('nombre, localidad, municipio, estado, activo')
+    .eq('id', perfil.organizacion_id)
     .single();
 
-  const esAdmin = perfil?.rol === 'administrador';
+  if (!organizacion || !organizacion.activo) {
+    redirect('/login');
+  }
+
+  const esAdmin = perfil.rol === 'administrador';
 
   const orgNombre = organizacion?.nombre || 'Comité de Agua Potable';
   const orgUbicacion = organizacion?.localidad
