@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   AnimatePresence,
@@ -11,6 +12,7 @@ import {
   useMotionValue,
 } from 'motion/react';
 import { Moon, Search, Sun } from 'lucide-react';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface HeaderNavItem {
   href: string;
@@ -75,9 +77,12 @@ function FreeLogo({
     );
   }
   return (
-    <img
+    <Image
       src={logoSrc}
-      alt={title}
+      alt={title || 'Fluvib'}
+      width={480}
+      height={148}
+      loading="eager"
       onError={onImgError}
       className="h-12 w-auto max-w-[200px] shrink-0 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.45)] transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none"
     />
@@ -159,7 +164,7 @@ function UserChip({
 export function Header({
   title = '',
   subtitle = '',
-  logoSrc = '/Img/Logo_Fluvib.png',
+  logoSrc = '/Img/Logo_Fluvib.webp',
   showThemeToggle = true,
   userRole,
   userName,
@@ -168,27 +173,18 @@ export function Header({
   nav = [],
   onSearchClick,
 }: HeaderProps) {
-  const [isDark, setIsDark] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
   const [imgOk, setImgOk] = useState(true);
   const [scrolled, setScrolled] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [kbd, setKbd] = useState(false);
   const [hoverHref, setHoverHref] = useState<string | null>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
   // Luz que sigue al cursor dentro de la cápsula
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
   const spotlight = useMotionTemplate`radial-gradient(180px circle at ${mx}px ${my}px, rgba(255,255,255,0.10), transparent 75%)`;
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const dark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-    setIsDark(dark);
-    document.documentElement.classList.toggle('dark', dark);
-  }, []);
 
   // Colapso al hacer scroll (con histéresis para evitar parpadeos)
   useEffect(() => {
@@ -212,22 +208,6 @@ export function Header({
       window.removeEventListener('pointerdown', onPointer);
     };
   }, []);
-
-  useEffect(() => setMobileOpen(false), [pathname]);
-
-  const toggleTheme = () => {
-    const nextDark = !isDark;
-    const apply = () => {
-      setIsDark(nextDark);
-      document.documentElement.classList.toggle('dark', nextDark);
-      localStorage.setItem('theme', nextDark ? 'dark' : 'light');
-    };
-    if (!document.startViewTransition) {
-      apply();
-    } else {
-      document.startViewTransition(apply);
-    }
-  };
 
   const isActive = (href: string) =>
     pathname === href || (href !== '/' && !!pathname?.startsWith(href));

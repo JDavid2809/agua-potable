@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { usePathname } from 'next/navigation';
 import {
   Menu,
@@ -9,6 +9,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface DashboardHeaderProps {
   onToggleMobileMenu: () => void;
@@ -35,33 +36,7 @@ export function DashboardHeader({
   userRole,
 }: DashboardHeaderProps) {
   const pathname = usePathname();
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    const isDarkCurrent =
-      localStorage.getItem('theme') === 'dark' ||
-      (!('theme' in localStorage) &&
-        window.matchMedia('(prefers-color-scheme: dark)').matches) ||
-      document.documentElement.classList.contains('dark');
-
-    setIsDark(isDarkCurrent);
-    document.documentElement.classList.toggle('dark', isDarkCurrent);
-  }, []);
-
-  const toggleTheme = () => {
-    const nextDark = !isDark;
-    const apply = () => {
-      setIsDark(nextDark);
-      document.documentElement.classList.toggle('dark', nextDark);
-      localStorage.setItem('theme', nextDark ? 'dark' : 'light');
-    };
-
-    if (!document.startViewTransition) {
-      apply();
-    } else {
-      document.startViewTransition(apply);
-    }
-  };
+  const { isDark, toggleTheme } = useTheme();
 
   const currentSection = SECTION_NAMES[pathname] || 'Panel';
 

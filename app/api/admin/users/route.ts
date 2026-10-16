@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { RolUsuario } from '@/types/database';
+import { obtenerMensajeError } from '@/lib/utils/errors';
 
 const ROLES_PERMITIDOS: RolUsuario[] = ['administrador', 'cajero', 'lector'];
 
@@ -50,9 +51,9 @@ export async function GET() {
     }
 
     return NextResponse.json({ usuarios: usuarios || [] });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: err.message || 'Error interno del servidor' },
+      { error: obtenerMensajeError(err, 'Error interno del servidor') },
       { status: 500 }
     );
   }
@@ -166,9 +167,9 @@ export async function POST(request: Request) {
         permisos: rol === 'administrador' ? ['*'] : permisosValidados,
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: err.message || 'Error interno al procesar el alta de usuario' },
+      { error: obtenerMensajeError(err, 'Error interno al procesar el alta de usuario') },
       { status: 500 }
     );
   }

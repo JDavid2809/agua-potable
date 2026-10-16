@@ -1,8 +1,10 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { getSesionActual } from '@/lib/auth/session';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { SIDEBAR_COOKIE } from '@/lib/theme';
 
 export const instant = false;
 
@@ -12,60 +14,33 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   await connection();
-  const supabase = await createClient();
 
-  // 1. Validar autenticación
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // 1. Obtener sesión deduplicada en memoria por React.cache (P1)
+  const { user, perfil, organizacion, esAdmin } = await getSesionActual();
 
-  if (!user) {
+  if (!user || !perfil || !perfil.activo || !organizacion) {
     redirect('/login');
   }
 
-  // 2. Cargar perfil y organización
-  const { data: perfil } = await supabase
-    .from('perfiles')
-    .select('nombre_completo, rol, organizacion_id, activo')
-    .eq('id', user.id)
-    .single();
-
-  if (!perfil || !perfil.activo || !perfil.organizacion_id) {
-    redirect('/login');
-  }
-
-  const { data: organizacion } = await supabase
-    .from('organizaciones')
-    .select('nombre, localidad, municipio, estado, activo')
-    .eq('id', perfil.organizacion_id)
-    .single();
-
-  if (!organizacion || !organizacion.activo) {
-    redirect('/login');
-  }
-
-  const esAdmin = perfil.rol === 'administrador';
-
-  const orgNombre = organizacion?.nombre || 'Comité de Agua Potable';
-  const orgUbicacion = organizacion?.localidad
-    ? `${organizacion.localidad}, ${organizacion.municipio || organizacion.estado}`
-    : 'Sistema Fluvib';
+  const orgNombre = organizacion.nombre || 'Comité de Agua Potable';
+  const sidebarColapsado = (await cookies()).get(SIDEBAR_COOKIE)?.value === 'true';
 
   const rolLabel =
-    perfil?.rol === 'administrador'
+    perfil.rol === 'administrador'
       ? 'Administrador'
-      : perfil?.rol === 'cajero'
+      : perfil.rol === 'cajero'
       ? 'Cajero'
-      : perfil?.rol === 'lector'
+      : perfil.rol === 'lector'
       ? 'Lector'
       : 'Usuario';
 
   return (
     <DashboardShell
       organizacionNombre={orgNombre}
-      userName={perfil?.nombre_completo || user.email || 'Usuario'}
+      userName={perfil.nombre_completo || user.email || 'Usuario'}
       userRole={rolLabel}
       esAdmin={esAdmin}
+      initialCollapsed={sidebarColapsado}
     >
       {children}
     </DashboardShell>

@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
-  Droplets,
   Eye,
   EyeOff,
   ArrowRight,
@@ -129,7 +129,7 @@ export default function LoginPage() {
 
       {/* HEADER FLOTANTE */}
       <div className="absolute top-0 inset-x-0 z-50 pointer-events-none">
-        <Header logoSrc="/Img/Logo_Fluvib.png" />
+        <Header logoSrc="/Img/Logo_Fluvib.webp" />
       </div>
 
       {/* LAYOUT DOS COLUMNAS */}
@@ -232,10 +232,13 @@ export default function LoginPage() {
 
           {/* Fluvib abajo — SOLO MÓVIL con integración sutil */}
           <div className="block lg:hidden w-full mt-auto pt-8 pb-0 pointer-events-none select-none relative">
-            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-sky-100/50 dark:from-sky-950/30 to-transparent -z-10" />
-            <img
-              src="/Img/Fluvib_B.png"
+            <div className="absolute inset-x-0 bottom-0 h-28 bg-sky-100/40 dark:bg-sky-950/20 -z-10" />
+            <Image
+              src="/Img/Fluvib_B.webp"
               alt="Fluvib"
+              width={900}
+              height={641}
+              sizes="100vw"
               className="w-full h-auto object-contain object-bottom max-h-60 mx-auto"
             />
           </div>
@@ -285,9 +288,12 @@ export default function LoginPage() {
 
           {/* Mascota Fluvib esquina inferior derecha */}
           <div className="absolute bottom-0 right-0 z-20 pointer-events-none select-none">
-            <img
-              src="/Img/Fluvib.png"
+            <Image
+              src="/Img/Fluvib.webp"
               alt="Fluvib"
+              width={640}
+              height={877}
+              sizes="256px"
               className="w-40 sm:w-48 md:w-56 lg:w-60 xl:w-64 h-auto object-contain drop-shadow-xl"
             />
           </div>

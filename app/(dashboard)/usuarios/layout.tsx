@@ -1,7 +1,7 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getSesionActual } from '@/lib/auth/session';
 
 export const instant = false;
 
@@ -11,24 +11,16 @@ export default async function UsuariosLayout({
   children: React.ReactNode;
 }) {
   await connection();
-  const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Deduplicado en memoria por React.cache con el DashboardLayout (0 consultas adicionales)
+  const { user, perfil, esAdmin } = await getSesionActual();
 
   if (!user) {
     redirect('/login');
   }
 
-  const { data: perfil } = await supabase
-    .from('perfiles')
-    .select('rol, activo')
-    .eq('id', user.id)
-    .single();
-
   // Si el usuario no existe, está inactivo o NO es administrador, expulsar al dashboard con parámetro de error
-  if (!perfil || !perfil.activo || perfil.rol !== 'administrador') {
+  if (!perfil || !perfil.activo || !esAdmin) {
     redirect('/dashboard?denegado=usuarios');
   }
 

@@ -1,5 +1,6 @@
 import { dbLocal } from '@/lib/db/offline-db';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
+import { obtenerMensajeError } from '@/lib/utils/errors';
 import type {
   Pago,
   PagoDetalle,
@@ -73,7 +74,8 @@ export async function obtenerODefinirDispositivoId(): Promise<string> {
  * Genera un folio offline garantizado único por dispositivo y año.
  * Formato: REC-{ANIO}-{DISPOSITIVO_CORTO}-{CORRELATIVO} (Ej: REC-2026-F8A2-0001)
  */
-export async function generarFolioOffline(organizacionId: string): Promise<string> {
+export async function generarFolioOffline(_organizacionId?: string): Promise<string> {
+  void _organizacionId;
   const deviceId = await obtenerODefinirDispositivoId();
   const shortDevice = deviceId.replace('DEV-', '').substring(0, 4);
   const anio = new Date().getFullYear();
@@ -283,7 +285,7 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
             await dbLocal.cola_sync.delete(item.id);
             enviados++;
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error(`Error sincronizando item #${item.id} (${item.tabla}):`, err);
           conError++;
           if (item.id !== undefined) {
@@ -292,7 +294,7 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
             await dbLocal.cola_sync.update(item.id, {
               intentos: nuevosIntentos,
               estado: nuevoEstado,
-              ultimo_error: err?.message || 'Error de red o procesamiento.',
+              ultimo_error: obtenerMensajeError(err, 'Error de red o procesamiento.'),
             });
           }
         }

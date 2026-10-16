@@ -43,8 +43,14 @@ export function useOfflineSync() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Carga inicial de estado
-    actualizarEstado();
+    let ignore = false;
+    void obtenerEstadoSincronizacion()
+      .then((res) => {
+        if (!ignore) setEstado(res);
+      })
+      .catch((e) => {
+        console.error('Error al consultar estado de sincronización local:', e);
+      });
 
     const handleOnline = () => {
       setEstado((prev) => ({ ...prev, enLinea: true }));
@@ -68,6 +74,7 @@ export function useOfflineSync() {
     }, 30000);
 
     return () => {
+      ignore = true;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       clearInterval(interval);

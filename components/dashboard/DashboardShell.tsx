@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { DashboardHeader } from './DashboardHeader';
 import { sileo } from 'sileo';
+import { SIDEBAR_COOKIE } from '@/lib/theme';
 
 function AccesoDenegadoListener() {
   const searchParams = useSearchParams();
@@ -32,6 +33,7 @@ export interface DashboardShellProps {
   userName: string;
   userRole: string;
   esAdmin: boolean;
+  initialCollapsed?: boolean;
 }
 
 export function DashboardShell({
@@ -40,25 +42,20 @@ export function DashboardShell({
   userName,
   userRole,
   esAdmin,
+  initialCollapsed = false,
 }: DashboardShellProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Leer estado de colapso previo de localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('sidebar_collapsed');
-    if (saved !== null) {
-      setCollapsed(saved === 'true');
-    }
-  }, []);
-
-  const handleToggleCollapse = () => {
+  const handleToggleCollapse = useCallback(() => {
     setCollapsed((prev) => {
       const next = !prev;
-      localStorage.setItem('sidebar_collapsed', String(next));
+      document.cookie = `${SIDEBAR_COOKIE}=${next}; path=/; max-age=31536000; SameSite=Lax`;
       return next;
     });
-  };
+  }, []);
+
+  const handleCloseMobile = useCallback(() => setMobileOpen(false), []);
 
   // Atajo de teclado: Ctrl + B o Cmd + B para colapsar barra lateral
   useEffect(() => {
@@ -70,7 +67,7 @@ export function DashboardShell({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handleToggleCollapse]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex transition-colors duration-200">
@@ -83,7 +80,7 @@ export function DashboardShell({
         collapsed={collapsed}
         onToggleCollapse={handleToggleCollapse}
         mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
+        onCloseMobile={handleCloseMobile}
         organizacionNombre={organizacionNombre}
         esAdmin={esAdmin}
       />

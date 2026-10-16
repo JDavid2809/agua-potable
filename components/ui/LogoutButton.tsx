@@ -26,7 +26,7 @@ export function LogoutButton() {
       setModalAbierto(false);
       router.push('/login');
       router.refresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error al cerrar sesión:', err);
       router.push('/login');
     } finally {

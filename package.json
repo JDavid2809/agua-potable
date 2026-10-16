@@ -12,7 +12,6 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",
     "dexie": "^4.4.6",
-    "lucide": "^1.53.0",
     "lucide-react": "^1.53.0",
     "motion": "^14.2.0",
     "next": "16.4.0",

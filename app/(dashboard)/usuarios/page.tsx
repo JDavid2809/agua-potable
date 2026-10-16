@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   UserPlus,
@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import type { PermisoSistema, RolUsuario } from '@/types/database';
+import { obtenerMensajeError } from '@/lib/utils/errors';
 
 interface UsuarioItem {
   id: string;
@@ -63,7 +64,7 @@ export default function UsuariosPage() {
     'personas.ver',
   ]);
 
-  const cargarUsuarios = async () => {
+  const cargarUsuarios = useCallback(async () => {
     setCargando(true);
     try {
       const res = await fetch('/api/admin/users');
@@ -83,19 +84,53 @@ export default function UsuariosPage() {
       }
 
       setUsuarios(data.usuarios || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       sileo.error({
         title: 'Error de carga',
-        description: err.message,
+        description: obtenerMensajeError(err, 'No se pudieron cargar los usuarios'),
       });
     } finally {
       setCargando(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
-    cargarUsuarios();
-  }, []);
+    let ignore = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/admin/users');
+        const data = await res.json();
+        if (ignore) return;
+        if (res.status === 403 || res.status === 401) {
+          sileo.error({
+            title: 'Acceso restringido',
+            description: 'Solo los administradores pueden gestionar usuarios.',
+          });
+          router.push('/dashboard');
+          return;
+        }
+        if (!res.ok) {
+          throw new Error(data.error || 'No se pudieron cargar los usuarios');
+        }
+        setUsuarios(data.usuarios || []);
+      } catch (err: unknown) {
+        if (!ignore) {
+          sileo.error({
+            title: 'Error de carga',
+            description: obtenerMensajeError(err, 'No se pudieron cargar los usuarios'),
+          });
+        }
+      } finally {
+        if (!ignore) {
+          setCargando(false);
+        }
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [router]);
 
   // Al cambiar de rol, sugerir permisos
   const handleCambioRol = (nuevoRol: RolUsuario) => {
@@ -173,10 +208,10 @@ export default function UsuariosPage() {
       setModalAbierto(false);
 
       cargarUsuarios();
-    } catch (err: any) {
+    } catch (err: unknown) {
       sileo.error({
         title: 'Error al dar de alta',
-        description: err.message,
+        description: obtenerMensajeError(err, 'Error al crear el usuario'),
       });
     } finally {
       setGuardando(false);

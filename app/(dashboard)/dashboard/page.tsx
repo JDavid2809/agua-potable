@@ -1,7 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getSesionActual } from '@/lib/auth/session';
 import {
   Users,
   Droplets,
@@ -17,23 +19,16 @@ export const instant = false;
 
 export default async function DashboardPage() {
   await connection();
+
+  // 1. Obtener sesión deduplicada de memoria por React.cache (P1)
+  const { user, perfil, organizacion, esAdmin } = await getSesionActual();
+
+  if (!user || !perfil?.organizacion_id || !organizacion) {
+    redirect('/login');
+  }
+
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: perfil } = await supabase
-    .from('perfiles')
-    .select('nombre_completo, rol, organizacion_id')
-    .eq('id', user?.id || '')
-    .single();
-
-  const { data: organizacion } = await supabase
-    .from('organizaciones')
-    .select('*')
-    .eq('id', perfil?.organizacion_id || '')
-    .single();
+  const orgId = perfil.organizacion_id;
 
   // Contadores rápidos de la organización
   const [
@@ -44,18 +39,16 @@ export default async function DashboardPage() {
     supabase
       .from('tomas')
       .select('*', { count: 'exact', head: true })
-      .eq('organizacion_id', perfil?.organizacion_id || ''),
+      .eq('organizacion_id', orgId),
     supabase
       .from('personas')
       .select('*', { count: 'exact', head: true })
-      .eq('organizacion_id', perfil?.organizacion_id || ''),
+      .eq('organizacion_id', orgId),
     supabase
       .from('perfiles')
       .select('*', { count: 'exact', head: true })
-      .eq('organizacion_id', perfil?.organizacion_id || ''),
+      .eq('organizacion_id', orgId),
   ]);
-
-  const esAdmin = perfil?.rol === 'administrador';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
