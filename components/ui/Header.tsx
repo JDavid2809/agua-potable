@@ -304,7 +304,7 @@ export function Header({
                   {/* Menú con píldoras que se deslizan */}
                   {nav.length > 0 && (
                     <>
-                      <span className="mx-1 h-6 w-px bg-white/15" />
+                      <span className={`mx-1 h-6 w-px ${isDark ? 'bg-neutral-900/15' : 'bg-white/15'}`} />
                       <nav
                         aria-label="Principal"
                         className="flex items-center gap-0.5"
@@ -319,21 +319,27 @@ export function Header({
                               aria-current={active ? 'page' : undefined}
                               onMouseEnter={() => setHoverHref(href)}
                               className={`relative rounded-full px-4 py-2 text-sm font-medium transition-colors motion-reduce:transition-none ${focusRing} ${
-                                active ? 'text-neutral-950' : 'text-white/70 hover:text-white'
+                                active
+                                  ? isDark
+                                    ? 'text-white'
+                                    : 'text-neutral-950'
+                                  : isDark
+                                    ? 'text-neutral-700 hover:text-neutral-950'
+                                    : 'text-white/70 hover:text-white'
                               }`}
                             >
                               {active && (
                                 <motion.span
                                   layoutId="nav-active"
                                   transition={spring}
-                                  className="absolute inset-0 rounded-full bg-white"
+                                  className={`absolute inset-0 rounded-full ${isDark ? 'bg-neutral-950' : 'bg-white'}`}
                                 />
                               )}
                               {!active && hoverHref === href && (
                                 <motion.span
                                   layoutId="nav-hover"
                                   transition={spring}
-                                  className="absolute inset-0 rounded-full bg-white/10"
+                                  className={`absolute inset-0 rounded-full ${isDark ? 'bg-neutral-900/10' : 'bg-white/10'}`}
                                 />
                               )}
                               <span className="relative z-10">{label}</span>
@@ -341,7 +347,7 @@ export function Header({
                           );
                         })}
                       </nav>
-                      <span className="mx-1 h-6 w-px bg-white/15" />
+                      <span className={`mx-1 h-6 w-px ${isDark ? 'bg-neutral-900/15' : 'bg-white/15'}`} />
                     </>
                   )}
 

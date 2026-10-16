@@ -53,8 +53,14 @@ export function useTheme() {
       }
     };
 
-    if (typeof document.startViewTransition === 'function') {
-      document.startViewTransition(apply);
+    if (typeof document.startViewTransition === 'function' && !document.hidden) {
+      try {
+        const transition = document.startViewTransition(apply);
+        transition?.ready?.catch(() => {});
+        transition?.finished?.catch(() => {});
+      } catch {
+        apply();
+      }
     } else {
       apply();
     }
