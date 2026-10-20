@@ -13,6 +13,7 @@ import {
   Layers,
   X,
   RefreshCw,
+  ArrowLeft,
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
@@ -26,10 +27,20 @@ interface ManzanaConConteo extends Manzana {
   tomas_count?: number;
 }
 
-export function ManzanasManager() {
+interface ManzanasManagerProps {
+  onVistaChange?: (vista: 'lista' | 'formulario') => void;
+}
+
+export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
   const [manzanas, setManzanas] = useState<ManzanaConConteo[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [modalAbierto, setModalAbierto] = useState(false);
+  const [vista, setVistaState] = useState<'lista' | 'formulario'>('lista');
+
+  const setVista = (v: 'lista' | 'formulario') => {
+    setVistaState(v);
+    onVistaChange?.(v);
+  };
+  const [modoFormulario, setModoFormulario] = useState<'crear' | 'editar'>('crear');
   const [guardando, setGuardando] = useState(false);
   const [manzanaEnEdicion, setManzanaEnEdicion] = useState<Manzana | null>(null);
 
@@ -105,28 +116,36 @@ export function ManzanasManager() {
     });
   }, [manzanas, busqueda, filtroBarrio]);
 
-  // Abrir modal de creación
+  // Cambiar a la vista de creación
   const handleAbrirCrear = () => {
     setManzanaEnEdicion(null);
+    setModoFormulario('crear');
     setBarrio(barriosUnicos[0] || 'Centro');
     setSeccion('1');
     setNumeroManzana('');
     setCuadra('');
     setDescripcion('');
     setActivo(true);
-    setModalAbierto(true);
+    setVista('formulario');
   };
 
-  // Abrir modal de edición
+  // Cambiar a la vista de edición
   const handleAbrirEditar = (m: Manzana) => {
     setManzanaEnEdicion(m);
+    setModoFormulario('editar');
     setBarrio(m.barrio || 'Centro');
     setSeccion(m.seccion || '1');
     setNumeroManzana(m.numero_manzana || '');
     setCuadra(m.cuadra || '');
     setDescripcion(m.descripcion || '');
     setActivo(m.activo);
-    setModalAbierto(true);
+    setVista('formulario');
+  };
+
+  // Regresar a la vista de lista
+  const handleVolverALista = () => {
+    setVista('lista');
+    setManzanaEnEdicion(null);
   };
 
   // Guardar (Crear o Editar)
@@ -198,7 +217,8 @@ export function ManzanasManager() {
         });
       }
 
-      setModalAbierto(false);
+      setVista('lista');
+      setManzanaEnEdicion(null);
       cargarManzanas();
     } catch (err: unknown) {
       sileo.error({
@@ -250,6 +270,182 @@ export function ManzanasManager() {
     }
   };
 
+  // =========================================================================
+  // VISTA NUEVA: FORMULARIO DE REGISTRO / EDICIÓN DE MANZANA (NO MODAL)
+  // =========================================================================
+  if (vista === 'formulario') {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-200">
+        {/* Cabecera con navegación de regreso */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={handleVolverALista}
+              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver al Padrón de Manzanas</span>
+            </button>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+              <span className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                <MapPin className="w-6 h-6" />
+              </span>
+              <span>
+                {modoFormulario === 'editar'
+                  ? `Editar Manzana: ${manzanaEnEdicion?.numero_manzana}`
+                  : 'Registrar Nueva Manzana'}
+              </span>
+            </h2>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              {modoFormulario === 'editar'
+                ? 'Actualiza los datos de ubicación territorial de esta manzana en el padrón.'
+                : 'Define el barrio, sección, manzana y cuadra para estructurar las tomas de agua y contratos.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Formulario a lo ancho completo (EJE X) sin contenedor Card */}
+        <form onSubmit={handleGuardar} className="w-full space-y-8">
+          {/* Bloque 1: Datos de Ubicación Geográfica */}
+          <div className="space-y-4">
+            <div className="border-b border-slate-200/80 dark:border-slate-800 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-blue-500" />
+                <span>Ubicación Territorial</span>
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Barrio */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Barrio o Sector *
+                </label>
+                <Input
+                  required
+                  value={barrio}
+                  onChange={(e) => setBarrio(e.target.value)}
+                  placeholder="Ej: Centro, San Juan..."
+                  list="lista-barrios-vista"
+                />
+                <datalist id="lista-barrios-vista">
+                  {barriosUnicos.map((b) => (
+                    <option key={b} value={b} />
+                  ))}
+                </datalist>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Escribe un nuevo barrio o selecciona existente.
+                </p>
+              </div>
+
+              {/* Sección */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Sección *
+                </label>
+                <Input
+                  required
+                  value={seccion}
+                  onChange={(e) => setSeccion(e.target.value)}
+                  placeholder="Ej: 1, 2, Norte..."
+                />
+              </div>
+
+              {/* Número de Manzana */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Número o Nombre de Manzana *
+                </label>
+                <Input
+                  required
+                  value={numeroManzana}
+                  onChange={(e) => setNumeroManzana(e.target.value)}
+                  placeholder="Ej: Manzana 4, Mz 12..."
+                />
+              </div>
+
+              {/* Cuadra */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Cuadra o Tramo (Opcional)
+                </label>
+                <Input
+                  value={cuadra}
+                  onChange={(e) => setCuadra(e.target.value)}
+                  placeholder="Ej: Cuadra 2, Entre calles..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Bloque 2: Referencias y Observaciones */}
+          <div className="space-y-4 pt-2">
+            <div className="border-b border-slate-200/80 dark:border-slate-800 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-blue-500" />
+                <span>Referencias y Notas</span>
+              </h3>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Descripción o Límites Físicos (Opcional)
+              </label>
+              <textarea
+                rows={3}
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="Ej: Colinda con la avenida principal y el canal de riego, frente al tanque elevado comunitario..."
+                className="w-full px-4 py-3 text-sm rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+              />
+            </div>
+
+            {modoFormulario === 'editar' && (
+              <div className="pt-2">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={activo}
+                    onChange={(e) => setActivo(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 accent-blue-600"
+                  />
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    Manzana activa en el padrón (permite asociar tomas y contratos)
+                  </span>
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-200/80 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={handleVolverALista}
+              disabled={guardando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              isLoading={guardando}
+            >
+              {modoFormulario === 'editar' ? 'Guardar Cambios' : 'Registrar Manzana'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VISTA PRINCIPAL: LISTADO Y MÉTRICAS
+  // =========================================================================
   return (
     <div className="space-y-6">
       {/* 1. Tarjetas de métricas de ubicación */}
@@ -447,146 +643,6 @@ export function ManzanasManager() {
           </div>
         )}
       </Card>
-
-      {/* 4. Modal para Crear / Editar Manzana */}
-      {modalAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-            {/* Cabecera del modal */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {manzanaEnEdicion ? 'Editar Manzana' : 'Registrar Nueva Manzana'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalAbierto(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Formulario */}
-            <form onSubmit={handleGuardar} className="p-6 space-y-4">
-              {/* Barrio y Sección */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                    Barrio o Sector *
-                  </label>
-                  <Input
-                    required
-                    value={barrio}
-                    onChange={(e) => setBarrio(e.target.value)}
-                    placeholder="Ej: Centro, San Juan..."
-                    list="lista-barrios"
-                  />
-                  <datalist id="lista-barrios">
-                    {barriosUnicos.map((b) => (
-                      <option key={b} value={b} />
-                    ))}
-                  </datalist>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                    Sección *
-                  </label>
-                  <Input
-                    required
-                    value={seccion}
-                    onChange={(e) => setSeccion(e.target.value)}
-                    placeholder="Ej: 1, 2, Norte..."
-                  />
-                </div>
-              </div>
-
-              {/* Número de Manzana y Cuadra */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                    Número de Manzana *
-                  </label>
-                  <Input
-                    required
-                    value={numeroManzana}
-                    onChange={(e) => setNumeroManzana(e.target.value)}
-                    placeholder="Ej: Manzana 4 o Mz 12"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                    Cuadra (Opcional)
-                  </label>
-                  <Input
-                    value={cuadra}
-                    onChange={(e) => setCuadra(e.target.value)}
-                    placeholder="Ej: Cuadra 2"
-                  />
-                </div>
-              </div>
-
-              {/* Descripción / Referencias */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-                  Descripción o Referencia (Opcional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={descripcion}
-                  onChange={(e) => setDescripcion(e.target.value)}
-                  placeholder="Ej: Entre la calle Morelos y la avenida principal..."
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                />
-              </div>
-
-              {/* Estado Activo / Inactivo */}
-              {manzanaEnEdicion && (
-                <div className="pt-1">
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={activo}
-                      onChange={(e) => setActivo(e.target.checked)}
-                      className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 accent-blue-600"
-                    />
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Manzana activa para asignación de nuevas tomas
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              {/* Botones de acción */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="md"
-                  onClick={() => setModalAbierto(false)}
-                  disabled={guardando}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  isLoading={guardando}
-                >
-                  {manzanaEnEdicion ? 'Guardar Cambios' : 'Registrar Manzana'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

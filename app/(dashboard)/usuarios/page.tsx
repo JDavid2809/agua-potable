@@ -14,6 +14,7 @@ import {
   Lock,
   Phone,
   Key,
+  ArrowLeft,
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { Card } from '@/components/ui/Card';
@@ -49,7 +50,7 @@ export default function UsuariosPage() {
   const router = useRouter();
   const [usuarios, setUsuarios] = useState<UsuarioItem[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [modalAbierto, setModalAbierto] = useState(false);
+  const [vista, setVista] = useState<'lista' | 'formulario'>('lista');
   const [guardando, setGuardando] = useState(false);
 
   // Formulario nuevo usuario
@@ -198,14 +199,14 @@ export default function UsuariosPage() {
         description: data.mensaje || `Se ha registrado a ${nombreCompleto}.`,
       });
 
-      // Limpiar y cerrar modal
+      // Limpiar y volver a lista
       setNombreCompleto('');
       setEmail('');
       setPassword('');
       setTelefono('');
       setRol('cajero');
       setPermisosSeleccionados(['cobros.crear', 'tomas.ver', 'personas.ver']);
-      setModalAbierto(false);
+      setVista('lista');
 
       cargarUsuarios();
     } catch (err: unknown) {
@@ -226,8 +227,179 @@ export default function UsuariosPage() {
     );
   }
 
+  if (vista === 'formulario') {
+    return (
+      <div className="w-full space-y-8 animate-in fade-in duration-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setVista('lista')}
+              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver a Usuarios y Permisos</span>
+            </button>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+              <span className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                <UserPlus className="w-6 h-6" />
+              </span>
+              <span>Registrar Nuevo Usuario</span>
+            </h2>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              Asigna credenciales, rol y permisos en tu organización.
+            </p>
+          </div>
+        </div>
+
+        {/* Formulario a lo ancho completo (EJE X) sin contenedor Card ni modal */}
+        <form onSubmit={handleSubmit} className="w-full space-y-8">
+          {/* Bloque 1: Credenciales y Datos Personales */}
+          <div className="space-y-4">
+            <div className="border-b border-slate-200/80 dark:border-slate-800 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-500" />
+                <span>Datos del Usuario</span>
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <Input
+                label="Nombre Completo *"
+                placeholder="Ej: Juan Pérez Martínez"
+                value={nombreCompleto}
+                onChange={(e) => setNombreCompleto(e.target.value)}
+                required
+              />
+
+              <Input
+                label="Correo Electrónico *"
+                type="email"
+                placeholder="cajero@fluvib.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                icon={<Mail className="w-4 h-4" />}
+                required
+              />
+
+              <Input
+                label="Teléfono (Opcional)"
+                type="tel"
+                placeholder="244-000-0000"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                icon={<Phone className="w-4 h-4" />}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+              <Input
+                label="Contraseña Temporal *"
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                icon={<Lock className="w-4 h-4" />}
+                required
+              />
+
+              <Select
+                label="Rol en el Comité *"
+                value={rol}
+                onChange={(e) => handleCambioRol(e.target.value as RolUsuario)}
+                options={[
+                  { value: 'cajero', label: 'Cajero (Operación de Cobro)' },
+                  { value: 'administrador', label: 'Administrador (Control Total)' },
+                  { value: 'lector', label: 'Lector (Solo Consulta de Tomas)' },
+                ]}
+              />
+            </div>
+          </div>
+
+          {/* Bloque 2: Permisos de Acceso */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-blue-500" />
+                <span>Permisos de Acceso</span>
+              </h3>
+              {rol === 'administrador' && (
+                <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                  Acceso total concedido automáticamente
+                </span>
+              )}
+            </div>
+
+            {rol === 'administrador' ? (
+              <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 text-xs font-medium text-purple-700 dark:text-purple-300">
+                Los administradores tienen todos los permisos del sistema (*). No es necesario configurar permisos individuales.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {PERMISOS_DISPONIBLES.map((p) => {
+                  const activo = permisosSeleccionados.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => togglePermiso(p.id)}
+                      className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all text-xs ${
+                        activo
+                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-semibold'
+                          : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded mt-0.5 flex items-center justify-center shrink-0 border ${
+                          activo
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : 'border-slate-300 dark:border-slate-600'
+                        }`}
+                      >
+                        {activo && <Check className="w-3 h-3" />}
+                      </div>
+                      <div className="leading-tight">
+                        <span className="block">{p.etiqueta}</span>
+                        <span className="text-[10px] opacity-60 font-normal">
+                          {p.categoria}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-200/80 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => setVista('lista')}
+              disabled={guardando}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              isLoading={guardando}
+              icon={<UserPlus className="w-4 h-4" />}
+            >
+              {guardando ? 'Guardando...' : 'Crear Usuario'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="w-full space-y-8 animate-in fade-in duration-300">
       {/* Encabezado de la página */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -257,7 +429,7 @@ export default function UsuariosPage() {
           <Button
             variant="primary"
             size="md"
-            onClick={() => setModalAbierto(true)}
+            onClick={() => setVista('formulario')}
             icon={<UserPlus className="w-4 h-4" />}
           >
             Nuevo Usuario
@@ -405,167 +577,6 @@ export default function UsuariosPage() {
         </div>
       </Card>
 
-      {/* Modal: Alta de Nuevo Usuario */}
-      {modalAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            {/* Cabecera del modal */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <UserPlus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                    Registrar Nuevo Usuario
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Asigna credenciales, rol y permisos en tu organización.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setModalAbierto(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Formulario */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
-              <Input
-                label="Nombre Completo *"
-                placeholder="Ej: Juan Pérez Martínez"
-                value={nombreCompleto}
-                onChange={(e) => setNombreCompleto(e.target.value)}
-                required
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Correo Electrónico *"
-                  type="email"
-                  placeholder="cajero@fluvib.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  icon={<Mail className="w-4 h-4" />}
-                  required
-                />
-
-                <Input
-                  label="Teléfono (Opcional)"
-                  type="tel"
-                  placeholder="244-000-0000"
-                  value={telefono}
-                  onChange={(e) => setTelefono(e.target.value)}
-                  icon={<Phone className="w-4 h-4" />}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Contraseña Temporal *"
-                  type="password"
-                  placeholder="Mínimo 6 caracteres"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  icon={<Lock className="w-4 h-4" />}
-                  required
-                />
-
-                <Select
-                  label="Rol en el Comité *"
-                  value={rol}
-                  onChange={(e) => handleCambioRol(e.target.value as RolUsuario)}
-                  options={[
-                    { value: 'cajero', label: 'Cajero (Operación de Cobro)' },
-                    { value: 'administrador', label: 'Administrador (Control Total)' },
-                    { value: 'lector', label: 'Lector (Solo Consulta de Tomas)' },
-                  ]}
-                />
-              </div>
-
-              {/* Selección de Permisos */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-300">
-                    Permisos de Acceso
-                  </label>
-                  {rol === 'administrador' && (
-                    <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
-                      Acceso total concedido automáticamente
-                    </span>
-                  )}
-                </div>
-
-                {rol === 'administrador' ? (
-                  <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 text-xs font-medium text-purple-700 dark:text-purple-300">
-                    Los administradores tienen todos los permisos del sistema (*). No es necesario configurar permisos individuales.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {PERMISOS_DISPONIBLES.map((p) => {
-                      const activo = permisosSeleccionados.includes(p.id);
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => togglePermiso(p.id)}
-                          className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all text-xs ${
-                            activo
-                              ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-semibold'
-                              : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                          }`}
-                        >
-                          <div
-                            className={`w-4 h-4 rounded mt-0.5 flex items-center justify-center shrink-0 border ${
-                              activo
-                                ? 'bg-blue-600 border-blue-600 text-white'
-                                : 'border-slate-300 dark:border-slate-600'
-                            }`}
-                          >
-                            {activo && <Check className="w-3 h-3" />}
-                          </div>
-                          <div className="leading-tight">
-                            <span className="block">{p.etiqueta}</span>
-                            <span className="text-[10px] opacity-60 font-normal">
-                              {p.categoria}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Botones de acción */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setModalAbierto(false)}
-                  disabled={guardando}
-                >
-                  Cancelar
-                </Button>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={guardando}
-                  icon={<UserPlus className="w-4 h-4" />}
-                >
-                  {guardando ? 'Guardando...' : 'Crear Usuario'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -176,7 +176,7 @@ function SidebarBody({ collapsed, mobile, onCloseMobile, organizacionNombre, esA
 
       {/* Navegación */}
       <div ref={navRef} className="custom-scrollbar relative flex-1 overflow-y-auto overflow-x-hidden p-3.5">
-        {/* Gota única que viaja por el cauce hasta el tab activo */}
+        {/* Círculo indicador que viaja hasta el tab activo */}
         <div
           aria-hidden
           className={`pointer-events-none absolute left-[22px] top-0 ${
@@ -196,7 +196,7 @@ function SidebarBody({ collapsed, mobile, onCloseMobile, organizacionNombre, esA
               className="fv-ripple absolute inset-0 rounded-full border-2 border-blue-500/70 dark:border-blue-400/70"
             />
           )}
-          <span className="absolute inset-0 -rotate-45 rounded-[50%_0_50%_50%] bg-blue-600 shadow-lg shadow-blue-600/30 dark:bg-blue-500 dark:shadow-blue-500/20" />
+          <span className="absolute inset-0 rounded-full bg-blue-600 shadow-lg shadow-blue-600/30 dark:bg-blue-500 dark:shadow-blue-500/20" />
         </div>
 
         <div className="space-y-9">
@@ -221,11 +221,6 @@ function SidebarBody({ collapsed, mobile, onCloseMobile, organizacionNombre, esA
 
               {/* Cauce: una línea vertical que une los nodos del grupo */}
               <div className="relative space-y-2.5">
-                <span
-                  aria-hidden
-                  className="absolute bottom-[22px] left-[26px] top-[22px] w-px bg-slate-200 dark:bg-slate-700"
-                />
-
                 {group.items.map((item) => {
                   const active = isActive(pathname, item.href);
                   const Icon = item.icon;
