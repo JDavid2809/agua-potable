@@ -21,6 +21,14 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import {
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+} from '@/components/ui/Table';
 import type { PermisoSistema, RolUsuario } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 
@@ -438,144 +446,137 @@ export default function UsuariosPage() {
       </div>
 
       {/* Tabla de Usuarios */}
-      <Card className="overflow-hidden border border-slate-200 dark:border-slate-800">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              <tr>
-                <th className="px-6 py-4">Usuario</th>
-                <th className="px-6 py-4">Rol</th>
-                <th className="px-6 py-4">Permisos Asignados</th>
-                <th className="px-6 py-4">Estado</th>
-                <th className="px-6 py-4">Fecha de Alta</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
-              {cargando ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-                      <span className="text-xs font-medium">Cargando usuarios...</span>
+      <Table>
+        <TableHeader>
+          <tr>
+            <TableHead>Usuario</TableHead>
+            <TableHead>Rol</TableHead>
+            <TableHead>Permisos Asignados</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead>Fecha de Alta</TableHead>
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {cargando ? (
+            <TableRow elevate={false}>
+              <TableCell colSpan={5} className="py-12 text-center text-slate-500">
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+                  <span className="text-xs font-medium">Cargando usuarios...</span>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : usuarios.length === 0 ? (
+            <TableRow elevate={false}>
+              <TableCell colSpan={5} className="py-12 text-center text-slate-500">
+                <Users className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                <p className="font-semibold text-slate-700 dark:text-slate-300">
+                  No hay usuarios registrados
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Haz clic en &quot;Nuevo Usuario&quot; para agregar al primer cajero.
+                </p>
+              </TableCell>
+            </TableRow>
+          ) : (
+            usuarios.map((u) => {
+              const esAdmin = u.rol === 'administrador';
+              const iniciales = u.nombre_completo
+                .split(' ')
+                .slice(0, 2)
+                .map((n) => n[0])
+                .join('')
+                .toUpperCase();
+
+              return (
+                <TableRow key={u.id}>
+                  {/* Datos del Usuario */}
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-sm shadow-sm">
+                        {iniciales || 'U'}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-white">
+                          {u.nombre_completo}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                          <Mail className="w-3 h-3" />
+                          {u.email || 'Sin correo asociado'}
+                        </p>
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              ) : usuarios.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    <Users className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                    <p className="font-semibold text-slate-700 dark:text-slate-300">
-                      No hay usuarios registrados
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Haz clic en &quot;Nuevo Usuario&quot; para agregar al primer cajero.
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                usuarios.map((u) => {
-                  const esAdmin = u.rol === 'administrador';
-                  const iniciales = u.nombre_completo
-                    .split(' ')
-                    .slice(0, 2)
-                    .map((n) => n[0])
-                    .join('')
-                    .toUpperCase();
+                  </TableCell>
 
-                  return (
-                    <tr
-                      key={u.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-900/40 transition-colors"
+                  {/* Rol */}
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                        esAdmin
+                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                      }`}
                     >
-                      {/* Datos del Usuario */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-sm shadow-sm">
-                            {iniciales || 'U'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900 dark:text-white">
-                              {u.nombre_completo}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                              <Mail className="w-3 h-3" />
-                              {u.email || 'Sin correo asociado'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
+                      <Shield className="w-3 h-3" />
+                      <span className="capitalize">{u.rol}</span>
+                    </span>
+                  </TableCell>
 
-                      {/* Rol */}
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                            esAdmin
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                          }`}
-                        >
-                          <Shield className="w-3 h-3" />
-                          <span className="capitalize">{u.rol}</span>
-                        </span>
-                      </td>
-
-                      {/* Permisos */}
-                      <td className="px-6 py-4 max-w-xs">
-                        {esAdmin || u.permisos?.includes('*') ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 dark:text-purple-400">
-                            <Key className="w-3 h-3" />
-                            Acceso Total (*)
-                          </span>
-                        ) : !u.permisos || u.permisos.length === 0 ? (
-                          <span className="text-xs text-slate-400 italic">Sin permisos</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {u.permisos.map((p) => (
-                              <span
-                                key={p}
-                                className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-medium"
-                              >
-                                {p.replace('.', ': ')}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Estado */}
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                            u.activo
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                          }`}
-                        >
+                  {/* Permisos */}
+                  <TableCell className="max-w-xs">
+                    {esAdmin || u.permisos?.includes('*') ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 dark:text-purple-400">
+                        <Key className="w-3 h-3" />
+                        Acceso Total (*)
+                      </span>
+                    ) : !u.permisos || u.permisos.length === 0 ? (
+                      <span className="text-xs text-slate-400 italic">Sin permisos</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {u.permisos.map((p) => (
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              u.activo ? 'bg-emerald-500' : 'bg-slate-400'
-                            }`}
-                          />
-                          {u.activo ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </td>
+                            key={p}
+                            className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-medium"
+                          >
+                            {p.replace('.', ': ')}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
 
-                      {/* Fecha de creación */}
-                      <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
-                        {new Date(u.created_at).toLocaleDateString('es-MX', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                  {/* Estado */}
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                        u.activo
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          u.activo ? 'bg-emerald-500' : 'bg-slate-400'
+                        }`}
+                      />
+                      {u.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </TableCell>
+
+                  {/* Fecha de creación */}
+                  <TableCell className="text-xs text-slate-500 dark:text-slate-400">
+                    {new Date(u.created_at).toLocaleDateString('es-MX', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
 
     </div>
   );

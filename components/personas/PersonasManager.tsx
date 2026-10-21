@@ -29,6 +29,14 @@ import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import {
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+} from '@/components/ui/Table';
 import type { Persona, Toma, Manzana, TipoToma, EstadoToma } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 
@@ -1147,188 +1155,181 @@ export function PersonasManager() {
           )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Contribuyente / Titular</th>
-                  <th className="py-3.5 px-4">Documento / Contacto</th>
-                  <th className="py-3.5 px-4">Ubicación (Barrio / Manzana / Cuadra)</th>
-                  <th className="py-3.5 px-4 text-center">Tomas de Agua</th>
-                  <th className="py-3.5 px-4 text-center">Estado</th>
-                  <th className="py-3.5 px-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {personasFiltradas.map((persona) => {
-                  const tomasCount = persona.tomas?.length || 0;
-                  // Obtener lista representativa de barrios y manzanas de sus tomas
-                  const ubicacionesTomas = persona.tomas
-                    ?.map((t) => {
-                      if (!t.manzana) return null;
-                      return `${t.manzana.barrio} - Mz ${t.manzana.numero_manzana}${
-                        t.manzana.cuadra ? ` (${t.manzana.cuadra})` : ''
-                      }`;
-                    })
-                    .filter(Boolean) as string[];
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>Contribuyente / Titular</TableHead>
+              <TableHead>Documento / Contacto</TableHead>
+              <TableHead>Ubicación (Barrio / Manzana / Cuadra)</TableHead>
+              <TableHead className="text-center">Tomas de Agua</TableHead>
+              <TableHead className="text-center">Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {personasFiltradas.map((persona) => {
+              const tomasCount = persona.tomas?.length || 0;
+              // Obtener lista representativa de barrios y manzanas de sus tomas
+              const ubicacionesTomas = persona.tomas
+                ?.map((t) => {
+                  if (!t.manzana) return null;
+                  return `${t.manzana.barrio} - Mz ${t.manzana.numero_manzana}${
+                    t.manzana.cuadra ? ` (${t.manzana.cuadra})` : ''
+                  }`;
+                })
+                .filter(Boolean) as string[];
 
-                  const ubicacionesUnicas = Array.from(new Set(ubicacionesTomas));
+              const ubicacionesUnicas = Array.from(new Set(ubicacionesTomas));
 
-                  return (
-                    <tr
-                      key={persona.id}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors group"
-                    >
-                      {/* Nombre y Dirección Personal */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <span>{persona.nombre_completo}</span>
+              return (
+                <TableRow key={persona.id}>
+                  {/* Nombre y Dirección Personal */}
+                  <TableCell>
+                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>{persona.nombre_completo}</span>
+                    </div>
+                    {persona.direccion && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Home className="w-3 h-3 shrink-0 text-slate-400" />
+                        <span className="truncate max-w-xs">{persona.direccion}</span>
+                      </p>
+                    )}
+                    {persona.notas && (
+                      <p className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1">
+                        {persona.notas}
+                      </p>
+                    )}
+                  </TableCell>
+
+                  {/* Identificación y Teléfono */}
+                  <TableCell>
+                    <div className="space-y-1">
+                      {persona.documento_identidad ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          <FileText className="w-3 h-3 text-slate-400" />
+                          {persona.documento_identidad}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">Sin documento</span>
+                      )}
+
+                      {persona.telefono && (
+                        <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          <span>{persona.telefono}</span>
                         </div>
-                        {persona.direccion && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                            <Home className="w-3 h-3 shrink-0 text-slate-400" />
-                            <span className="truncate max-w-xs">{persona.direccion}</span>
-                          </p>
-                        )}
-                        {persona.notas && (
-                          <p className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1">
-                            {persona.notas}
-                          </p>
-                        )}
-                      </td>
+                      )}
+                    </div>
+                  </TableCell>
 
-                      {/* Identificación y Teléfono */}
-                      <td className="py-3.5 px-4">
-                        <div className="space-y-1">
-                          {persona.documento_identidad ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                              <FileText className="w-3 h-3 text-slate-400" />
-                              {persona.documento_identidad}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic">Sin documento</span>
-                          )}
-
-                          {persona.telefono && (
-                            <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
-                              <Phone className="w-3 h-3 text-slate-400" />
-                              <span>{persona.telefono}</span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Ubicación de sus Tomas (Barrio, Manzana, Cuadra) */}
-                      <td className="py-3.5 px-4">
-                        {ubicacionesUnicas.length > 0 ? (
-                          <div className="space-y-1">
-                            {ubicacionesUnicas.slice(0, 2).map((ub, idx) => (
-                              <div
-                                key={idx}
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg mr-1 mb-1"
-                              >
-                                <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                <span>{ub}</span>
-                              </div>
-                            ))}
-                            {ubicacionesUnicas.length > 2 && (
-                              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 block">
-                                +{ubicacionesUnicas.length - 2} ubicaciones más
-                              </span>
-                            )}
+                  {/* Ubicación de sus Tomas (Barrio, Manzana, Cuadra) */}
+                  <TableCell>
+                    {ubicacionesUnicas.length > 0 ? (
+                      <div className="space-y-1">
+                        {ubicacionesUnicas.slice(0, 2).map((ub, idx) => (
+                          <div
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg mr-1 mb-1"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            <span>{ub}</span>
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                            <span>Sin tomas asignadas</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Tomas Badge / Interacción */}
-                      <td className="py-3.5 px-4 text-center">
-                        {tomasCount > 0 ? (
-                          <div className="inline-flex flex-col items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleVerTomas(persona)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-colors"
-                              title="Ver tomas asignadas"
-                            >
-                              <Droplets className="w-3.5 h-3.5 text-blue-500" />
-                              <span>
-                                {tomasCount} {tomasCount === 1 ? 'toma' : 'tomas'}
-                              </span>
-                              <Eye className="w-3 h-3 ml-0.5 text-blue-400" />
-                            </button>
-                            <span className="text-[10px] text-slate-400">
-                              {persona.tomas?.map((t) => t.codigo_toma).join(', ')}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                            0 tomas
+                        ))}
+                        {ubicacionesUnicas.length > 2 && (
+                          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 block">
+                            +{ubicacionesUnicas.length - 2} ubicaciones más
                           </span>
                         )}
-                      </td>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>Sin tomas asignadas</span>
+                      </div>
+                    )}
+                  </TableCell>
 
-                      {/* Estado */}
-                      <td className="py-3.5 px-4 text-center">
-                        {persona.activo ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Activo</span>
+                  {/* Tomas Badge / Interacción */}
+                  <TableCell className="text-center">
+                    {tomasCount > 0 ? (
+                      <div className="inline-flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleVerTomas(persona)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-colors"
+                          title="Ver tomas asignadas"
+                        >
+                          <Droplets className="w-3.5 h-3.5 text-blue-500" />
+                          <span>
+                            {tomasCount} {tomasCount === 1 ? 'toma' : 'tomas'}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-400">
-                            <XCircle className="w-3.5 h-3.5" />
-                            <span>Inactivo</span>
-                          </span>
-                        )}
-                      </td>
+                          <Eye className="w-3 h-3 ml-0.5 text-blue-400" />
+                        </button>
+                        <span className="text-[10px] text-slate-400">
+                          {persona.tomas?.map((t) => t.codigo_toma).join(', ')}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                        0 tomas
+                      </span>
+                    )}
+                  </TableCell>
 
-                      {/* Acciones */}
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Botón Asignar Nueva Toma */}
-                          <button
-                            type="button"
-                            onClick={() => handleAbrirNuevaToma(persona)}
-                            className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
-                            title="Asignar nueva toma de agua"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
+                  {/* Estado */}
+                  <TableCell className="text-center">
+                    {persona.activo ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Activo</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-400">
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Inactivo</span>
+                      </span>
+                    )}
+                  </TableCell>
 
-                          {/* Botón Editar Persona */}
-                          <button
-                            type="button"
-                            onClick={() => handleAbrirEditar(persona)}
-                            className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            title="Editar datos del titular"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
+                  {/* Acciones */}
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {/* Botón Asignar Nueva Toma */}
+                      <button
+                        type="button"
+                        onClick={() => handleAbrirNuevaToma(persona)}
+                        className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                        title="Asignar nueva toma de agua"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
 
-                          {/* Botón Eliminar Persona */}
-                          <button
-                            type="button"
-                            onClick={() => handleEliminarPersona(persona)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                            title="Eliminar titular"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      {/* Botón Editar Persona */}
+                      <button
+                        type="button"
+                        onClick={() => handleAbrirEditar(persona)}
+                        className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title="Editar datos del titular"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+
+                      {/* Botón Eliminar Persona */}
+                      <button
+                        type="button"
+                        onClick={() => handleEliminarPersona(persona)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                        title="Eliminar titular"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
 
 

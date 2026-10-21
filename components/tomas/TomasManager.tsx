@@ -23,6 +23,14 @@ import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import {
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+} from '@/components/ui/Table';
 import type { Toma, Persona, Manzana, TipoToma, EstadoToma } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 
@@ -683,127 +691,120 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
           )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 font-semibold text-xs uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Código / Tipo</th>
-                  <th className="py-3.5 px-4">Titular / Contribuyente</th>
-                  <th className="py-3.5 px-4">Ubicación (Barrio / Mz / Cuadra)</th>
-                  <th className="py-3.5 px-4">Medidor y Saldo</th>
-                  <th className="py-3.5 px-4 text-center">Estado</th>
-                  <th className="py-3.5 px-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {tomasFiltradas.map((toma) => {
-                  const est = ESTADOS.find((e) => e.value === toma.estado);
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>Código / Tipo</TableHead>
+              <TableHead>Titular / Contribuyente</TableHead>
+              <TableHead>Ubicación (Barrio / Mz / Cuadra)</TableHead>
+              <TableHead>Medidor y Saldo</TableHead>
+              <TableHead className="text-center">Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {tomasFiltradas.map((toma) => {
+              const est = ESTADOS.find((e) => e.value === toma.estado);
 
-                  return (
-                    <tr
-                      key={toma.id}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
+              return (
+                <TableRow key={toma.id}>
+                  {/* Código y Tipo */}
+                  <TableCell>
+                    <div className="font-extrabold text-blue-600 dark:text-blue-400">
+                      {toma.codigo_toma}
+                    </div>
+                    <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      {toma.tipo_toma}
+                    </span>
+                  </TableCell>
+
+                  {/* Titular */}
+                  <TableCell>
+                    <div className="font-bold text-slate-900 dark:text-white">
+                      {toma.persona?.nombre_completo || 'Sin asignar'}
+                    </div>
+                    {toma.persona?.documento_identidad && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Doc: {toma.persona.documento_identidad}
+                      </p>
+                    )}
+                  </TableCell>
+
+                  {/* Ubicación */}
+                  <TableCell>
+                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <span>
+                        Barrio <strong>{toma.manzana?.barrio || 'S/N'}</strong> —{' '}
+                        <strong>{toma.manzana?.numero_manzana || 'S/N'}</strong>
+                        {toma.manzana?.cuadra ? ` (${toma.manzana.cuadra})` : ''}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-xs">
+                      {toma.direccion_referencia}
+                    </p>
+                  </TableCell>
+
+                  {/* Medidor y Saldo */}
+                  <TableCell>
+                    <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                      {toma.numero_medidor ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Gauge className="w-3 h-3 text-slate-400" />
+                          {toma.numero_medidor}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">Sin medidor</span>
+                      )}
+                    </div>
+                    <div className="text-xs font-bold mt-0.5">
+                      {Number(toma.saldo_pendiente || 0) > 0 ? (
+                        <span className="text-red-600 dark:text-red-400">
+                          Adeudo: ${Number(toma.saldo_pendiente).toFixed(2)} MXN
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400">Al corriente ($0.00)</span>
+                      )}
+                    </div>
+                  </TableCell>
+
+                  {/* Estado */}
+                  <TableCell className="text-center">
+                    <span
+                      className={`inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                        est?.color || 'bg-slate-100 text-slate-600'
+                      }`}
                     >
-                      {/* Código y Tipo */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-extrabold text-blue-600 dark:text-blue-400">
-                          {toma.codigo_toma}
-                        </div>
-                        <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                          {toma.tipo_toma}
-                        </span>
-                      </td>
+                      {est?.label || toma.estado}
+                    </span>
+                  </TableCell>
 
-                      {/* Titular */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 dark:text-white">
-                          {toma.persona?.nombre_completo || 'Sin asignar'}
-                        </div>
-                        {toma.persona?.documento_identidad && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Doc: {toma.persona.documento_identidad}
-                          </p>
-                        )}
-                      </td>
-
-                      {/* Ubicación */}
-                      <td className="py-3.5 px-4">
-                        <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          <span>
-                            Barrio <strong>{toma.manzana?.barrio || 'S/N'}</strong> —{' '}
-                            <strong>{toma.manzana?.numero_manzana || 'S/N'}</strong>
-                            {toma.manzana?.cuadra ? ` (${toma.manzana.cuadra})` : ''}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-xs">
-                          {toma.direccion_referencia}
-                        </p>
-                      </td>
-
-                      {/* Medidor y Saldo */}
-                      <td className="py-3.5 px-4">
-                        <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                          {toma.numero_medidor ? (
-                            <span className="inline-flex items-center gap-1">
-                              <Gauge className="w-3 h-3 text-slate-400" />
-                              {toma.numero_medidor}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">Sin medidor</span>
-                          )}
-                        </div>
-                        <div className="text-xs font-bold mt-0.5">
-                          {Number(toma.saldo_pendiente || 0) > 0 ? (
-                            <span className="text-red-600 dark:text-red-400">
-                              Adeudo: ${Number(toma.saldo_pendiente).toFixed(2)} MXN
-                            </span>
-                          ) : (
-                            <span className="text-emerald-600 dark:text-emerald-400">Al corriente ($0.00)</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Estado */}
-                      <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                            est?.color || 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {est?.label || toma.estado}
-                        </span>
-                      </td>
-
-                      {/* Acciones */}
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleAbrirEditar(toma)}
-                            className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-                            title="Editar toma"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEliminar(toma)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
-                            title="Dar de baja toma"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  {/* Acciones */}
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleAbrirEditar(toma)}
+                        className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                        title="Editar toma"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleEliminar(toma)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
+                        title="Dar de baja toma"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
 
     </div>

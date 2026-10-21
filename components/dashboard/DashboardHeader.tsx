@@ -1,13 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import {
-  Menu,
-  Sun,
-  Moon,
-  ChevronRight,
-} from 'lucide-react';
+import { Menu, Sun, Moon, User } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -29,6 +24,23 @@ const SECTION_NAMES: Record<string, string> = {
   '/configuracion': 'Tarifas y Ajustes',
 };
 
+const SECTION_KEYS = Object.keys(SECTION_NAMES);
+const pad = (n: number) => String(n).padStart(2, '0');
+const ROW = 28; // alto (px) de cada número del contador
+
+const EASE = 'ease-[cubic-bezier(.65,0,.2,1)]';
+const SPRING = 'ease-[cubic-bezier(.34,1.45,.64,1)]';
+
+const css = `
+@keyframes fh-rise{from{transform:translateY(115%)}to{transform:none}}
+@keyframes fh-fade{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes fh-flow{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+.fh-rise{animation:fh-rise .6s cubic-bezier(.22,1,.36,1) both}
+.fh-fade{animation:fh-fade .6s cubic-bezier(.22,1,.36,1) backwards}
+.fh-flow{animation:fh-flow 1.1s cubic-bezier(.65,0,.2,1) both}
+@media (prefers-reduced-motion:reduce){.fh-rise,.fh-fade,.fh-flow{animation:none}}
+`;
+
 export function DashboardHeader({
   onToggleMobileMenu,
   organizacionNombre,
@@ -37,77 +49,118 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const pathname = usePathname();
   const { isDark, toggleTheme } = useTheme();
+  const [now, setNow] = useState<Date | null>(null);
 
-  const currentSection = SECTION_NAMES[pathname] || 'Panel';
+  const path = pathname ?? '';
+  const currentSection = SECTION_NAMES[path] || 'Panel';
+  const sectionIndex = SECTION_KEYS.indexOf(path);
 
-  const getInitials = (name?: string) => {
-    if (!name) return 'U';
-    return name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() ?? '')
-      .join('');
-  };
+  // Reloj: se monta en cliente para evitar diferencias de hidratación
+  useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  const fecha = now
+    ?.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })
+    .replace(/\./g, '');
+  const hh = now ? pad(now.getHours()) : '';
+  const mm = now ? pad(now.getMinutes()) : '';
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors">
-      {/* 1. Lado Izquierdo: Menú móvil y sección actual (SIN LOGOTIPO DE FLUVIB) */}
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="sticky top-0 z-20 flex h-20 w-full items-center justify-between gap-6 border-b border-slate-200 bg-white/85 px-4 backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-slate-900/85 sm:px-6 lg:px-8">
+      <style>{css}</style>
+
+      {/* Destello azul que recorre el borde en cada cambio de ruta */}
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 -bottom-px h-px overflow-hidden">
+        <span
+          key={path}
+          className="fh-flow absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-blue-500 to-transparent dark:via-blue-400"
+        />
+      </span>
+
+      {/* 1. Lado Izquierdo: menú móvil, contador de sección y título */}
+      <div className="flex min-w-0 items-center gap-5">
         <button
           onClick={onToggleMobileMenu}
           type="button"
           aria-label="Abrir menú de navegación"
-          className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="group flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 transition-all duration-200 hover:bg-slate-100 active:scale-90 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
         </button>
 
-        <div className="flex items-center gap-2 text-sm">
-          <span className="hidden sm:inline-block font-medium text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
+        <nav aria-label="Sección actual" className="fh-fade min-w-0 leading-tight">
+          <p className="max-w-[220px] truncate text-xs font-medium text-slate-400 dark:text-slate-500">
             {organizacionNombre}
+          </p>
+          {/* El título entra letra por letra al cambiar de sección */}
+          <span
+            key={currentSection}
+            aria-label={currentSection}
+            aria-current="page"
+            className="mt-0.5 flex max-w-full overflow-hidden text-base font-bold tracking-tight text-slate-900 dark:text-white sm:text-[17px]"
+          >
+            {[...currentSection].map((ch, i) => (
+              <span
+                key={i}
+                aria-hidden
+                className="fh-rise inline-block whitespace-pre py-0.5 leading-6"
+                style={{ animationDelay: `${i * 24}ms` }}
+              >
+                {ch}
+              </span>
+            ))}
           </span>
-          <ChevronRight className="hidden sm:inline-block w-4 h-4 text-slate-400 dark:text-slate-600 shrink-0" />
-          <span className="font-bold text-slate-900 dark:text-white truncate">
-            {currentSection}
-          </span>
-        </div>
+        </nav>
       </div>
 
-      {/* 2. Lado Derecho: Tema, Usuario y Cerrar Sesión (SIN UBICACIÓN) */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Botón de Tema */}
+      {/* 2. Lado Derecho: fecha, tema, usuario y cerrar sesión */}
+      <div className="flex shrink-0 items-center gap-4 sm:gap-5">
+        {fecha && (
+          <div className="fh-fade hidden items-center gap-3 font-mono text-xs text-slate-400 dark:text-slate-500 lg:flex">
+            <span className="capitalize">{fecha}</span>
+            <span className="tabular-nums text-slate-700 dark:text-slate-200">
+              {hh}
+              <span className="animate-pulse">:</span>
+              {mm}
+            </span>
+          </div>
+        )}
+
+        {/* Botón de alternar tema (modo claro / oscuro) */}
         <button
           onClick={toggleTheme}
           type="button"
           title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-          className="relative flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-all duration-300 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
         >
-          <Sun
-            className={`w-[18px] h-[18px] transition-all duration-200 ${
-              isDark ? 'scale-0 opacity-0 absolute' : 'scale-100 opacity-100'
-            }`}
-          />
-          <Moon
-            className={`w-[18px] h-[18px] transition-all duration-200 ${
-              isDark ? 'scale-100 opacity-100' : 'scale-0 opacity-0 absolute'
-            }`}
-          />
+          {isDark ? (
+            <Sun className="h-4.5 w-4.5 text-amber-500 transition-transform duration-300 group-hover:rotate-45" />
+          ) : (
+            <Moon className="h-4.5 w-4.5 text-slate-700 transition-transform duration-300 group-hover:-rotate-12 dark:text-slate-300" />
+          )}
         </button>
 
-        <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
+        <div aria-hidden className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
 
-        {/* Chip de Usuario */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center font-bold text-xs border border-slate-200 dark:border-slate-700">
-            {getInitials(userName)}
+        {/* Usuario: icono en un círculo */}
+        <div className="group flex items-center gap-3">
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-700 shadow-xs transition-all duration-300 group-hover:border-blue-500/50 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:border-blue-400/50 dark:group-hover:bg-blue-950/40 dark:group-hover:text-blue-400"
+          >
+            <User className="h-5 w-5" />
           </div>
-          <div className="hidden md:flex flex-col text-left leading-tight">
-            <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[150px]">
+
+          <div className="hidden flex-col text-left leading-tight md:flex">
+            <span className="max-w-[150px] truncate text-[13px] font-semibold text-slate-900 dark:text-slate-100">
               {userName}
             </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            <span
+              className={`text-[11px] text-slate-400 transition-all duration-300 ${EASE} group-hover:translate-x-0.5 group-hover:text-blue-600 dark:text-slate-500 dark:group-hover:text-blue-400`}
+            >
               {userRole}
             </span>
           </div>
@@ -118,4 +171,4 @@ export function DashboardHeader({
       </div>
     </header>
   );
-}
+};

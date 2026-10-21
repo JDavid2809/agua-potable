@@ -20,6 +20,14 @@ import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
+import {
+  Table,
+  TableHeader,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+} from '@/components/ui/Table';
 import type { Manzana } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 
@@ -548,101 +556,94 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
       </div>
 
       {/* 3. Tabla de Manzanas */}
-      <Card className="p-0 overflow-hidden">
-        {cargando && manzanas.length === 0 ? (
-          <div className="py-16 text-center text-slate-500 space-y-2">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-600" />
-            <p className="text-sm font-medium">Cargando manzanas del comité...</p>
-          </div>
-        ) : manzanasFiltradas.length === 0 ? (
-          <div className="py-16 text-center text-slate-500 space-y-2">
-            <MapPin className="w-8 h-8 mx-auto text-slate-400 stroke-1" />
-            <p className="text-base font-bold text-slate-800 dark:text-slate-200">
-              No se encontraron manzanas
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-              {busqueda
-                ? 'No hay registros que coincidan con los filtros de búsqueda.'
-                : 'Aún no has registrado manzanas en este comité. Haz clic en "Nueva Manzana" para comenzar.'}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
-                <tr>
-                  <th className="px-5 py-3.5">Barrio / Sector</th>
-                  <th className="px-5 py-3.5">Sección</th>
-                  <th className="px-5 py-3.5">Manzana</th>
-                  <th className="px-5 py-3.5">Cuadra / Detalle</th>
-                  <th className="px-5 py-3.5 text-center">Tomas</th>
-                  <th className="px-5 py-3.5 text-center">Estado</th>
-                  <th className="px-5 py-3.5 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {manzanasFiltradas.map((m) => (
-                  <tr
-                    key={m.id}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="px-5 py-4 font-bold text-slate-900 dark:text-white">
-                      {m.barrio}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600 dark:text-slate-300 font-medium">
-                      Secc. {m.seccion}
-                    </td>
-                    <td className="px-5 py-4 font-extrabold text-blue-600 dark:text-blue-400">
-                      {m.numero_manzana}
-                    </td>
-                    <td className="px-5 py-4 text-slate-500 dark:text-slate-400">
-                      {m.cuadra ? `Cuadra ${m.cuadra}` : m.descripcion || '—'}
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {m.tomas_count || 0} tomas
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      {m.activo ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Activa
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                          <XCircle className="w-3.5 h-3.5" />
-                          Inactiva
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleAbrirEditar(m)}
-                          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                          title="Editar manzana"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEliminar(m)}
-                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                          title="Eliminar manzana"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {cargando && manzanas.length === 0 ? (
+        <div className="py-16 text-center text-slate-500 space-y-2">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-600" />
+          <p className="text-sm font-medium">Cargando manzanas del comité...</p>
+        </div>
+      ) : manzanasFiltradas.length === 0 ? (
+        <div className="py-16 text-center text-slate-500 space-y-2">
+          <MapPin className="w-8 h-8 mx-auto text-slate-400 stroke-1" />
+          <p className="text-base font-bold text-slate-800 dark:text-slate-200">
+            No se encontraron manzanas
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            {busqueda
+              ? 'No hay registros que coincidan con los filtros de búsqueda.'
+              : 'Aún no has registrado manzanas en este comité. Haz clic en "Nueva Manzana" para comenzar.'}
+          </p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>Barrio / Sector</TableHead>
+              <TableHead>Sección</TableHead>
+              <TableHead>Manzana</TableHead>
+              <TableHead>Cuadra / Detalle</TableHead>
+              <TableHead className="text-center">Tomas</TableHead>
+              <TableHead className="text-center">Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {manzanasFiltradas.map((m) => (
+              <TableRow key={m.id}>
+                <TableCell className="font-bold text-slate-900 dark:text-white">
+                  {m.barrio}
+                </TableCell>
+                <TableCell className="text-slate-600 dark:text-slate-300 font-medium">
+                  Secc. {m.seccion}
+                </TableCell>
+                <TableCell className="font-extrabold text-blue-600 dark:text-blue-400">
+                  {m.numero_manzana}
+                </TableCell>
+                <TableCell className="text-slate-500 dark:text-slate-400">
+                  {m.cuadra ? `Cuadra ${m.cuadra}` : m.descripcion || '—'}
+                </TableCell>
+                <TableCell className="text-center">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                    {m.tomas_count || 0} tomas
+                  </span>
+                </TableCell>
+                <TableCell className="text-center">
+                  {m.activo ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Activa
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                      <XCircle className="w-3.5 h-3.5" />
+                      Inactiva
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleAbrirEditar(m)}
+                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      title="Editar manzana"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEliminar(m)}
+                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                      title="Eliminar manzana"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
   );
 }
