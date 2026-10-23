@@ -17,8 +17,8 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { sileo } from 'sileo';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import {
@@ -409,41 +409,39 @@ export default function UsuariosPage() {
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-300">
       {/* Encabezado de la página */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-bold mb-2 border border-blue-200 dark:border-blue-800">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Control de Acceso Comunitario</span>
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-            Usuarios y Permisos
-          </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-            Gestiona los administradores y cajeros autorizados para operar el sistema.
-          </p>
-        </div>
+      <PageHeader
+        icon={<ShieldCheck />}
+        tone="blue"
+        title="Usuarios y Permisos"
+        subtitle="Gestiona los administradores y cajeros autorizados para operar el sistema."
+        status="Control de acceso comunitario"
+        action={
+          <>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={cargarUsuarios}
+              disabled={cargando}
+              icon={
+                <RefreshCw
+                  className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`}
+                />
+              }
+            >
+              Actualizar
+            </Button>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="md"
-            onClick={cargarUsuarios}
-            disabled={cargando}
-            icon={<RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />}
-          >
-            Actualizar
-          </Button>
-
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => setVista('formulario')}
-            icon={<UserPlus className="w-4 h-4" />}
-          >
-            Nuevo Usuario
-          </Button>
-        </div>
-      </div>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setVista('formulario')}
+              icon={<UserPlus className="w-4 h-4" />}
+            >
+              Nuevo Usuario
+            </Button>
+          </>
+        }
+      />
 
       {/* Tabla de Usuarios */}
       <Table>

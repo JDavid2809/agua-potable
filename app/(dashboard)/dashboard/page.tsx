@@ -12,7 +12,8 @@ import {
   ArrowRight,
   TrendingUp,
 } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
+import { Card, CardGroup } from '@/components/ui/Card';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 
 export const instant = false;
@@ -53,94 +54,51 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Cabecera del Panel */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 sm:p-7 space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-          ¡Hola, {perfil?.nombre_completo || 'Usuario'}!
-        </h1>
-        <p className="text-slate-600 dark:text-slate-400 text-sm max-w-2xl">
-          Bienvenido al panel de control de <strong>{organizacion?.nombre || 'Comité de Agua Potable'}</strong>.
-          Gestiona el padrón de tomas, cobros en caja y usuarios autorizados.
-        </p>
-      </div>
+      <PageHeader
+        icon={<Droplets />}
+        tone="blue"
+        title={`¡Hola, ${perfil?.nombre_completo || 'Usuario'}!`}
+        subtitle={
+          <>
+            Bienvenido al panel de control de{' '}
+            <strong>{organizacion?.nombre || 'Comité de Agua Potable'}</strong>.
+            Gestiona el padrón de tomas, cobros en caja y usuarios autorizados.
+          </>
+        }
+        status="Sistema comunitario en línea"
+      />
 
       {/* Métricas Principales */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="p-6 space-y-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Tomas Registradas
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <Droplets className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-slate-900 dark:text-white">
-              {tomasCount || 0}
-            </p>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
-              Contratos en el padrón
-            </p>
-          </div>
-        </Card>
-
-        <Card className="p-6 space-y-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Contribuyentes
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-slate-900 dark:text-white">
-              {personasCount || 0}
-            </p>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
-              Titulares de toma activos
-            </p>
-          </div>
-        </Card>
-
-        <Card className="p-6 space-y-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Equipo Autorizado
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-slate-900 dark:text-white">
-              {usuariosCount || 0}
-            </p>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
-              {esAdmin ? 'Admins y cajeros' : 'Tu organización'}
-            </p>
-          </div>
-        </Card>
-
-        <Card className="p-6 space-y-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Cuota Base Mensual
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-slate-900 dark:text-white">
-              ${Number(organizacion?.config?.cuota_base || 50).toFixed(2)}
-            </p>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
-              Tarifa vigente del comité
-            </p>
-          </div>
-        </Card>
-      </div>
+      <CardGroup>
+        <Card
+          tone="blue"
+          icon={<Droplets />}
+          label="Tomas registradas"
+          value={tomasCount || 0}
+          hint="Contratos en el padrón"
+        />
+        <Card
+          tone="cyan"
+          icon={<Users />}
+          label="Contribuyentes"
+          value={personasCount || 0}
+          hint="Titulares de toma activos"
+        />
+        <Card
+          tone="purple"
+          icon={<ShieldCheck />}
+          label="Equipo autorizado"
+          value={usuariosCount || 0}
+          hint={esAdmin ? 'Admins y cajeros' : 'Tu organización'}
+        />
+        <Card
+          tone="green"
+          icon={<TrendingUp />}
+          label="Cuota base mensual"
+          value={`$${Number(organizacion?.config?.cuota_base || 50).toFixed(0)}`}
+          hint="Tarifa vigente del comité"
+        />
+      </CardGroup>
 
       {/* Accesos Rápidos */}
       <div className="space-y-4">

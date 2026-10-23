@@ -22,7 +22,8 @@ import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
+import { Card, CardGroup } from '@/components/ui/Card';
+import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
 import {
   Table,
   TableHeader,
@@ -531,136 +532,93 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
   return (
     <div className="w-full space-y-6">
       {/* 1. Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 flex items-center gap-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <Droplets className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Total Tomas
-            </p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{tomas.length}</p>
-          </div>
-        </Card>
-
-        <Card className="p-5 flex items-center gap-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Tomas Activas
-            </p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-              {tomas.filter((t) => t.estado === 'activa').length}
-            </p>
-          </div>
-        </Card>
-
-        <Card className="p-5 flex items-center gap-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Suspendidas / Mora
-            </p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-              {tomas.filter((t) => t.estado === 'suspendida' || t.estado === 'cortada').length}
-            </p>
-          </div>
-        </Card>
-
-        <Card className="p-5 flex items-center gap-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-          <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Titulares Vinculados
-            </p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-              {new Set(tomas.map((t) => t.persona_id)).size}
-            </p>
-          </div>
-        </Card>
-      </div>
+      <CardGroup>
+        <Card
+          tone="blue"
+          icon={<Droplets />}
+          label="Total tomas"
+          value={tomas.length}
+        />
+        <Card
+          tone="green"
+          icon={<CheckCircle2 />}
+          label="Tomas activas"
+          value={tomas.filter((t) => t.estado === 'activa').length}
+          progress={
+            tomas.length > 0
+              ? tomas.filter((t) => t.estado === 'activa').length / tomas.length
+              : 1
+          }
+          hint={`De ${tomas.length} en total`}
+        />
+        <Card
+          tone="amber"
+          icon={<AlertTriangle />}
+          label="Suspendidas / mora"
+          value={
+            tomas.filter(
+              (t) => t.estado === 'suspendida' || t.estado === 'cortada'
+            ).length
+          }
+          progress={
+            tomas.length > 0
+              ? tomas.filter(
+                  (t) => t.estado === 'suspendida' || t.estado === 'cortada'
+                ).length / tomas.length
+              : 0
+          }
+          hint="En suspensión o corte"
+        />
+        <Card
+          tone="purple"
+          icon={<Users />}
+          label="Titulares vinculados"
+          value={new Set(tomas.map((t) => t.persona_id)).size}
+        />
+      </CardGroup>
 
       {/* 2. Barra de Control */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-          {/* Búsqueda */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por código, titular, medidor, barrio o calle..."
-              className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-500"
-            />
-            {busqueda && (
-              <button
-                type="button"
-                onClick={() => setBusqueda('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Filtro Barrio */}
-          <select
-            value={filtroBarrio}
-            onChange={(e) => setFiltroBarrio(e.target.value)}
-            className="text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-300"
+      <FilterBar
+        searchValue={busqueda}
+        onSearchChange={setBusqueda}
+        searchPlaceholder="Buscar por código, titular, medidor, barrio o calle..."
+        onRefresh={cargarDatos}
+        isRefreshing={cargando}
+        action={
+          <Button
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-4 h-4" />}
+            onClick={handleAbrirCrear}
           >
-            <option value="todos">Todos los barrios</option>
-            {barriosDisponibles.map((b) => (
-              <option key={b} value={b}>
-                Barrio {b}
-              </option>
-            ))}
-          </select>
-
-          {/* Filtro Estado */}
-          <select
-            value={filtroEstado}
-            onChange={(e) => setFiltroEstado(e.target.value)}
-            className="text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-300"
-          >
-            <option value="todos">Todos los estados</option>
-            {ESTADOS.map((est) => (
-              <option key={est.value} value={est.value}>
-                {est.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Recargar */}
-          <button
-            type="button"
-            onClick={cargarDatos}
-            disabled={cargando}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
-            title="Recargar"
-          >
-            <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin text-blue-500' : ''}`} />
-          </button>
-        </div>
-
-        {/* Botón Nueva Toma */}
-        <Button
-          variant="primary"
-          size="md"
-          icon={<Plus className="w-4 h-4" />}
-          onClick={handleAbrirCrear}
+            Nueva Toma
+          </Button>
+        }
+      >
+        <FilterSelect
+          value={filtroBarrio}
+          onChange={(e) => setFiltroBarrio(e.target.value)}
         >
-          Nueva Toma
-        </Button>
-      </div>
+          <option value="todos">Todos los barrios</option>
+          {barriosDisponibles.map((b) => (
+            <option key={b} value={b}>
+              Barrio {b}
+            </option>
+          ))}
+        </FilterSelect>
+
+        <FilterSelect
+          value={filtroEstado}
+          onChange={(e) => setFiltroEstado(e.target.value as EstadoToma | 'todos')}
+        >
+          <option value="todos">Todos los estados</option>
+          {ESTADOS.map((est) => (
+            <option key={est.value} value={est.value}>
+              {est.label}
+            </option>
+          ))}
+        </FilterSelect>
+      </FilterBar>
 
       {/* 3. Tabla de Tomas */}
       {cargando ? (

@@ -27,12 +27,20 @@ const css = `
   counter-increment:fvt;
   animation:fvt-in .55s cubic-bezier(.22,1,.36,1) backwards;
   animation-delay:calc(var(--i,0) * 40ms);
+  box-shadow:none !important;
+}
+.fvt-row:hover{
+  box-shadow:none !important;
 }
 .fvt-row>td{
-  background:linear-gradient(90deg,var(--fvt-wash),var(--fvt-wash) 75%,transparent) left/0% 100% no-repeat;
-  transition:background-size .55s cubic-bezier(.22,1,.36,1);
+  background:var(--fvt-wash) left/0% 100% no-repeat;
+  transition:background-size .4s cubic-bezier(.22,1,.36,1);
+  box-shadow:none !important;
 }
-.fvt-row:hover>td{background-size:100% 100%}
+.fvt-row:hover>td{
+  background-size:100% 100%;
+  box-shadow:none !important;
+}
 .fvt-row>td:nth-child(2){transition-delay:.04s}
 .fvt-row>td:nth-child(3){transition-delay:.08s}
 .fvt-row>td:nth-child(4){transition-delay:.12s}

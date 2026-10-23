@@ -19,7 +19,8 @@ import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card } from '@/components/ui/Card';
+import { Card, CardGroup } from '@/components/ui/Card';
+import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
 import {
   Table,
   TableHeader,
@@ -457,103 +458,65 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
   return (
     <div className="space-y-6">
       {/* 1. Tarjetas de métricas de ubicación */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="flex items-center gap-4 p-5">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <MapPin className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Total Manzanas
-            </p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white">
-              {manzanas.length}
-            </p>
-          </div>
-        </Card>
-
-        <Card className="flex items-center gap-4 p-5">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <Building2 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Barrios / Sectores
-            </p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white">
-              {barriosUnicos.length}
-            </p>
-          </div>
-        </Card>
-
-        <Card className="flex items-center gap-4 p-5">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <Layers className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Manzanas Activas
-            </p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white">
-              {manzanas.filter((m) => m.activo).length}
-            </p>
-          </div>
-        </Card>
-      </div>
+      <CardGroup>
+        <Card
+          tone="blue"
+          icon={<MapPin />}
+          label="Total manzanas"
+          value={manzanas.length}
+        />
+        <Card
+          tone="green"
+          icon={<Building2 />}
+          label="Barrios y sectores"
+          value={barriosUnicos.length}
+        />
+        <Card
+          tone="amber"
+          icon={<Layers />}
+          label="Manzanas activas"
+          value={manzanas.filter((m) => m.activo).length}
+          progress={
+            manzanas.length > 0
+              ? manzanas.filter((m) => m.activo).length / manzanas.length
+              : 1
+          }
+          hint={`De ${manzanas.length} en total`}
+        />
+      </CardGroup>
 
       {/* 2. Barra de búsqueda, filtro y botón nueva manzana */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex flex-1 items-center gap-2">
-          {/* Input de búsqueda */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar manzana, barrio o calle..."
-              className="w-full pl-10 pr-4 py-2 text-sm rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Filtro por barrio */}
-          {barriosUnicos.length > 0 && (
-            <select
-              value={filtroBarrio}
-              onChange={(e) => setFiltroBarrio(e.target.value)}
-              className="px-3.5 py-2 text-sm rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="todos">Todos los barrios</option>
-              {barriosUnicos.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Botón refrescar */}
-          <button
-            type="button"
-            onClick={cargarManzanas}
-            disabled={cargando}
-            title="Actualizar lista"
-            className="p-2 rounded-xl border border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+      <FilterBar
+        searchValue={busqueda}
+        onSearchChange={setBusqueda}
+        searchPlaceholder="Buscar manzana, barrio o calle..."
+        onRefresh={cargarManzanas}
+        isRefreshing={cargando}
+        action={
+          <Button
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-4 h-4" />}
+            onClick={handleAbrirCrear}
           >
-            <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-
-        {/* Botón Nueva Manzana */}
-        <Button
-          variant="primary"
-          size="md"
-          icon={<Plus className="w-4 h-4" />}
-          onClick={handleAbrirCrear}
-        >
-          Nueva Manzana
-        </Button>
-      </div>
+            Nueva Manzana
+          </Button>
+        }
+      >
+        {barriosUnicos.length > 0 && (
+          <FilterSelect
+            value={filtroBarrio}
+            onChange={(e) => setFiltroBarrio(e.target.value)}
+          >
+            <option value="todos">Todos los barrios</option>
+            {barriosUnicos.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </FilterSelect>
+        )}
+      </FilterBar>
 
       {/* 3. Tabla de Manzanas */}
       {cargando && manzanas.length === 0 ? (
