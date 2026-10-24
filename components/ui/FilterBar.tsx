@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Search, X, RefreshCw, ChevronDown } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Search, X, RefreshCw, ChevronDown, Check } from 'lucide-react';
 
 const LINE = 'border-slate-300 dark:border-[#26345C]';
 const ACCENT_BG = 'bg-[#2F6BFF] dark:bg-[#6C97FF]';
@@ -25,6 +25,12 @@ export interface SearchInputProps
   value: string;
   onChange: (value: string) => void;
   onClear?: () => void;
+  /** Menú o contenido desplegable que aparece bajo la búsqueda al escribir o enfocar */
+  dropdown?: React.ReactNode;
+  /** Control explícito para forzar apertura del desplegable (opcional) */
+  dropdownOpen?: boolean;
+  /** Callback al cerrar el desplegable al hacer clic fuera */
+  onDropdownClose?: () => void;
   className?: string;
 }
 
@@ -33,9 +39,32 @@ export function SearchInput({
   onChange,
   onClear,
   placeholder = 'Buscar...',
+  dropdown,
+  dropdownOpen,
+  onDropdownClose,
   className = '',
+  onFocus,
+  onBlur,
   ...props
 }: SearchInputProps) {
+  const [isFocused, setIsFocused] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar al hacer clic fuera del contenedor
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsFocused(false);
+        onDropdownClose?.();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onDropdownClose]);
+
   const handleClear = () => {
     if (onClear) {
       onClear();
@@ -44,8 +73,16 @@ export function SearchInput({
     }
   };
 
+  const showDropdown = Boolean(
+    dropdown &&
+      (dropdownOpen !== undefined
+        ? dropdownOpen
+        : isFocused && Boolean(value && String(value).trim()))
+  );
+
   return (
     <div
+      ref={containerRef}
       className={`group/field relative min-w-[12rem] max-w-sm flex-1 border-b border-dashed ${LINE} ${className}`}
     >
       <Search
@@ -56,6 +93,10 @@ export function SearchInput({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={(e) => {
+          setIsFocused(true);
+          onFocus?.(e);
+        }}
         placeholder={placeholder}
         className="w-full bg-transparent py-2 pl-7 pr-7 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:opacity-50 dark:text-white"
         {...props}
@@ -71,6 +112,13 @@ export function SearchInput({
         </button>
       )}
       <FocusLine />
+
+      {/* Menú flotante de resultados para la búsqueda */}
+      {showDropdown && (
+        <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white dark:bg-[#0B1224] border border-slate-200 dark:border-[#26345C] rounded-xl shadow-xl overflow-hidden max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-[#1F2B4D] animate-in fade-in duration-150">
+          {dropdown}
+        </div>
+      )}
     </div>
   );
 }
@@ -83,50 +131,140 @@ export interface FilterSelectOption {
 }
 
 export interface FilterSelectProps
-  extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'children'> {
   label?: string;
   options?: FilterSelectOption[];
+  children?: React.ReactNode;
   className?: string;
 }
 
+/**
+ * FilterSelect con menú desplegable flotante personalizado
+ * Comparte el mismo diseño de popover flotante con bordes redondeados y fondos oscuros.
+ */
 export function FilterSelect({
   label,
   options,
   children,
+  value,
+  onChange,
+  disabled = false,
   className = '',
+  name,
   ...props
 }: FilterSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Parsear opciones desde el prop options o desde children <option>
+  const parsedOptions = useMemo<FilterSelectOption[]>(() => {
+    if (options && options.length > 0) return options;
+    const items: FilterSelectOption[] = [];
+    React.Children.forEach(children, (child) => {
+      if (React.isValidElement(child)) {
+        const val = (child.props as any).value ?? '';
+        const lbl = (child.props as any).children ?? val;
+        items.push({ value: String(val), label: String(lbl) });
+      }
+    });
+    return items;
+  }, [options, children]);
+
+  // Cerrar al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Etiqueta de la opción seleccionada
+  const selectedOption = parsedOptions.find(
+    (opt) => String(opt.value) === String(value)
+  );
+  const displayLabel = selectedOption
+    ? selectedOption.label
+    : parsedOptions[0]?.label || 'Seleccionar...';
+
+  const handleSelectOption = (optValue: string) => {
+    setIsOpen(false);
+    if (onChange) {
+      const syntheticEvent = {
+        target: { value: optValue, name },
+        currentTarget: { value: optValue, name },
+      } as unknown as React.ChangeEvent<HTMLSelectElement>;
+      onChange(syntheticEvent);
+    }
+  };
+
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    <div ref={containerRef} className="relative flex shrink-0 items-center gap-2">
       {label && (
         <span className="hidden whitespace-nowrap text-[13px] font-medium text-slate-500 dark:text-slate-400 sm:inline">
           {label}
         </span>
       )}
+
       <div
-        className={`group/field relative border-b border-dashed ${LINE}`}
+        className={`group/field relative border-b border-dashed ${LINE} ${
+          disabled ? 'opacity-50 pointer-events-none' : ''
+        }`}
       >
-        <select
-          className={`cursor-pointer appearance-none bg-transparent py-2 pl-0.5 pr-7 text-sm font-medium text-slate-800 transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-200 ${className}`}
-          {...props}
+        <button
+          type="button"
+          onClick={() => !disabled && setIsOpen((prev) => !prev)}
+          className={`flex items-center justify-between gap-2 bg-transparent py-2 pl-0.5 pr-7 text-sm font-medium text-slate-800 transition-colors focus:outline-none dark:text-slate-200 cursor-pointer ${className}`}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
         >
-          {options
-            ? options.map((opt) => (
-                <option
-                  key={opt.value}
-                  value={opt.value}
-                  className="bg-white text-slate-900 dark:bg-[#0B1224] dark:text-white"
-                >
-                  {opt.label}
-                </option>
-              ))
-            : children}
-        </select>
-        <ChevronDown
-          aria-hidden="true"
-          className={`pointer-events-none absolute right-0.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors ${ACCENT_TEXT}`}
-        />
+          <span className="truncate max-w-[14rem] text-left">{displayLabel}</span>
+          <ChevronDown
+            aria-hidden="true"
+            className={`pointer-events-none absolute right-0.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-transform duration-200 ${
+              isOpen
+                ? 'rotate-180 text-[#2F6BFF] dark:text-[#6C97FF]'
+                : ''
+            }`}
+          />
+        </button>
         <FocusLine />
+
+        {/* Menú flotante desplegable con el diseño de opciones múltiples */}
+        {isOpen && (
+          <div
+            role="listbox"
+            className="absolute top-full left-0 mt-2 z-50 min-w-[12rem] max-w-xs bg-white dark:bg-[#0B1224] border border-slate-200 dark:border-[#26345C] rounded-xl shadow-xl overflow-hidden py-1 divide-y divide-slate-100 dark:divide-[#1F2B4D] animate-in fade-in duration-150"
+          >
+            {parsedOptions.map((opt) => {
+              const isSelected = String(opt.value) === String(value);
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => handleSelectOption(opt.value)}
+                  className={`w-full text-left px-3.5 py-2.5 text-xs transition-colors flex items-center justify-between gap-3 ${
+                    isSelected
+                      ? 'bg-[#2F6BFF]/10 dark:bg-[#2F6BFF]/20 text-[#2F6BFF] dark:text-[#6C97FF] font-bold'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 font-medium'
+                  }`}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {isSelected && (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-[#2F6BFF] dark:text-[#6C97FF]" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -143,13 +281,15 @@ export interface FilterBarProps {
   searchPlaceholder?: string;
   /** Callback para limpiar la búsqueda */
   onClearSearch?: () => void;
+  /** Desplegable personalizado para la búsqueda */
+  searchDropdown?: React.ReactNode;
   /** Callback del botón refrescar */
   onRefresh?: () => void;
   /** Estado de carga del refresco */
   isRefreshing?: boolean;
   /** Tooltip del botón refrescar */
   refreshTitle?: string;
-  /** Filtros adicionales o elementos secundarios (selects, switches, etc.) */
+  /** Filtros adicionales o elementos secundarios (FilterSelect, switches, etc.) */
   children?: React.ReactNode;
   /** Elemento principal a la derecha (p. ej. botón Nuevo Registro) */
   action?: React.ReactNode;
@@ -161,6 +301,7 @@ export function FilterBar({
   onSearchChange,
   searchPlaceholder = 'Buscar...',
   onClearSearch,
+  searchDropdown,
   onRefresh,
   isRefreshing = false,
   refreshTitle = 'Actualizar lista',
@@ -180,7 +321,8 @@ export function FilterBar({
         onChange={onSearchChange}
         onClear={onClearSearch}
         placeholder={searchPlaceholder}
-      />,
+        dropdown={searchDropdown}
+      />
     );
   }
 
@@ -206,7 +348,7 @@ export function FilterBar({
               : ''
           }`}
         />
-      </button>,
+      </button>
     );
   }
 
