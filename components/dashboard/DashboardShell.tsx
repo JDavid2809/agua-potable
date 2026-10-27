@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { DashboardHeader } from './DashboardHeader';
 import { sileo } from 'sileo';
 import { SIDEBAR_COOKIE } from '@/lib/theme';
+import { useOfflineSync } from '@/hooks/use-offline-sync';
 
 function AccesoDenegadoListener() {
   const searchParams = useSearchParams();
@@ -46,6 +47,9 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Activar motor de sincronización offline/online automático en todo el dashboard
+  useOfflineSync();
 
   const handleToggleCollapse = useCallback(() => {
     setCollapsed((prev) => {

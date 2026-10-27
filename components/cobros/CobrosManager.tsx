@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { CreditCard, Receipt, Banknote, Droplets } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
+import { dbLocal } from '@/lib/db/offline-db';
 import { PageHeader, PageTabs } from '@/components/ui/PageHeader';
 import { VentanillaCobro } from './VentanillaCobro';
 import { HistorialCobros } from './HistorialCobros';
@@ -12,6 +14,8 @@ import { obtenerMensajeError } from '@/lib/utils/errors';
 import type { Persona, Toma, Pago, Organizacion } from '@/types/database';
 
 export function CobrosManager() {
+  const searchParams = useSearchParams();
+  const codigoTomaUrl = searchParams.get('toma');
   const [tabActiva, setTabActiva] = useState<'ventanilla' | 'historial' | 'corte'>('ventanilla');
 
   // Estados de datos
@@ -95,8 +99,56 @@ export function CobrosManager() {
         .limit(100);
 
       if (errPagos) throw errPagos;
-      setPagos(dataPagos || []);
+
+      // Combinar pagos de la nube con pagos locales aún pendientes de sincronizar en Dexie
+      const pagosNube = dataPagos || [];
+      try {
+        const pagosLocales = await dbLocal.pagos.toArray();
+        const idsNube = new Set(pagosNube.map((p) => p.id));
+        const pendientesLocales = pagosLocales.filter((p) => !idsNube.has(p.id));
+        const combinados = [...pendientesLocales, ...pagosNube].sort(
+          (a, b) =>
+            new Date(b.fecha_pago || b.created_at).getTime() -
+            new Date(a.fecha_pago || a.created_at).getTime()
+        );
+        setPagos(combinados);
+      } catch {
+        setPagos(pagosNube);
+      }
     } catch (err: unknown) {
+      // Fallback a base de datos local Dexie si el dispositivo está sin conexión
+      try {
+        const [tomasLocal, personasLocal, manzanasLocal, pagosLocal] = await Promise.all([
+          dbLocal.tomas.toArray(),
+          dbLocal.personas.toArray(),
+          dbLocal.manzanas.toArray(),
+          dbLocal.pagos.toArray(),
+        ]);
+
+        if (tomasLocal.length > 0 || personasLocal.length > 0 || pagosLocal.length > 0) {
+          const mapaPersonas = new Map(personasLocal.map((p) => [p.id, p]));
+          const mapaManzanas = new Map(manzanasLocal.map((m) => [m.id, m]));
+          setPersonas(personasLocal);
+          setTomas(
+            tomasLocal.map((t) => ({
+              ...t,
+              persona: mapaPersonas.get(t.persona_id),
+              manzana: t.manzana_id ? mapaManzanas.get(t.manzana_id) : undefined,
+            }))
+          );
+          setPagos(
+            pagosLocal.sort(
+              (a, b) =>
+                new Date(b.fecha_pago || b.created_at).getTime() -
+                new Date(a.fecha_pago || a.created_at).getTime()
+            )
+          );
+          return;
+        }
+      } catch {
+        // Ignorar error de fallback local
+      }
+
       sileo.error({
         title: 'Error de carga',
         description: obtenerMensajeError(err, 'No se pudieron cargar los datos de caja.'),
@@ -167,6 +219,7 @@ export function CobrosManager() {
           organizacion={organizacion}
           cajeroId={cajeroId}
           cajeroNombre={cajeroNombre}
+          initialCodigoToma={codigoTomaUrl}
           onPagoCompletado={cargarDatos}
           onCuotaActualizada={handleCuotaActualizada}
         />

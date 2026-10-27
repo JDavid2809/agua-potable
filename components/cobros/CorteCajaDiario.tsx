@@ -34,15 +34,23 @@ export function CorteCajaDiario({
   organizacion,
   cajeroNombre,
 }: CorteCajaDiarioProps) {
-  const hoyStr = new Date().toISOString().split('T')[0];
-
-  // Filtrar pagos que correspondan al día de hoy
+  // Filtrar pagos que correspondan al día calendario local de hoy
   const pagosHoy = useMemo(() => {
+    const hoy = new Date();
+    const anioHoy = hoy.getFullYear();
+    const mesHoy = hoy.getMonth();
+    const diaHoy = hoy.getDate();
+
     return pagos.filter((p) => {
-      const fechaPagoStr = (p.fecha_pago || p.created_at).split('T')[0];
-      return fechaPagoStr === hoyStr;
+      const f = new Date(p.fecha_pago || p.created_at);
+      if (Number.isNaN(f.getTime())) return false;
+      return (
+        f.getFullYear() === anioHoy &&
+        f.getMonth() === mesHoy &&
+        f.getDate() === diaHoy
+      );
     });
-  }, [pagos, hoyStr]);
+  }, [pagos]);
 
   // Cálculos de recaudación del día
   const totales = useMemo(() => {

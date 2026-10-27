@@ -177,7 +177,12 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
     setBarrioSeleccionado(primerBarrio);
     const primerMz = manzanas.find((m) => m.barrio === primerBarrio) || manzanas[0];
     setManzanaId(primerMz?.id || '');
-    setCodigoToma(`TOMA-${String(tomas.length + 1).padStart(4, '0')}`);
+    const maxNum = tomas.reduce((max, t) => {
+      const m = t.codigo_toma?.match(/(\d+)$/);
+      const n = m ? parseInt(m[1], 10) : 0;
+      return n > max ? n : max;
+    }, tomas.length);
+    setCodigoToma(`TOMA-${String(maxNum + 1).padStart(4, '0')}`);
     setTipoToma('domestica');
     setEstadoToma('activa');
     setDireccionReferencia('');

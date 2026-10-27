@@ -7,12 +7,9 @@ import {
   AlertCircle,
   Calendar,
   Save,
-  CheckCircle2,
   RefreshCw,
-  Clock,
   Wifi,
   WifiOff,
-  FileText,
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
@@ -20,20 +17,11 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import {
-  Table,
-  TableHeader,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-} from '@/components/ui/Table';
 import { obtenerMensajeError } from '@/lib/utils/errors';
-import type { Organizacion, Tarifa } from '@/types/database';
+import type { Organizacion } from '@/types/database';
 
 export function TarifasManager() {
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
-  const [tarifas, setTarifas] = useState<Tarifa[]>([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
@@ -75,18 +63,6 @@ export function TarifasManager() {
           setMoneda(org.config.moneda || 'MXN');
           setPermitirOffline(org.config.permitir_cobro_offline ?? true);
         }
-      }
-
-      // 2. Cargar historial de tarifas registradas
-      if (org?.id) {
-        const { data: dataTarifas, error: errTarifas } = await supabase
-          .from('tarifas')
-          .select('*')
-          .eq('organizacion_id', org.id)
-          .order('anio', { ascending: false });
-
-        if (errTarifas) throw errTarifas;
-        setTarifas(dataTarifas || []);
       }
     } catch (err: unknown) {
       sileo.error({
@@ -153,16 +129,20 @@ export function TarifasManager() {
         permitir_cobro_offline: permitirOffline,
       };
 
-      // 1. Actualizar configuración en la organización
-      const { error: errOrg } = await supabase
+      // 1. Actualizar configuración en la organización (verificando que RLS permita actualizar la fila)
+      const { data: orgActualizada, error: errOrg } = await supabase
         .from('organizaciones')
         .update({
           config: nuevoConfig,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', organizacion.id);
+        .eq('id', organizacion.id)
+        .select('id')
+        .single();
 
-      if (errOrg) throw errOrg;
+      if (errOrg || !orgActualizada) {
+        throw errOrg || new Error('No tienes permisos de administrador para modificar los ajustes de la organización.');
+      }
 
       // 2. Registrar en la tabla de tarifas anuales
       const { error: errTarifa } = await supabase
@@ -263,25 +243,24 @@ export function TarifasManager() {
       </CardGroup>
 
       {/* 3. Formulario para Asignar / Modificar Cuota */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Formulario de Ajustes (7 cols) */}
-        <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xs space-y-6">
-          <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+      <div className="max-w-3xl mx-auto w-full">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-11 h-11 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                 Asignar Nueva Cuota Base y Parámetros
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                 Se aplicará automáticamente a todas las tomas en la ventanilla de cobro
               </p>
             </div>
           </div>
 
-          <form onSubmit={handleGuardar} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form onSubmit={handleGuardar} className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                   Cuota Base Mensual ($)
@@ -318,7 +297,7 @@ export function TarifasManager() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                   Año de Vigencia
@@ -352,7 +331,7 @@ export function TarifasManager() {
                 Acuerdo de Asamblea / Justificación (Opcional)
               </label>
               <textarea
-                rows={2}
+                rows={3}
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
                 placeholder="Ej: Aprobada en asamblea de ejidatarios el 15 de enero para obras del pozo profundo..."
@@ -361,13 +340,13 @@ export function TarifasManager() {
             </div>
 
             {/* Checkbox de Cobro Offline */}
-            <div className="pt-2">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+              <label className="flex items-start sm:items-center gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={permitirOffline}
                   onChange={(e) => setPermitirOffline(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 accent-blue-600"
+                  className="mt-0.5 sm:mt-0 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 accent-blue-600"
                 />
                 <div>
                   <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 block">
@@ -393,62 +372,6 @@ export function TarifasManager() {
               </Button>
             </div>
           </form>
-        </div>
-
-        {/* Historial de Tarifas por Año (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h4 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span>Historial de Tarifas</span>
-              </h4>
-              <span className="text-xs text-slate-400 font-semibold">
-                {tarifas.length} registradas
-              </span>
-            </div>
-
-            {tarifas.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 space-y-1">
-                <FileText className="w-8 h-8 mx-auto opacity-50" />
-                <p className="text-xs">No hay tarifas anteriores en el historial.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                {tarifas.map((t) => (
-                  <div key={t.id || t.anio} className="py-3 flex items-start justify-between gap-3 text-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-slate-900 dark:text-white text-sm">
-                          Año {t.anio}
-                        </span>
-                        {t.anio === new Date().getFullYear() && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
-                            Vigente
-                          </span>
-                        )}
-                      </div>
-                      {t.descripcion && (
-                        <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 max-w-[200px] truncate">
-                          {t.descripcion}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="font-bold text-sm text-blue-600 dark:text-blue-400 block">
-                        ${Number(t.cuota_mensual).toFixed(2)}/mes
-                      </span>
-                      {Number(t.recargo_mora || 0) > 0 && (
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400 block">
-                          Mora: +${Number(t.recargo_mora).toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

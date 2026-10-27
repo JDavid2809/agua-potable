@@ -149,11 +149,13 @@ export async function registrarPagoLocal(pago: Pago, detalles: PagoDetalle[]) {
     await dbLocal.cola_sync.add(itemTransaccion);
   });
 
-  // Si hay conexión activa, disparar la sincronización en segundo plano sin bloquear al cajero
+  // Si hay conexión activa, sincronizar antes de resolver para que las vistas en la nube reflejen el pago de inmediato
   if (typeof window !== 'undefined' && navigator.onLine && isSupabaseConfigured) {
-    sincronizarConNube().catch((err) => {
+    try {
+      await sincronizarConNube();
+    } catch (err) {
       console.warn('Sincronización en segundo plano pospuesta:', err);
-    });
+    }
   }
 
   return { success: true, pagoId: pagoFinal.id, folio: pagoFinal.folio };
@@ -329,7 +331,10 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
         }
 
         if (manzanasNuevas.length > 0) {
-          await dbLocal.manzanas.bulkPut(manzanasNuevas);
+          const activas = manzanasNuevas.filter((m) => !m.deleted_at);
+          const eliminadas = manzanasNuevas.filter((m) => !!m.deleted_at);
+          if (activas.length > 0) await dbLocal.manzanas.bulkPut(activas);
+          for (const m of eliminadas) await dbLocal.manzanas.delete(m.id);
         }
 
         if (tarifasNuevas.length > 0) {

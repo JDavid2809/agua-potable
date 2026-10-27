@@ -60,6 +60,40 @@ export default function UsuariosPage() {
   const [cargando, setCargando] = useState(true);
   const [vista, setVista] = useState<'lista' | 'formulario'>('lista');
   const [guardando, setGuardando] = useState(false);
+  const [procesandoUsuarioId, setProcesandoUsuarioId] = useState<string | null>(null);
+
+  const handleToggleEstadoUsuario = async (u: UsuarioItem) => {
+    const nuevoEstado = !u.activo;
+    const accion = nuevoEstado ? 'reactivar' : 'suspender';
+    if (!window.confirm(`¿Deseas ${accion} el acceso de ${u.nombre_completo}?`)) {
+      return;
+    }
+
+    try {
+      setProcesandoUsuarioId(u.id);
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: u.id, activo: nuevoEstado }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'No se pudo actualizar el estado del usuario.');
+      }
+      sileo.success({
+        title: nuevoEstado ? 'Usuario reactivado' : 'Usuario suspendido',
+        description: data.mensaje || `El estado de ${u.nombre_completo} fue actualizado.`,
+      });
+      cargarUsuarios();
+    } catch (err: unknown) {
+      sileo.error({
+        title: 'Error al actualizar',
+        description: obtenerMensajeError(err, 'No se pudo cambiar el estado del usuario.'),
+      });
+    } finally {
+      setProcesandoUsuarioId(null);
+    }
+  };
 
   // Formulario nuevo usuario
   const [nombreCompleto, setNombreCompleto] = useState('');
@@ -452,12 +486,13 @@ export default function UsuariosPage() {
             <TableHead>Permisos Asignados</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead>Fecha de Alta</TableHead>
+            <TableHead className="text-right">Acciones</TableHead>
           </tr>
         </TableHeader>
         <TableBody>
           {cargando ? (
             <TableRow elevate={false}>
-              <TableCell colSpan={5} className="py-12 text-center text-slate-500">
+              <TableCell colSpan={6} className="py-12 text-center text-slate-500">
                 <div className="flex flex-col items-center justify-center gap-2">
                   <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
                   <span className="text-xs font-medium">Cargando usuarios...</span>
@@ -466,7 +501,7 @@ export default function UsuariosPage() {
             </TableRow>
           ) : usuarios.length === 0 ? (
             <TableRow elevate={false}>
-              <TableCell colSpan={5} className="py-12 text-center text-slate-500">
+              <TableCell colSpan={6} className="py-12 text-center text-slate-500">
                 <Users className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
                 <p className="font-semibold text-slate-700 dark:text-slate-300">
                   No hay usuarios registrados
@@ -568,6 +603,20 @@ export default function UsuariosPage() {
                       month: 'short',
                       year: 'numeric',
                     })}
+                  </TableCell>
+
+                  {/* Acciones */}
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      variant={u.activo ? 'outline' : 'primary'}
+                      size="sm"
+                      disabled={procesandoUsuarioId === u.id}
+                      onClick={() => handleToggleEstadoUsuario(u)}
+                      icon={u.activo ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                    >
+                      {u.activo ? 'Suspender' : 'Reactivar'}
+                    </Button>
                   </TableCell>
                 </TableRow>
               );

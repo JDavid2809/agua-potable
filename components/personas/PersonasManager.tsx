@@ -205,11 +205,18 @@ export function PersonasManager() {
     return personas.reduce((acc, p) => acc + (p.tomas?.length || 0), 0);
   }, [personas]);
 
-  // Generador de sugerencia de código de toma
+  // Generador de sugerencia de código de toma basado en el máximo consecutivo existente
   const generarSiguienteCodigoToma = useCallback(() => {
-    const num = totalTomasGlobal + 1;
-    return `TOMA-${String(num).padStart(4, '0')}`;
-  }, [totalTomasGlobal]);
+    let maxNum = totalTomasGlobal;
+    personas.forEach((p) => {
+      p.tomas?.forEach((t) => {
+        const m = t.codigo_toma?.match(/(\d+)$/);
+        const n = m ? parseInt(m[1], 10) : 0;
+        if (n > maxNum) maxNum = n;
+      });
+    });
+    return `TOMA-${String(maxNum + 1).padStart(4, '0')}`;
+  }, [personas, totalTomasGlobal]);
 
   // Filtro de lista
   const personasFiltradas = useMemo(() => {

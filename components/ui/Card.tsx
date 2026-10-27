@@ -43,10 +43,10 @@ const TONES: Record<CardTone, { ring: string; icon: string }> = {
   },
 };
 
-const SIZES: Record<CardSize, { px: number; stroke: number; text: string }> = {
-  sm: { px: 64, stroke: 4, text: 'text-xl' },
-  md: { px: 96, stroke: 5, text: 'text-3xl' },
-  lg: { px: 128, stroke: 6, text: 'text-4xl' },
+const SIZES: Record<CardSize, { px: number; stroke: number }> = {
+  sm: { px: 64, stroke: 4 },
+  md: { px: 96, stroke: 5 },
+  lg: { px: 128, stroke: 6 },
 };
 
 const DASH = 'border-slate-300 dark:border-[#26345C]';
@@ -72,6 +72,30 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   size?: CardSize;
 }
 
+function getGaugeFontSize(size: CardSize, value: React.ReactNode, unit?: string): string {
+  const str = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+  const totalLength = str.length + (unit ? Math.ceil(unit.length * 0.45) : 0);
+
+  if (size === 'sm') {
+    if (totalLength >= 6) return 'text-[10px]';
+    if (totalLength >= 4) return 'text-xs';
+    return 'text-sm';
+  }
+
+  if (size === 'lg') {
+    if (totalLength >= 9) return 'text-base';
+    if (totalLength >= 6) return 'text-lg';
+    if (totalLength >= 4) return 'text-xl';
+    return 'text-2xl';
+  }
+
+  // Tamaño md por defecto (anillo de 96px)
+  if (totalLength >= 8) return 'text-xs';
+  if (totalLength >= 6) return 'text-sm';
+  if (totalLength >= 4) return 'text-base sm:text-lg';
+  return 'text-lg sm:text-xl';
+}
+
 export function Card({
   children,
   className = '',
@@ -86,7 +110,7 @@ export function Card({
   ...props
 }: CardProps) {
   const t = TONES[tone];
-  const { px, stroke, text } = SIZES[size];
+  const { px, stroke } = SIZES[size];
   const r = (px - stroke) / 2 - 3;
   const c = 2 * Math.PI * r;
   const ratio = Math.min(1, Math.max(0, progress));
@@ -110,6 +134,8 @@ export function Card({
       </div>
     );
   }
+
+  const fontSizeClass = getGaugeFontSize(size, value, unit);
 
   return (
     <div
@@ -146,17 +172,17 @@ export function Card({
           />
         </svg>
         <div
-          className={`absolute inset-0 flex items-center justify-center font-bold tabular-nums tracking-tight text-slate-900 dark:text-white ${text}`}
+          className={`absolute inset-0 flex items-center justify-center font-bold tabular-nums tracking-tight text-slate-900 dark:text-white px-2.5 overflow-hidden select-none ${fontSizeClass}`}
         >
           {unit ? (
-            <span className="flex items-baseline">
-              {value}
-              <span className="ml-0.5 text-[0.4em] font-semibold text-slate-500 dark:text-slate-400">
+            <span className="inline-flex items-baseline max-w-full justify-center">
+              <span className="truncate">{value}</span>
+              <span className="ml-1 text-[0.42em] uppercase font-semibold text-slate-500 dark:text-slate-400 shrink-0">
                 {unit}
               </span>
             </span>
           ) : (
-            value
+            <span className="truncate max-w-full px-1">{value}</span>
           )}
         </div>
       </div>

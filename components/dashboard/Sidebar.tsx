@@ -91,7 +91,6 @@ function SidebarBody({ collapsed, mobile, onCloseMobile, organizacionNombre, esA
 
   const groups = [
     { title: 'Operación', items: operacionItems },
-    { title: 'Medición y Datos', items: medicionItems },
     { title: 'Administración', items: adminItems },
   ]
     .map((g) => ({ ...g, items: g.items.filter((item) => !item.adminOnly || esAdmin) }))

@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { RolUsuario } from '@/types/database';
+import type { PermisoSistema, RolUsuario } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 
 const ROLES_PERMITIDOS: RolUsuario[] = ['administrador', 'cajero', 'lector'];
+
+const PERMISOS_PERMITIDOS: PermisoSistema[] = [
+  'usuarios.gestionar',
+  'organizacion.editar',
+  'cobros.crear',
+  'cobros.anular',
+  'tomas.ver',
+  'tomas.gestionar',
+  'personas.ver',
+  'personas.gestionar',
+  'tarifas.gestionar',
+  'reportes.ver',
+];
 
 /**
  * GET /api/admin/users
@@ -25,16 +38,16 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 2. Obtener perfil y verificar rol administrador
+    // 2. Obtener perfil y verificar rol administrador activo
     const { data: perfilAdmin, error: perfilError } = await supabase
       .from('perfiles')
-      .select('rol, organizacion_id')
+      .select('rol, organizacion_id, activo')
       .eq('id', user.id)
       .single();
 
-    if (perfilError || perfilAdmin?.rol !== 'administrador') {
+    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
       return NextResponse.json(
-        { error: 'Se requieren permisos de administrador' },
+        { error: 'Se requieren permisos de administrador activo' },
         { status: 403 }
       );
     }
@@ -62,7 +75,7 @@ export async function GET() {
 /**
  * POST /api/admin/users
  * Da de alta un nuevo usuario dentro de la organización del administrador.
- * Envía credenciales y privilegios en 'app_metadata' (Solución C2 y C5).
+ * Envía credenciales y privilegios en 'app_metadata' validando lista blanca de permisos.
  */
 export async function POST(request: Request) {
   try {
@@ -78,21 +91,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 2. Verificar que el usuario sea administrador y obtener su organizacion_id
+    // 2. Verificar que el usuario sea administrador activo y obtener su organizacion_id
     const { data: perfilAdmin, error: perfilError } = await supabase
       .from('perfiles')
-      .select('rol, organizacion_id')
+      .select('rol, organizacion_id, activo')
       .eq('id', user.id)
       .single();
 
-    if (perfilError || perfilAdmin?.rol !== 'administrador') {
+    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
       return NextResponse.json(
-        { error: 'Solo los administradores pueden crear nuevos usuarios.' },
+        { error: 'Solo los administradores activos pueden crear nuevos usuarios.' },
         { status: 403 }
       );
     }
 
-    // 3. Validar datos del formulario (Solución C5)
+    // 3. Validar datos del formulario
     const body = await request.json();
     const { email, password, nombre_completo, rol, permisos, telefono } = body;
 
@@ -126,24 +139,32 @@ export async function POST(request: Request) {
       );
     }
 
+    // Lista blanca estricta de permisos (impide inyectar '*' en roles no administradores)
     const permisosValidados = Array.isArray(permisos)
-      ? permisos.filter((p) => typeof p === 'string')
+      ? Array.from(
+          new Set(
+            permisos.filter(
+              (p): p is PermisoSistema =>
+                typeof p === 'string' && PERMISOS_PERMITIDOS.includes(p as PermisoSistema)
+            )
+          )
+        )
       : [];
 
+    const permisosFinales = rol === 'administrador' ? ['*'] : permisosValidados;
+
     // 4. Crear el usuario mediante Supabase Admin API
-    // IMPORTANTE (C2): organizacion_id, rol y permisos se envían en app_metadata
-    // para que solo puedan ser escritos por el service_role del backend.
     const adminSupabase = createAdminClient();
 
     const { data: newUserAuth, error: createError } =
       await adminSupabase.auth.admin.createUser({
         email: emailLimpio,
-        password: password, // No recortar con trim() para no alterar contraseñas intencionales
+        password: password,
         email_confirm: true,
         app_metadata: {
           organizacion_id: perfilAdmin.organizacion_id,
           rol,
-          permisos: rol === 'administrador' ? ['*'] : permisosValidados,
+          permisos: permisosFinales,
         },
         user_metadata: {
           nombre_completo: String(nombre_completo).trim(),
@@ -161,15 +182,102 @@ export async function POST(request: Request) {
       user: {
         id: newUserAuth.user.id,
         email: newUserAuth.user.email,
-        nombre_completo,
+        nombre_completo: String(nombre_completo).trim(),
         rol,
         organizacion_id: perfilAdmin.organizacion_id,
-        permisos: rol === 'administrador' ? ['*'] : permisosValidados,
+        permisos: permisosFinales,
       },
     });
   } catch (err: unknown) {
     return NextResponse.json(
       { error: obtenerMensajeError(err, 'Error interno al procesar el alta de usuario') },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/admin/users
+ * Permite al administrador activar/suspender un usuario de su misma organización.
+ */
+export async function PATCH(request: Request) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const { data: perfilAdmin, error: perfilError } = await supabase
+      .from('perfiles')
+      .select('rol, organizacion_id, activo')
+      .eq('id', user.id)
+      .single();
+
+    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
+      return NextResponse.json(
+        { error: 'Solo los administradores activos pueden modificar usuarios.' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { userId, activo } = body;
+
+    if (!userId || typeof activo !== 'boolean') {
+      return NextResponse.json(
+        { error: 'Se requiere userId y el estado activo (booleano).' },
+        { status: 400 }
+      );
+    }
+
+    if (userId === user.id && !activo) {
+      return NextResponse.json(
+        { error: 'No puedes suspender tu propia cuenta de administrador.' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar que el usuario objetivo pertenezca a la misma organización
+    const { data: usuarioObjetivo, error: errTarget } = await supabase
+      .from('perfiles')
+      .select('id, organizacion_id, nombre_completo')
+      .eq('id', userId)
+      .eq('organizacion_id', perfilAdmin.organizacion_id)
+      .single();
+
+    if (errTarget || !usuarioObjetivo) {
+      return NextResponse.json(
+        { error: 'El usuario no existe o no pertenece a tu organización.' },
+        { status: 404 }
+      );
+    }
+
+    const { error: updateErr } = await supabase
+      .from('perfiles')
+      .update({
+        activo,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .eq('organizacion_id', perfilAdmin.organizacion_id);
+
+    if (updateErr) {
+      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      mensaje: `Cuenta de ${usuarioObjetivo.nombre_completo} ${activo ? 'reactivada' : 'suspendida'} correctamente.`,
+    });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: obtenerMensajeError(err, 'Error interno al actualizar usuario') },
       { status: 500 }
     );
   }

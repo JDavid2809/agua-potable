@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Search,
   Droplets,
@@ -40,6 +40,7 @@ export interface VentanillaCobroProps {
   organizacion: Organizacion | null;
   cajeroId?: string;
   cajeroNombre?: string;
+  initialCodigoToma?: string | null;
   onPagoCompletado: () => void;
   onCuotaActualizada?: (nuevaCuota: number, nuevoRecargo: number) => void;
 }
@@ -55,12 +56,16 @@ export function VentanillaCobro({
   organizacion,
   cajeroId,
   cajeroNombre,
+  initialCodigoToma,
   onPagoCompletado,
   onCuotaActualizada,
 }: VentanillaCobroProps) {
+  void personas;
+  void onCuotaActualizada;
   // Estado de búsqueda
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [tomaSeleccionada, setTomaSeleccionada] = useState<(Toma & { persona?: Persona; manzana?: any }) | null>(null);
+  const codigoPreseleccionadoRef = useRef<string | null>(null);
 
   // Configuración de cuotas
   const cuotaBase = Number(organizacion?.config?.cuota_base || 50);
@@ -83,6 +88,24 @@ export function VentanillaCobro({
   const [modalReciboOpen, setModalReciboOpen] = useState(false);
   const [ultimoPagoRegistrado, setUltimoPagoRegistrado] = useState<Pago | null>(null);
   const [ultimoCambio, setUltimoCambio] = useState<number | null>(null);
+  const [ultimoEfectivoRecibido, setUltimoEfectivoRecibido] = useState<number | null>(null);
+
+  // Pre-seleccionar toma si viene por parámetro de URL (?toma=TOMA-XXXX)
+  useEffect(() => {
+    if (!initialCodigoToma || tomas.length === 0) return;
+    if (codigoPreseleccionadoRef.current === initialCodigoToma) return;
+
+    const match = tomas.find(
+      (t) => t.codigo_toma?.toLowerCase() === initialCodigoToma.trim().toLowerCase()
+    );
+    if (match) {
+      codigoPreseleccionadoRef.current = initialCodigoToma;
+      setTomaSeleccionada(match);
+      if (match.saldo_pendiente > cuotaBase) {
+        setAplicarRecargo(recargoMora > 0);
+      }
+    }
+  }, [initialCodigoToma, tomas, cuotaBase, recargoMora]);
 
   // Búsqueda en vivo de tomas o contribuyentes
   const resultadosBusqueda = useMemo(() => {
@@ -175,6 +198,18 @@ export function VentanillaCobro({
       sileo.error({
         title: 'Selecciona una toma',
         description: 'Debes buscar y seleccionar la toma que se va a cobrar.',
+      });
+      return;
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      !navigator.onLine &&
+      organizacion?.config?.permitir_cobro_offline === false
+    ) {
+      sileo.error({
+        title: 'Cobro sin conexión deshabilitado',
+        description: 'El comité ha desactivado el cobro en modo offline. Conéctate a internet para emitir recibos.',
       });
       return;
     }
@@ -282,9 +317,12 @@ export function VentanillaCobro({
         description: `Recibo ${res.folio} emitido por $${calculos.total.toFixed(2)} MXN.`,
       });
 
-      // Guardar datos para recibo y abrir modal
+      // Guardar datos para recibo y abrir modal antes de limpiar el formulario
       setUltimoPagoRegistrado(pagoObj);
       setUltimoCambio(calculos.cambio);
+      setUltimoEfectivoRecibido(
+        metodoPago === 'efectivo' && calculos.efectivoNum > 0 ? calculos.efectivoNum : null
+      );
       setModalReciboOpen(true);
 
       // Limpiar selección para el siguiente usuario
@@ -739,7 +777,7 @@ export function VentanillaCobro({
           pago={ultimoPagoRegistrado}
           organizacion={organizacion}
           cambioEntregado={ultimoCambio}
-          efectivoRecibido={parseFloat(efectivoRecibido) || null}
+          efectivoRecibido={ultimoEfectivoRecibido}
           onClose={() => setModalReciboOpen(false)}
         />
       )}
