@@ -17,6 +17,8 @@ import {
   X,
   CreditCard,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
@@ -34,6 +36,7 @@ import {
 } from '@/components/ui/Table';
 import type { Toma, Persona, Manzana, TipoToma, EstadoToma } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
+import { useRegistrosPorPagina } from '@/hooks/use-registros-por-pagina';
 
 export interface TomaDetallada extends Toma {
   persona?: Persona;
@@ -59,6 +62,7 @@ interface TomasManagerProps {
 }
 
 export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
+  const itemsPorPagina = useRegistrosPorPagina();
   const [tomas, setTomas] = useState<TomaDetallada[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [manzanas, setManzanas] = useState<Manzana[]>([]);
@@ -69,6 +73,7 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
   const [busqueda, setBusqueda] = useState('');
   const [filtroBarrio, setFiltroBarrio] = useState('todos');
   const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [paginaActual, setPaginaActual] = useState(1);
 
   // Vista Crear / Editar (pantalla completa, no modal)
   const [vista, setVistaState] = useState<'lista' | 'formulario'>('lista');
@@ -87,6 +92,7 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
   const [estadoToma, setEstadoToma] = useState<EstadoToma>('activa');
   const [direccionReferencia, setDireccionReferencia] = useState('');
   const [numeroMedidor, setNumeroMedidor] = useState('');
+  const [saldoPendiente, setSaldoPendiente] = useState('0.00');
 
   const cargarDatos = useCallback(async () => {
     setCargando(true);
@@ -156,19 +162,40 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
     const q = busqueda.trim().toLowerCase();
     return tomas.filter((t) => {
       if (filtroEstado !== 'todos' && t.estado !== filtroEstado) return false;
-      if (filtroBarrio !== 'todos' && t.manzana?.barrio.toLowerCase() !== filtroBarrio.toLowerCase()) return false;
+      if (
+        filtroBarrio !== 'todos' &&
+        (t.manzana?.barrio || '').toLowerCase() !== filtroBarrio.toLowerCase()
+      ) {
+        return false;
+      }
 
       if (!q) return true;
       const coincideCodigo = t.codigo_toma.toLowerCase().includes(q);
-      const coincidePersona = t.persona?.nombre_completo.toLowerCase().includes(q);
-      const coincideBarrio = t.manzana?.barrio.toLowerCase().includes(q);
-      const coincideManzana = t.manzana?.numero_manzana.toLowerCase().includes(q);
-      const coincideRef = t.direccion_referencia.toLowerCase().includes(q);
+      const coincidePersona = t.persona?.nombre_completo?.toLowerCase().includes(q);
+      const coincideBarrio = t.manzana?.barrio?.toLowerCase().includes(q);
+      const coincideManzana = t.manzana?.numero_manzana?.toLowerCase().includes(q);
+      const coincideRef = t.direccion_referencia?.toLowerCase().includes(q);
       const coincideMedidor = t.numero_medidor?.toLowerCase().includes(q);
 
-      return coincideCodigo || coincidePersona || coincideBarrio || coincideManzana || coincideRef || coincideMedidor;
+      return (
+        coincideCodigo ||
+        coincidePersona ||
+        coincideBarrio ||
+        coincideManzana ||
+        coincideRef ||
+        coincideMedidor
+      );
     });
   }, [tomas, busqueda, filtroBarrio, filtroEstado]);
+
+  const totalPaginas = Math.max(1, Math.ceil(tomasFiltradas.length / itemsPorPagina));
+  const paginaSegura = Math.min(paginaActual, totalPaginas);
+  const indiceInicio = (paginaSegura - 1) * itemsPorPagina;
+  const indiceFin = Math.min(indiceInicio + itemsPorPagina, tomasFiltradas.length);
+
+  const tomasPaginadas = useMemo(() => {
+    return tomasFiltradas.slice(indiceInicio, indiceInicio + itemsPorPagina);
+  }, [tomasFiltradas, indiceInicio, itemsPorPagina]);
 
   const handleAbrirCrear = () => {
     setTomaEnEdicion(null);
@@ -187,6 +214,7 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
     setEstadoToma('activa');
     setDireccionReferencia('');
     setNumeroMedidor('');
+    setSaldoPendiente('0.00');
     setVista('formulario');
   };
 
@@ -200,6 +228,7 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
     setEstadoToma(t.estado);
     setDireccionReferencia(t.direccion_referencia);
     setNumeroMedidor(t.numero_medidor || '');
+    setSaldoPendiente(Number(t.saldo_pendiente || 0).toFixed(2));
     setVista('formulario');
   };
 
@@ -215,7 +244,7 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
       sileo.warning({ title: 'Titular requerido', description: 'Selecciona la persona titular de la toma.' });
       return;
     }
-    if (!manzanaId) {
+    if (manzanas.length > 0 && !manzanaId) {
       sileo.warning({ title: 'Manzana requerida', description: 'Selecciona la manzana y cuadra.' });
       return;
     }
@@ -228,6 +257,8 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
       return;
     }
 
+    const saldoNum = Math.max(0, parseFloat(saldoPendiente) || 0);
+
     setGuardando(true);
     try {
       if (tomaEnEdicion) {
@@ -235,12 +266,13 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
           .from('tomas')
           .update({
             persona_id: personaId,
-            manzana_id: manzanaId,
+            manzana_id: manzanaId || null,
             codigo_toma: codigoToma.trim().toUpperCase(),
             tipo_toma: tipoToma,
             estado: estadoToma,
             direccion_referencia: direccionReferencia.trim(),
             numero_medidor: numeroMedidor.trim() || null,
+            saldo_pendiente: saldoNum,
             updated_at: new Date().toISOString(),
           })
           .eq('id', tomaEnEdicion.id);
@@ -264,13 +296,13 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
         const { error } = await supabase.from('tomas').insert({
           organizacion_id: perfil.organizacion_id,
           persona_id: personaId,
-          manzana_id: manzanaId,
+          manzana_id: manzanaId || null,
           codigo_toma: codigoToma.trim().toUpperCase(),
           tipo_toma: tipoToma,
           estado: estadoToma,
           direccion_referencia: direccionReferencia.trim(),
           numero_medidor: numeroMedidor.trim() || null,
-          saldo_pendiente: 0.0,
+          saldo_pendiente: saldoNum,
         });
 
         if (error) throw error;
@@ -498,14 +530,28 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
               </h3>
             </div>
 
-            <div>
-              <Input
-                label="Dirección o Referencia Física del Predio *"
-                value={direccionReferencia}
-                onChange={(e) => setDireccionReferencia(e.target.value)}
-                placeholder="Ej. Calle Morelos #3, zaguán blanco frente a la tienda de abarrotes"
-                required
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-5">
+              <div className="lg:col-span-8">
+                <Input
+                  label="Dirección o Referencia Física del Predio *"
+                  value={direccionReferencia}
+                  onChange={(e) => setDireccionReferencia(e.target.value)}
+                  placeholder="Ej. Calle Morelos #3, zaguán blanco frente a la tienda de abarrotes"
+                  required
+                />
+              </div>
+
+              <div className="lg:col-span-4">
+                <Input
+                  label="Saldo Pendiente / Adeudo ($ MXN)"
+                  type="number"
+                  step="0.50"
+                  min="0"
+                  value={saldoPendiente}
+                  onChange={(e) => setSaldoPendiente(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
             </div>
           </div>
 
@@ -585,7 +631,10 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
       {/* 2. Barra de Control */}
       <FilterBar
         searchValue={busqueda}
-        onSearchChange={setBusqueda}
+        onSearchChange={(val) => {
+          setBusqueda(val);
+          setPaginaActual(1);
+        }}
         searchPlaceholder="Buscar por código, titular, medidor, barrio o calle..."
         onRefresh={cargarDatos}
         isRefreshing={cargando}
@@ -602,7 +651,10 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
       >
         <FilterSelect
           value={filtroBarrio}
-          onChange={(e) => setFiltroBarrio(e.target.value)}
+          onChange={(e) => {
+            setFiltroBarrio(e.target.value);
+            setPaginaActual(1);
+          }}
         >
           <option value="todos">Todos los barrios</option>
           {barriosDisponibles.map((b) => (
@@ -614,7 +666,10 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
 
         <FilterSelect
           value={filtroEstado}
-          onChange={(e) => setFiltroEstado(e.target.value as EstadoToma | 'todos')}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as EstadoToma | 'todos');
+            setPaginaActual(1);
+          }}
         >
           <option value="todos">Todos los estados</option>
           {ESTADOS.map((est) => (
@@ -654,120 +709,169 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
           )}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <tr>
-              <TableHead>Código / Tipo</TableHead>
-              <TableHead>Titular / Contribuyente</TableHead>
-              <TableHead>Ubicación (Barrio / Mz / Cuadra)</TableHead>
-              <TableHead>Medidor y Saldo</TableHead>
-              <TableHead className="text-center">Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </tr>
-          </TableHeader>
-          <TableBody>
-            {tomasFiltradas.map((toma) => {
-              const est = ESTADOS.find((e) => e.value === toma.estado);
+        <div className="space-y-4">
+          <Table>
+            <TableHeader>
+              <tr>
+                <TableHead>Código / Tipo</TableHead>
+                <TableHead>Titular / Contribuyente</TableHead>
+                <TableHead>Ubicación (Barrio / Mz / Cuadra)</TableHead>
+                <TableHead>Medidor y Saldo</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </tr>
+            </TableHeader>
+            <TableBody>
+              {tomasPaginadas.map((toma) => {
+                const est = ESTADOS.find((e) => e.value === toma.estado);
 
-              return (
-                <TableRow key={toma.id}>
-                  {/* Código y Tipo */}
-                  <TableCell>
-                    <div className="font-extrabold text-blue-600 dark:text-blue-400">
-                      {toma.codigo_toma}
-                    </div>
-                    <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                      {toma.tipo_toma}
-                    </span>
-                  </TableCell>
-
-                  {/* Titular */}
-                  <TableCell>
-                    <div className="font-bold text-slate-900 dark:text-white">
-                      {toma.persona?.nombre_completo || 'Sin asignar'}
-                    </div>
-                    {toma.persona?.documento_identidad && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Doc: {toma.persona.documento_identidad}
-                      </p>
-                    )}
-                  </TableCell>
-
-                  {/* Ubicación */}
-                  <TableCell>
-                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      <span>
-                        Barrio <strong>{toma.manzana?.barrio || 'S/N'}</strong> —{' '}
-                        <strong>{toma.manzana?.numero_manzana || 'S/N'}</strong>
-                        {toma.manzana?.cuadra ? ` (${toma.manzana.cuadra})` : ''}
+                return (
+                  <TableRow key={toma.id}>
+                    {/* Código y Tipo */}
+                    <TableCell>
+                      <div className="font-extrabold text-blue-600 dark:text-blue-400">
+                        {toma.codigo_toma}
+                      </div>
+                      <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        {toma.tipo_toma}
                       </span>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-xs">
-                      {toma.direccion_referencia}
-                    </p>
-                  </TableCell>
+                    </TableCell>
 
-                  {/* Medidor y Saldo */}
-                  <TableCell>
-                    <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                      {toma.numero_medidor ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Gauge className="w-3 h-3 text-slate-400" />
-                          {toma.numero_medidor}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 italic">Sin medidor</span>
+                    {/* Titular */}
+                    <TableCell>
+                      <div className="font-bold text-slate-900 dark:text-white">
+                        {toma.persona?.nombre_completo || 'Sin asignar'}
+                      </div>
+                      {toma.persona?.documento_identidad && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Doc: {toma.persona.documento_identidad}
+                        </p>
                       )}
-                    </div>
-                    <div className="text-xs font-bold mt-0.5">
-                      {Number(toma.saldo_pendiente || 0) > 0 ? (
-                        <span className="text-red-600 dark:text-red-400">
-                          Adeudo: ${Number(toma.saldo_pendiente).toFixed(2)} MXN
+                    </TableCell>
+
+                    {/* Ubicación */}
+                    <TableCell>
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                        <span>
+                          Barrio <strong>{toma.manzana?.barrio || 'S/N'}</strong> —{' '}
+                          <strong>{toma.manzana?.numero_manzana || 'S/N'}</strong>
+                          {toma.manzana?.cuadra ? ` (${toma.manzana.cuadra})` : ''}
                         </span>
-                      ) : (
-                        <span className="text-emerald-600 dark:text-emerald-400">Al corriente ($0.00)</span>
-                      )}
-                    </div>
-                  </TableCell>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-xs">
+                        {toma.direccion_referencia}
+                      </p>
+                    </TableCell>
 
-                  {/* Estado */}
-                  <TableCell className="text-center">
-                    <span
-                      className={`inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                        est?.color || 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {est?.label || toma.estado}
-                    </span>
-                  </TableCell>
+                    {/* Medidor y Saldo */}
+                    <TableCell>
+                      <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        {toma.numero_medidor ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Gauge className="w-3 h-3 text-slate-400" />
+                            {toma.numero_medidor}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">Sin medidor</span>
+                        )}
+                      </div>
+                      <div className="text-xs font-bold mt-0.5">
+                        {Number(toma.saldo_pendiente || 0) > 0 ? (
+                          <span className="text-red-600 dark:text-red-400">
+                            Adeudo: ${Number(toma.saldo_pendiente).toFixed(2)} MXN
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400">Al corriente ($0.00)</span>
+                        )}
+                      </div>
+                    </TableCell>
 
-                  {/* Acciones */}
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleAbrirEditar(toma)}
-                        className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-                        title="Editar toma"
+                    {/* Estado */}
+                    <TableCell className="text-center">
+                      <span
+                        className={`inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                          est?.color || 'bg-slate-100 text-slate-600'
+                        }`}
                       >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleEliminar(toma)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
-                        title="Dar de baja toma"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                        {est?.label || toma.estado}
+                      </span>
+                    </TableCell>
+
+                    {/* Acciones */}
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirEditar(toma)}
+                          className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                          title="Editar toma"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEliminar(toma)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
+                          title="Dar de baja toma"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+
+          {/* Barra de Paginación */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-dashed border-slate-300 dark:border-[#26345C] text-xs text-slate-500 dark:text-slate-400">
+            <div>
+              Mostrando{' '}
+              <span className="font-bold text-slate-900 dark:text-white">
+                {indiceInicio + 1}–{indiceFin}
+              </span>{' '}
+              de{' '}
+              <span className="font-bold text-slate-900 dark:text-white">
+                {tomasFiltradas.length}
+              </span>{' '}
+              tomas ({itemsPorPagina} por página)
+            </div>
+
+            {totalPaginas > 1 && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={paginaSegura <= 1}
+                  onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+                  icon={<ChevronLeft className="w-3.5 h-3.5" />}
+                >
+                  Anterior
+                </Button>
+
+                <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
+                  Página {paginaSegura} de {totalPaginas}
+                </span>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={paginaSegura >= totalPaginas}
+                  onClick={() => setPaginaActual((p) => Math.min(totalPaginas, p + 1))}
+                >
+                  <span className="flex items-center gap-1">
+                    Siguiente
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
     </div>

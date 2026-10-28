@@ -2,6 +2,8 @@ export type RolUsuario = 'administrador' | 'cajero' | 'lector';
 export type EstadoToma = 'activa' | 'suspendida' | 'cortada' | 'inactiva';
 export type TipoToma = 'domestica' | 'comercial' | 'comunal' | 'lote_baldio';
 export type MetodoPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'otro';
+export type EstadoPago = 'completado' | 'anulado';
+export type TipoCargoCiclo = 'mensual' | 'extraordinario';
 
 /** Permisos del sistema para control de acceso granular (RBAC) */
 export type PermisoSistema =
@@ -22,6 +24,7 @@ export interface OrganizacionConfig {
   recargo_mora: number;
   moneda: string;
   permitir_cobro_offline: boolean;
+  registros_por_pagina?: number;
 }
 
 export interface Organizacion {
@@ -121,6 +124,10 @@ export interface Pago {
   cajero_id?: string;
   total: number;
   metodo_pago: MetodoPago;
+  estado?: EstadoPago;
+  motivo_anulacion?: string | null;
+  anulado_en?: string | null;
+  anulado_por?: string | null;
   fecha_pago: string;
   notas?: string;
   dispositivo_offline_id?: string;
@@ -131,6 +138,22 @@ export interface Pago {
   persona?: Persona;
   cajero?: Perfil;
   detalles?: PagoDetalle[];
+}
+
+export interface CargoCiclo {
+  id: string;
+  organizacion_id: string;
+  tipo: TipoCargoCiclo;
+  anio: number;
+  mes: number;
+  monto_unitario: number;
+  tomas_afectadas: number;
+  tomas_exentas_adelanto: number;
+  total_generado: number;
+  concepto: string;
+  creado_por?: string | null;
+  created_at: string;
+  autor?: { id: string; nombre_completo: string } | null;
 }
 
 export interface PagoDetalle {

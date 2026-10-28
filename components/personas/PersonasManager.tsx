@@ -23,6 +23,9 @@ import {
   Gauge,
   Eye,
   ArrowLeft,
+  FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
@@ -41,6 +44,8 @@ import {
 } from '@/components/ui/Table';
 import type { Persona, Toma, Manzana, TipoToma, EstadoToma } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
+import { useRegistrosPorPagina } from '@/hooks/use-registros-por-pagina';
+import { ImportadorCensoExcel } from './ImportadorCensoExcel';
 
 export interface TomaConManzana extends Toma {
   manzana?: Manzana;
@@ -65,18 +70,20 @@ const ESTADOS_TOMA: { value: EstadoToma; label: string; color: string }[] = [
 ];
 
 export function PersonasManager() {
+  const itemsPorPagina = useRegistrosPorPagina();
   const [personas, setPersonas] = useState<PersonaConTomas[]>([]);
   const [manzanas, setManzanas] = useState<Manzana[]>([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
-  // Filtros
+  // Filtros y paginación
   const [busqueda, setBusqueda] = useState('');
   const [filtroBarrio, setFiltroBarrio] = useState('todos');
   const [filtroTomas, setFiltroTomas] = useState<'todos' | 'con_tomas' | 'sin_tomas'>('todos');
+  const [paginaActual, setPaginaActual] = useState(1);
 
-  // Vista activa: 'lista', 'formulario' o 'asignar-toma'
-  const [vista, setVista] = useState<'lista' | 'formulario' | 'asignar-toma'>('lista');
+  // Vista activa: 'lista', 'formulario', 'asignar-toma' o 'importar'
+  const [vista, setVista] = useState<'lista' | 'formulario' | 'asignar-toma' | 'importar'>('lista');
   const [modoFormulario, setModoFormulario] = useState<'crear' | 'editar'>('crear');
   const [personaEnEdicion, setPersonaEnEdicion] = useState<Persona | null>(null);
 
@@ -154,7 +161,8 @@ export function PersonasManager() {
           )
         `)
         .is('deleted_at', null)
-        .order('nombre_completo', { ascending: true });
+        .order('nombre_completo', { ascending: true })
+        .range(0, 4999);
 
       if (errPersonas) throw errPersonas;
 
@@ -230,7 +238,7 @@ export function PersonasManager() {
       // Filtro por barrio
       if (filtroBarrio !== 'todos') {
         const tieneEnBarrio = p.tomas?.some(
-          (t) => t.manzana?.barrio.toLowerCase() === filtroBarrio.toLowerCase()
+          (t) => (t.manzana?.barrio || '').toLowerCase() === filtroBarrio.toLowerCase()
         );
         if (!tieneEnBarrio) return false;
       }
@@ -244,15 +252,25 @@ export function PersonasManager() {
       const coincideToma = p.tomas?.some(
         (t) =>
           t.codigo_toma.toLowerCase().includes(q) ||
-          t.direccion_referencia.toLowerCase().includes(q) ||
+          t.direccion_referencia?.toLowerCase().includes(q) ||
           t.numero_medidor?.toLowerCase().includes(q) ||
-          t.manzana?.numero_manzana.toLowerCase().includes(q) ||
-          t.manzana?.barrio.toLowerCase().includes(q)
+          t.manzana?.numero_manzana?.toLowerCase().includes(q) ||
+          t.manzana?.barrio?.toLowerCase().includes(q)
       );
 
       return coincideNombre || coincideDoc || coincideTel || coincideDireccion || coincideToma;
     });
   }, [personas, busqueda, filtroBarrio, filtroTomas]);
+
+  // Paginación configurable (máximo 50 contribuyentes por página)
+  const totalPaginas = Math.max(1, Math.ceil(personasFiltradas.length / itemsPorPagina));
+  const paginaSegura = Math.min(paginaActual, totalPaginas);
+  const indiceInicio = (paginaSegura - 1) * itemsPorPagina;
+  const indiceFin = Math.min(indiceInicio + itemsPorPagina, personasFiltradas.length);
+
+  const personasPaginadas = useMemo(() => {
+    return personasFiltradas.slice(indiceInicio, indiceInicio + itemsPorPagina);
+  }, [personasFiltradas, indiceInicio, itemsPorPagina]);
 
   // Cambiar a vista de creación
   const handleAbrirCrear = () => {
@@ -310,7 +328,7 @@ export function PersonasManager() {
     }
 
     if (!personaEnEdicion && incluirTomaInicial) {
-      if (!manzanaIdSeleccionada) {
+      if (manzanas.length > 0 && !manzanaIdSeleccionada) {
         sileo.warning({
           title: 'Manzana requerida',
           description: 'Selecciona la manzana y cuadra a la que pertenece la toma.',
@@ -394,7 +412,7 @@ export function PersonasManager() {
           const { error: errToma } = await supabase.from('tomas').insert({
             organizacion_id: orgId,
             persona_id: nuevaPersona.id,
-            manzana_id: manzanaIdSeleccionada,
+            manzana_id: manzanaIdSeleccionada || null,
             codigo_toma: codigoToma.trim().toUpperCase(),
             direccion_referencia: direccionReferencia.trim(),
             tipo_toma: tipoToma,
@@ -454,7 +472,7 @@ export function PersonasManager() {
     e.preventDefault();
     if (!personaParaToma) return;
 
-    if (!manzanaIdNuevaToma) {
+    if (manzanas.length > 0 && !manzanaIdNuevaToma) {
       sileo.warning({ title: 'Campo requerido', description: 'Por favor selecciona la manzana y cuadra.' });
       return;
     }
@@ -485,7 +503,7 @@ export function PersonasManager() {
       const { error } = await supabase.from('tomas').insert({
         organizacion_id: perfil.organizacion_id,
         persona_id: personaParaToma.id,
-        manzana_id: manzanaIdNuevaToma,
+        manzana_id: manzanaIdNuevaToma || null,
         codigo_toma: codigoNuevaToma.trim().toUpperCase(),
         direccion_referencia: referenciaNuevaToma.trim(),
         tipo_toma: tipoNuevaToma,
@@ -980,6 +998,23 @@ export function PersonasManager() {
   }
 
   // =========================================================================
+  // VISTA NUEVA: IMPORTADOR MASIVO DE CENSO DESDE EXCEL (.XLSX / .XLS / .CSV)
+  // =========================================================================
+  if (vista === 'importar') {
+    return (
+      <ImportadorCensoExcel
+        personasExistentes={personas}
+        manzanas={manzanas}
+        onVolver={handleVolverALista}
+        onImportacionCompletada={async () => {
+          setVista('lista');
+          await cargarDatos();
+        }}
+      />
+    );
+  }
+
+  // =========================================================================
   // VISTA PRINCIPAL: LISTADO Y FILTROS
   // =========================================================================
   return (
@@ -1030,25 +1065,41 @@ export function PersonasManager() {
       {/* 2. Barra de Control: Búsqueda, Filtros y Botón Nuevo */}
       <FilterBar
         searchValue={busqueda}
-        onSearchChange={setBusqueda}
+        onSearchChange={(val) => {
+          setBusqueda(val);
+          setPaginaActual(1);
+        }}
         searchPlaceholder="Buscar por nombre, INE, teléfono o código de toma..."
         onRefresh={cargarDatos}
         isRefreshing={cargando}
         action={
-          <Button
-            variant="primary"
-            size="md"
-            icon={<Plus className="w-4 h-4" />}
-            onClick={handleAbrirCrear}
-          >
-            Nuevo Contribuyente
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="md"
+              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+              onClick={() => setVista('importar')}
+            >
+              Importar Excel
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={handleAbrirCrear}
+            >
+              Nuevo Contribuyente
+            </Button>
+          </div>
         }
       >
         <FilterSelect
           label="Barrio:"
           value={filtroBarrio}
-          onChange={(e) => setFiltroBarrio(e.target.value)}
+          onChange={(e) => {
+            setFiltroBarrio(e.target.value);
+            setPaginaActual(1);
+          }}
         >
           <option value="todos">Todos los barrios</option>
           {barriosDisponibles.map((b) => (
@@ -1060,11 +1111,12 @@ export function PersonasManager() {
 
         <FilterSelect
           value={filtroTomas}
-          onChange={(e) =>
+          onChange={(e) => {
             setFiltroTomas(
               e.target.value as 'todos' | 'con_tomas' | 'sin_tomas'
-            )
-          }
+            );
+            setPaginaActual(1);
+          }}
         >
           <option value="todos">Todas las personas</option>
           <option value="con_tomas">Solo con tomas</option>
@@ -1103,19 +1155,20 @@ export function PersonasManager() {
           )}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <tr>
-              <TableHead>Contribuyente / Titular</TableHead>
-              <TableHead>Documento / Contacto</TableHead>
-              <TableHead>Ubicación (Barrio / Manzana / Cuadra)</TableHead>
-              <TableHead className="text-center">Tomas de Agua</TableHead>
-              <TableHead className="text-center">Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </tr>
-          </TableHeader>
-          <TableBody>
-            {personasFiltradas.map((persona) => {
+        <div className="space-y-4">
+          <Table>
+            <TableHeader>
+              <tr>
+                <TableHead>Contribuyente / Titular</TableHead>
+                <TableHead>Documento / Contacto</TableHead>
+                <TableHead>Ubicación (Barrio / Manzana / Cuadra)</TableHead>
+                <TableHead className="text-center">Tomas de Agua</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </tr>
+            </TableHeader>
+            <TableBody>
+              {personasPaginadas.map((persona) => {
               const tomasCount = persona.tomas?.length || 0;
               // Obtener lista representativa de barrios y manzanas de sus tomas
               const ubicacionesTomas = persona.tomas
@@ -1278,6 +1331,87 @@ export function PersonasManager() {
             })}
           </TableBody>
         </Table>
+
+          {/* Barra de Paginación (50 por página) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-dashed border-slate-300 dark:border-[#26345C] text-xs text-slate-500 dark:text-slate-400">
+            <div>
+              Mostrando{' '}
+              <span className="font-bold text-slate-900 dark:text-white">
+                {indiceInicio + 1}–{indiceFin}
+              </span>{' '}
+              de{' '}
+              <span className="font-bold text-slate-900 dark:text-white">
+                {personasFiltradas.length}
+              </span>{' '}
+              contribuyentes ({itemsPorPagina} por página)
+            </div>
+
+            {totalPaginas > 1 && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={paginaSegura <= 1}
+                  onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+                  icon={<ChevronLeft className="w-3.5 h-3.5" />}
+                >
+                  Anterior
+                </Button>
+
+                <div className="flex items-center gap-1 px-1">
+                  {Array.from({ length: totalPaginas }, (_, idx) => idx + 1)
+                    .filter(
+                      (num) =>
+                        num === 1 ||
+                        num === totalPaginas ||
+                        Math.abs(num - paginaSegura) <= 1
+                    )
+                    .reduce<(number | 'ellipsis')[]>((acc, num, idx, arr) => {
+                      if (idx > 0 && num - (arr[idx - 1] as number) > 1) {
+                        acc.push('ellipsis');
+                      }
+                      acc.push(num);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      item === 'ellipsis' ? (
+                        <span key={`el-${idx}`} className="px-1.5 text-slate-400">
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setPaginaActual(item)}
+                          className={`min-w-[30px] h-8 px-2 rounded-lg text-xs font-bold transition-colors ${
+                            paginaSegura === item
+                              ? 'bg-[#2F6BFF] text-white shadow-xs'
+                              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={paginaSegura >= totalPaginas}
+                  onClick={() => setPaginaActual((p) => Math.min(totalPaginas, p + 1))}
+                >
+                  <span className="flex items-center gap-1">
+                    Siguiente
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
 

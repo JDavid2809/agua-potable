@@ -52,14 +52,21 @@ export function CorteCajaDiario({
     });
   }, [pagos]);
 
-  // Cálculos de recaudación del día
+  // Cálculos de recaudación del día (excluyendo recibos anulados)
   const totales = useMemo(() => {
     let totalGeneral = 0;
     let totalEfectivo = 0;
     let totalTransferencia = 0;
     let totalTarjeta = 0;
+    let cantidadVigentes = 0;
+    let cantidadAnulados = 0;
 
     pagosHoy.forEach((p) => {
+      if (p.estado === 'anulado') {
+        cantidadAnulados += 1;
+        return;
+      }
+      cantidadVigentes += 1;
       const monto = Number(p.total || 0);
       totalGeneral += monto;
 
@@ -80,7 +87,8 @@ export function CorteCajaDiario({
       totalTransferencia,
       totalTarjeta,
       totalDigital,
-      cantidadRecibos: pagosHoy.length,
+      cantidadRecibos: cantidadVigentes,
+      cantidadAnulados,
     };
   }, [pagosHoy]);
 
@@ -206,9 +214,20 @@ export function CorteCajaDiario({
                         )}
                       </TableCell>
                       <TableCell className="capitalize text-xs font-semibold">
-                        {p.metodo_pago}
+                        <span>{p.metodo_pago}</span>
+                        {p.estado === 'anulado' && (
+                          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
+                            Anulado
+                          </span>
+                        )}
                       </TableCell>
-                      <TableCell className="text-right font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
+                      <TableCell
+                        className={`text-right font-extrabold text-sm ${
+                          p.estado === 'anulado'
+                            ? 'line-through text-slate-400'
+                            : 'text-emerald-600 dark:text-emerald-400'
+                        }`}
+                      >
                         ${Number(p.total).toFixed(2)}
                       </TableCell>
                     </TableRow>

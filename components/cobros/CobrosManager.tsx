@@ -25,6 +25,7 @@ export function CobrosManager() {
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
   const [cajeroId, setCajeroId] = useState<string | undefined>(undefined);
   const [cajeroNombre, setCajeroNombre] = useState<string | undefined>(undefined);
+  const [puedeAnularRecibos, setPuedeAnularRecibos] = useState(false);
   const [cargando, setCargando] = useState(true);
 
   // Carga general de datos de caja
@@ -39,12 +40,18 @@ export function CobrosManager() {
 
         const { data: perfilData } = await supabase
           .from('perfiles')
-          .select('nombre_completo, organizacion:organizaciones(*)')
+          .select('nombre_completo, rol, permisos, organizacion:organizaciones(*)')
           .eq('id', user.id)
           .single();
 
         if (perfilData) {
           setCajeroNombre(perfilData.nombre_completo);
+          const permisosArr = Array.isArray(perfilData.permisos) ? perfilData.permisos : [];
+          setPuedeAnularRecibos(
+            perfilData.rol === 'administrador' ||
+              permisosArr.includes('*') ||
+              permisosArr.includes('cobros.anular')
+          );
           if (perfilData.organizacion) {
             const org = Array.isArray(perfilData.organizacion)
               ? perfilData.organizacion[0]
@@ -230,6 +237,7 @@ export function CobrosManager() {
           pagos={pagos}
           organizacion={organizacion}
           cargando={cargando}
+          puedeAnular={puedeAnularRecibos}
           onRefresh={cargarDatos}
         />
       )}

@@ -49,7 +49,7 @@ export function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Activar motor de sincronización offline/online automático en todo el dashboard
-  useOfflineSync();
+  const syncState = useOfflineSync();
 
   const handleToggleCollapse = useCallback(() => {
     setCollapsed((prev) => {
@@ -96,6 +96,10 @@ export function DashboardShell({
           organizacionNombre={organizacionNombre}
           userName={userName}
           userRole={userRole}
+          enLinea={syncState.enLinea}
+          pendientesSync={syncState.pendientes}
+          isSyncing={syncState.isSyncing}
+          onSyncNow={syncState.sincronizar}
         />
 
         <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

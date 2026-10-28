@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, Sun, Moon, User } from 'lucide-react';
+import { Menu, Sun, Moon, User, WifiOff, RefreshCw } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -11,6 +11,10 @@ export interface DashboardHeaderProps {
   organizacionNombre: string;
   userName: string;
   userRole: string;
+  enLinea?: boolean;
+  pendientesSync?: number;
+  isSyncing?: boolean;
+  onSyncNow?: () => void;
 }
 
 const SECTION_NAMES: Record<string, string> = {
@@ -46,6 +50,10 @@ export function DashboardHeader({
   organizacionNombre,
   userName,
   userRole,
+  enLinea = true,
+  pendientesSync = 0,
+  isSyncing = false,
+  onSyncNow,
 }: DashboardHeaderProps) {
   const pathname = usePathname();
   const { isDark, toggleTheme } = useTheme();
@@ -116,8 +124,56 @@ export function DashboardHeader({
         </nav>
       </div>
 
-      {/* 2. Lado Derecho: fecha, tema, usuario y cerrar sesión */}
-      <div className="flex shrink-0 items-center gap-4 sm:gap-5">
+      {/* 2. Lado Derecho: estado offline/sync, fecha, tema, usuario y cerrar sesión */}
+      <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+        {/* Indicador de conectividad y cola de sincronización */}
+        <button
+          type="button"
+          onClick={onSyncNow}
+          disabled={!enLinea || isSyncing}
+          title={
+            !enLinea
+              ? `Modo sin conexión (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'} de subir)`
+              : pendientesSync > 0
+                ? `Sincronizar ahora (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'})`
+                : 'Conectado y sincronizado con la nube'
+          }
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+            !enLinea
+              ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800/80 dark:bg-amber-950/50 dark:text-amber-300'
+              : isSyncing || pendientesSync > 0
+                ? 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800/80 dark:bg-blue-950/50 dark:text-blue-300'
+                : 'border-slate-200 bg-slate-50/80 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300'
+          }`}
+        >
+          {!enLinea ? (
+            <>
+              <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">Offline</span>
+              {pendientesSync > 0 && (
+                <span className="rounded-full bg-amber-200/80 px-1.5 py-0.2 text-[10px] font-extrabold dark:bg-amber-900">
+                  {pendientesSync}
+                </span>
+              )}
+            </>
+          ) : isSyncing ? (
+            <>
+              <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+              <span className="hidden sm:inline">Sincronizando</span>
+            </>
+          ) : pendientesSync > 0 ? (
+            <>
+              <RefreshCw className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <span>{pendientesSync} pend.</span>
+            </>
+          ) : (
+            <>
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="hidden sm:inline">En línea</span>
+            </>
+          )}
+        </button>
+
         {fecha && (
           <div className="fh-fade hidden items-center gap-3 font-mono text-xs text-slate-400 dark:text-slate-500 lg:flex">
             <span className="capitalize">{fecha}</span>

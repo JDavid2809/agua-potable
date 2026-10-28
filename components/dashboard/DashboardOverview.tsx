@@ -87,6 +87,12 @@ export function DashboardOverview({
   const moneda = organizacion?.config?.moneda || 'MXN';
   const cuotaBaseVigente = Number(organizacion?.config?.cuota_base || 50);
 
+  // Filtrar únicamente pagos vigentes (no anulados) para métricas y gráficas financieras
+  const pagosVigentes = useMemo(
+    () => pagos.filter((p) => p.estado !== 'anulado'),
+    [pagos]
+  );
+
   // 1. Estadísticas de recaudación
   const statsRecaudacion = useMemo(() => {
     const ahora = new Date();
@@ -98,7 +104,7 @@ export function DashboardOverview({
     let recaudadoHistorico = 0;
     let pagosMesActualCount = 0;
 
-    pagos.forEach((p) => {
+    pagosVigentes.forEach((p) => {
       const monto = Number(p.total || 0);
       recaudadoHistorico += monto;
 
@@ -118,7 +124,7 @@ export function DashboardOverview({
       recaudadoHistorico,
       pagosMesActualCount,
     };
-  }, [pagos]);
+  }, [pagosVigentes]);
 
   // 2. Estadísticas del Padrón de Tomas
   const statsTomas = useMemo(() => {
@@ -200,7 +206,7 @@ export function DashboardOverview({
       });
     }
 
-    pagos.forEach((p) => {
+    pagosVigentes.forEach((p) => {
       const f = new Date(p.fecha_pago || p.created_at);
       const key = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}`;
       const item = resultado.find((r) => r.key === key);
@@ -224,7 +230,7 @@ export function DashboardOverview({
     });
 
     return resultado;
-  }, [pagos, periodoVista]);
+  }, [pagosVigentes, periodoVista]);
 
   // 4. Datos para la Gráfica de Métodos de Pago
   const datosMetodosPago = useMemo(() => {
@@ -235,7 +241,7 @@ export function DashboardOverview({
       otro: { total: 0, count: 0 },
     };
 
-    pagos.forEach((p) => {
+    pagosVigentes.forEach((p) => {
       const m = p.metodo_pago || 'efectivo';
       const monto = Number(p.total || 0);
       if (!metodos[m]) {
@@ -257,7 +263,7 @@ export function DashboardOverview({
         color: METODO_COLORS[key] || '#94A3B8',
       }))
       .filter((item) => item.value > 0 || item.count > 0);
-  }, [pagos]);
+  }, [pagosVigentes]);
 
   // 5. Tomas con mayor deuda (Top Cartera Vencida)
   const tomasConAdeudo = useMemo(() => {
@@ -269,8 +275,8 @@ export function DashboardOverview({
 
   // 6. Últimos Pagos Registrados
   const ultimosPagos = useMemo(() => {
-    return pagos.slice(0, 6);
-  }, [pagos]);
+    return pagosVigentes.slice(0, 6);
+  }, [pagosVigentes]);
 
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-300">
