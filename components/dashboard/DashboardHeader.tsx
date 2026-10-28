@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, Sun, Moon, User, WifiOff, RefreshCw } from 'lucide-react';
+import { Sun, Moon, User, WifiOff, RefreshCw } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -62,6 +62,10 @@ export function DashboardHeader({
   const path = pathname ?? '';
   const currentSection = SECTION_NAMES[path] || 'Panel';
   const sectionIndex = SECTION_KEYS.indexOf(path);
+  void onToggleMobileMenu;
+  void sectionIndex;
+  void ROW;
+  void SPRING;
 
   // Reloj: se monta en cliente para evitar diferencias de hidratación
   useEffect(() => {
@@ -77,7 +81,7 @@ export function DashboardHeader({
   const mm = now ? pad(now.getMinutes()) : '';
 
   return (
-    <header className="sticky top-0 z-20 flex h-20 w-full items-center justify-between gap-6 border-b border-slate-200 bg-white/85 px-4 backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-slate-900/85 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 flex h-20 w-full items-center justify-between gap-2 border-b border-slate-200 bg-white/85 px-4 backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-slate-900/85 sm:gap-6 sm:px-6 lg:px-8">
       <style>{css}</style>
 
       {/* Destello azul que recorre el borde en cada cambio de ruta */}
@@ -88,19 +92,10 @@ export function DashboardHeader({
         />
       </span>
 
-      {/* 1. Lado Izquierdo: menú móvil, contador de sección y título */}
-      <div className="flex min-w-0 items-center gap-5">
-        <button
-          onClick={onToggleMobileMenu}
-          type="button"
-          aria-label="Abrir menú de navegación"
-          className="group flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 transition-all duration-200 hover:bg-slate-100 active:scale-90 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
-        >
-          <Menu className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
-        </button>
-
+      {/* 1. Lado Izquierdo: título de sección */}
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-5">
         <nav aria-label="Sección actual" className="fh-fade min-w-0 leading-tight">
-          <p className="max-w-[220px] truncate text-xs font-medium text-slate-400 dark:text-slate-500">
+          <p className="max-w-[240px] sm:max-w-[280px] truncate text-xs font-medium text-slate-400 dark:text-slate-500">
             {organizacionNombre}
           </p>
           {/* El título entra letra por letra al cambiar de sección */}
@@ -124,9 +119,9 @@ export function DashboardHeader({
         </nav>
       </div>
 
-      {/* 2. Lado Derecho: estado offline/sync, fecha, tema, usuario y cerrar sesión */}
+      {/* 2. Lado Derecho: en móvil solo el botón de tema; en web estado sync, fecha, tema, usuario y cerrar sesión */}
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
-        {/* Indicador de conectividad y cola de sincronización */}
+        {/* Indicador de conectividad y cola de sincronización (solo web md+) */}
         <button
           type="button"
           onClick={onSyncNow}
@@ -138,7 +133,7 @@ export function DashboardHeader({
                 ? `Sincronizar ahora (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'})`
                 : 'Conectado y sincronizado con la nube'
           }
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+          className={`hidden md:inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
             !enLinea
               ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800/80 dark:bg-amber-950/50 dark:text-amber-300'
               : isSyncing || pendientesSync > 0
@@ -185,7 +180,7 @@ export function DashboardHeader({
           </div>
         )}
 
-        {/* Botón de alternar tema (modo claro / oscuro) */}
+        {/* Botón de alternar tema (modo claro / oscuro) — visible en móvil y web */}
         <button
           onClick={toggleTheme}
           type="button"
@@ -200,10 +195,10 @@ export function DashboardHeader({
           )}
         </button>
 
-        <div aria-hidden className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
+        <div aria-hidden className="hidden h-8 w-px bg-slate-200 dark:bg-slate-800 md:block" />
 
-        {/* Usuario: icono en un círculo */}
-        <div className="group flex items-center gap-3">
+        {/* Usuario: icono en un círculo (solo web md+) */}
+        <div className="group hidden items-center gap-3 md:flex">
           <div
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-700 shadow-xs transition-all duration-300 group-hover:border-blue-500/50 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:border-blue-400/50 dark:group-hover:bg-blue-950/40 dark:group-hover:text-blue-400"
           >
@@ -222,8 +217,10 @@ export function DashboardHeader({
           </div>
         </div>
 
-        {/* Botón de Cerrar Sesión único en el sistema */}
-        <LogoutButton />
+        {/* Botón de Cerrar Sesión (en web md+; en móvil vive dentro de Ajustes) */}
+        <div className="hidden md:block">
+          <LogoutButton />
+        </div>
       </div>
     </header>
   );

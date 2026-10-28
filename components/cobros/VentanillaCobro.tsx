@@ -550,7 +550,7 @@ export function VentanillaCobro({
                   </div>
 
                   {/* Atajos rápidos de meses */}
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
                     <span className="text-[11px] text-slate-400">Atajos:</span>
                     {[1, 2, 3, 6, 12].map((num) => (
                       <button

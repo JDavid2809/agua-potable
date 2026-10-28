@@ -186,12 +186,12 @@ export function PageHeader({
   const s = TONES[statusTone];
 
   return (
-    <header className={`w-full ${dividerClass} ${className}`}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+    <header className={`w-full max-w-full overflow-hidden ${dividerClass} ${className}`}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
         <div className="flex min-w-0 items-center gap-4">
           {icon && <HeaderRing icon={icon} tone={tone} progress={progress} />}
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-[1.75rem] sm:leading-tight">
                 {title}
@@ -211,16 +211,18 @@ export function PageHeader({
               >
                 <span
                   aria-hidden="true"
-                  className={`h-1.5 w-1.5 rounded-full ${s.dot}`}
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`}
                 />
-                {status}
+                <span className="truncate">{status}</span>
               </p>
             )}
           </div>
         </div>
 
         {action && (
-          <div className="flex shrink-0 items-center gap-2.5">{action}</div>
+          <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-2.5 lg:w-auto lg:shrink-0">
+            {action}
+          </div>
         )}
       </div>
 
@@ -250,7 +252,10 @@ export function PageTabs({
   className?: string;
 }) {
   return (
-    <div role="tablist" className={`flex items-center ${className}`}>
+    <div
+      role="tablist"
+      className={`flex w-full min-w-0 max-w-full items-center justify-between sm:w-auto sm:justify-start ${className}`}
+    >
       {items.map((item, i) => {
         const active = item.value === value;
         return (
@@ -258,7 +263,7 @@ export function PageTabs({
             {i > 0 && (
               <span
                 aria-hidden="true"
-                className={`h-5 border-l border-dashed ${LINE}`}
+                className={`h-4 shrink-0 border-l border-dashed sm:h-5 ${LINE}`}
               />
             )}
             <button
@@ -266,18 +271,21 @@ export function PageTabs({
               role="tab"
               aria-selected={active}
               onClick={() => onChange(item.value)}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 ${
+              className={`flex min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-1.5 py-1.5 text-[11.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 sm:flex-initial sm:gap-1.5 sm:px-4 sm:text-[13px] ${
                 active
-                  ? 'text-[#2F6BFF] dark:text-[#6C97FF]'
+                  ? 'font-semibold text-[#2F6BFF] dark:text-[#6C97FF]'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               {item.icon && (
-                <span aria-hidden="true" className="[&>svg]:h-[15px] [&>svg]:w-[15px]">
+                <span
+                  aria-hidden="true"
+                  className="shrink-0 [&>svg]:h-[13px] [&>svg]:w-[13px] sm:[&>svg]:h-[15px] sm:[&>svg]:w-[15px]"
+                >
                   {item.icon}
                 </span>
               )}
-              {item.label}
+              <span className="truncate">{item.label}</span>
             </button>
           </React.Fragment>
         );

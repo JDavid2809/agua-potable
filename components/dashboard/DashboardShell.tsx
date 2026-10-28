@@ -86,11 +86,13 @@ export function DashboardShell({
         mobileOpen={mobileOpen}
         onCloseMobile={handleCloseMobile}
         organizacionNombre={organizacionNombre}
+        userName={userName}
+        userRole={userRole}
         esAdmin={esAdmin}
       />
 
       {/* 2. ÁREA PRINCIPAL: HEADER SUPERIOR + CONTENIDO */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
         <DashboardHeader
           onToggleMobileMenu={() => setMobileOpen(true)}
           organizacionNombre={organizacionNombre}
@@ -102,7 +104,7 @@ export function DashboardShell({
           onSyncNow={syncState.sincronizar}
         />
 
-        <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <main className="flex-1 w-full min-w-0 max-w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           {children}
         </main>
       </div>
