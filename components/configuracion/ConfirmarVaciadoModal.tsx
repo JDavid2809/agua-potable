@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AlertTriangle,
   Trash2,
@@ -10,7 +11,6 @@ import {
   Link2Off,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 
 export type ModuloVaciado =
   | 'personas'
@@ -38,6 +38,15 @@ export interface ConfirmarVaciadoModalProps {
   onCerrar: () => void;
 }
 
+const PALABRA = 'VACIAR';
+const LINE = 'border-slate-300 dark:border-[#26345C]';
+
+/* Anillo de progreso de confirmación */
+const PX = 56;
+const STROKE = 4;
+const R = (PX - STROKE) / 2 - 2;
+const C = 2 * Math.PI * R;
+
 export function ConfirmarVaciadoModal({
   modulo,
   palabraConfirmacion,
@@ -47,13 +56,14 @@ export function ConfirmarVaciadoModal({
   onCerrar,
 }: ConfirmarVaciadoModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const reducirMovimiento = useReducedMotion();
 
   useEffect(() => {
     if (!modulo) return;
 
     const timer = setTimeout(() => {
       inputRef.current?.focus();
-    }, 60);
+    }, 120);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !ejecutando) {
@@ -61,143 +71,255 @@ export function ConfirmarVaciadoModal({
       }
     };
 
+    // Evita que la página de fondo se desplace mientras el modal está abierto
+    const overflowPrevio = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       clearTimeout(timer);
+      document.body.style.overflow = overflowPrevio;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [modulo, ejecutando, onCerrar]);
 
-  if (!modulo) return null;
+  const tecleado = palabraConfirmacion.trim().toUpperCase();
+  const esValido = tecleado === PALABRA;
 
-  const esValido = palabraConfirmacion.trim().toUpperCase() === 'VACIAR';
+  // Letras correctas seguidas desde el inicio; nunca llega a 100% sin ser válido
+  let aciertos = 0;
+  while (aciertos < PALABRA.length && tecleado[aciertos] === PALABRA[aciertos]) {
+    aciertos++;
+  }
+  const ratio = esValido
+    ? 1
+    : Math.min(aciertos, PALABRA.length - 1) / PALABRA.length;
+
+  // Con movimiento reducido solo se hace un fundido
+  const entradaPanel = reducirMovimiento
+    ? { opacity: 0 }
+    : { opacity: 0, y: 28, scale: 0.96 };
+  const salidaPanel = reducirMovimiento
+    ? { opacity: 0, transition: { duration: 0.12 } }
+    : {
+        opacity: 0,
+        y: 16,
+        scale: 0.97,
+        transition: { duration: 0.18, ease: 'easeIn' as const },
+      };
+  const estadoPanel = reducirMovimiento
+    ? { opacity: 1, transition: { duration: 0.12 } }
+    : {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: { type: 'spring' as const, stiffness: 380, damping: 30 },
+      };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={() => {
-        if (!ejecutando) onCerrar();
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-vaciado-titulo"
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-white dark:bg-[#121A2F] border border-slate-200 dark:border-[#243256] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
-      >
-        {/* Cabecera del Modal */}
-        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-200 dark:border-[#1E2B4A] bg-rose-50/70 dark:bg-rose-950/30">
-          <div className="flex items-start gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
-                Acción Irreversible — Eliminación Permanente
-              </span>
-              <h3
-                id="modal-vaciado-titulo"
-                className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-snug mt-0.5"
-              >
-                ¿Vaciar {modulo.titulo}?
-              </h3>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onCerrar}
-            disabled={ejecutando}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
-            aria-label="Cerrar modal"
+    <AnimatePresence>
+      {modulo && (
+        <motion.div
+          key="vaciado-overlay"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: 0.2 } }}
+          exit={{ opacity: 0, transition: { duration: 0.18, delay: 0.04 } }}
+          onClick={() => {
+            if (!ejecutando) onCerrar();
+          }}
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-vaciado-titulo"
+            onClick={(e) => e.stopPropagation()}
+            initial={entradaPanel}
+            animate={estadoPanel}
+            exit={salidaPanel}
+            className={`max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl border bg-white p-5 text-slate-900 shadow-2xl dark:bg-[#0B1224] dark:text-slate-100 sm:p-6 ${LINE}`}
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            <form onSubmit={onConfirmar}>
+              {/* Encabezado: anillo + título + descripción + cerrar */}
+              <div className="flex items-start gap-4">
+                <div
+                  className="relative shrink-0"
+                  style={{ width: PX, height: PX }}
+                >
+                  <svg
+                    width={PX}
+                    height={PX}
+                    viewBox={`0 0 ${PX} ${PX}`}
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx={PX / 2}
+                      cy={PX / 2}
+                      r={R}
+                      fill="none"
+                      strokeWidth={STROKE}
+                      className="stroke-slate-200 dark:stroke-[#1F2B4D]"
+                    />
+                    <circle
+                      cx={PX / 2}
+                      cy={PX / 2}
+                      r={R}
+                      fill="none"
+                      strokeWidth={STROKE}
+                      strokeLinecap="round"
+                      strokeDasharray={C}
+                      strokeDashoffset={C * (1 - ratio)}
+                      strokeOpacity={ratio === 0 ? 0 : 1}
+                      transform={`rotate(-90 ${PX / 2} ${PX / 2})`}
+                      className="stroke-rose-600 transition-[stroke-dashoffset] duration-300 ease-out motion-reduce:transition-none dark:stroke-rose-400"
+                    />
+                  </svg>
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 flex items-center justify-center text-rose-600 dark:text-rose-400"
+                  >
+                    <AlertTriangle className="h-6 w-6" />
+                  </span>
+                </div>
 
-        {/* Cuerpo del Modal */}
-        <form onSubmit={onConfirmar} className="p-6 space-y-5">
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            {modulo.descripcion}
-          </p>
+                <div className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-rose-600 dark:text-rose-400">
+                    <span
+                      aria-hidden="true"
+                      className="h-1.5 w-1.5 rounded-full bg-rose-600 dark:bg-rose-400"
+                    />
+                    Acción irreversible
+                  </span>
+                  <h3
+                    id="modal-vaciado-titulo"
+                    className="mt-0.5 text-lg font-bold leading-snug tracking-tight text-slate-900 dark:text-white sm:text-xl"
+                  >
+                    ¿Vaciar {modulo.titulo}?
+                  </h3>
+                  <p className="mt-1 text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">
+                    {modulo.descripcion}
+                  </p>
+                </div>
 
-          {/* Resumen de Integridad y Dependencias Relacionales */}
-          <div className="rounded-xl border border-slate-200 dark:border-[#243256] bg-slate-50/80 dark:bg-[#0D1426] p-4 space-y-3 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Qué se elimina */}
-              <div className="space-y-1.5">
-                <span className="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                  Se eliminará permanentemente:
-                </span>
-                <ul className="space-y-1 text-slate-600 dark:text-slate-300 pl-5 list-disc">
-                  {modulo.eliminara.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
+                <button
+                  type="button"
+                  onClick={onCerrar}
+                  disabled={ejecutando}
+                  aria-label="Cerrar"
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-slate-500 transition-colors hover:border-rose-500 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50 disabled:opacity-50 dark:text-slate-400 dark:hover:border-rose-400 dark:hover:text-rose-400 ${LINE}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              {/* Qué se conserva */}
-              <div className="space-y-1.5">
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  Se conservará intacto:
-                </span>
-                <ul className="space-y-1 text-slate-600 dark:text-slate-300 pl-5 list-disc">
-                  {modulo.conservara.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
+              {/* Tres columnas en escritorio: eliminar / conservar / relaciones */}
+              <div
+                className={`mt-4 grid grid-cols-1 border-t border-dashed md:grid-cols-3 ${LINE}`}
+              >
+                <div className="py-4 md:pr-5">
+                  <p className="flex items-center gap-2 text-[13px] font-semibold text-rose-600 dark:text-rose-400">
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                    Se eliminará
+                  </p>
+                  <ul className="mt-2.5 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    {modulo.eliminara.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-rose-600 dark:bg-rose-400"
+                        />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div
+                  className={`border-t border-dashed py-4 md:border-l md:border-t-0 md:px-5 ${LINE}`}
+                >
+                  <p className="flex items-center gap-2 text-[13px] font-semibold text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    Se conservará
+                  </p>
+                  <ul className="mt-2.5 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    {modulo.conservara.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600 dark:bg-emerald-400"
+                        />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-            </div>
 
-            {/* Nota de cómo se maneja la relación */}
-            <div className="pt-2.5 border-t border-dashed border-slate-200 dark:border-[#1E2B4A] flex items-start gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-              <Link2Off className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-              <span>{modulo.notaRelacion}</span>
-            </div>
-          </div>
+              {/* Confirmación y acciones en una sola fila (escritorio) */}
+              <div
+                className={`flex flex-col gap-4 border-t border-dashed pt-4 md:flex-row md:items-end md:gap-6 ${LINE}`}
+              >
+                <div className="min-w-0 md:flex-1">
+                  <label
+                    htmlFor="vaciado-confirmacion"
+                    className="text-xs font-medium text-slate-500 dark:text-slate-400"
+                  >
+                    Escribe &quot;{PALABRA}&quot; para confirmar
+                  </label>
+                  <div
+                    className={`group/field relative mt-1 border-b border-dashed ${LINE}`}
+                  >
+                    <input
+                      id="vaciado-confirmacion"
+                      ref={inputRef}
+                      value={palabraConfirmacion}
+                      onChange={(e) => onPalabraChange(e.target.value)}
+                      placeholder={PALABRA}
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      required
+                      disabled={ejecutando}
+                      className="w-full bg-transparent py-2 pr-12 text-base font-semibold uppercase tracking-[0.2em] text-slate-900 placeholder:text-slate-300 focus:outline-none disabled:opacity-50 dark:text-white dark:placeholder:text-slate-700"
+                    />
+                    <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs font-medium tabular-nums text-slate-400">
+                      {Math.min(tecleado.length, PALABRA.length)}/
+                      {PALABRA.length}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -bottom-px left-0 h-[2px] w-full origin-left scale-x-0 bg-rose-600 transition-transform duration-300 ease-out group-focus-within/field:scale-x-100 motion-reduce:transition-none dark:bg-rose-400"
+                    />
+                  </div>
+                </div>
 
-          {/* Campo de seguridad VACIAR */}
-          <div>
-            <Input
-              ref={inputRef}
-              label='Escribe la palabra "VACIAR" para confirmar *'
-              value={palabraConfirmacion}
-              onChange={(e) => onPalabraChange(e.target.value)}
-              placeholder="VACIAR"
-              autoComplete="off"
-              required
-            />
-          </div>
-
-          {/* Pie de botones */}
-          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-[#1E2B4A]">
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              onClick={onCerrar}
-              disabled={ejecutando}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              isLoading={ejecutando}
-              disabled={!esValido || ejecutando}
-              icon={<Trash2 className="w-4 h-4" />}
-              className="bg-rose-600 hover:bg-rose-700 border-rose-600 text-white"
-            >
-              Confirmar y Vaciar
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+                <div className="flex shrink-0 flex-col-reverse gap-2.5 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    onClick={onCerrar}
+                    disabled={ejecutando}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    isLoading={ejecutando}
+                    disabled={!esValido || ejecutando}
+                    icon={<Trash2 className="h-4 w-4" />}
+                    className="w-full border-rose-600 bg-rose-600 text-white hover:bg-rose-700 sm:w-auto"
+                  >
+                    Confirmar y vaciar
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
-

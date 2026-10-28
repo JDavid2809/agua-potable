@@ -188,20 +188,20 @@ export function Card({
       </div>
 
       {label && (
-        <p className="mt-3 flex items-center gap-1.5 text-[13px] font-medium text-slate-500 dark:text-slate-400">
+        <p className="mt-2.5 sm:mt-3 flex items-center justify-center gap-1.5 text-xs sm:text-[13px] font-medium text-slate-500 dark:text-slate-400">
           {icon && (
             <span
               aria-hidden="true"
-              className={`[&>svg]:h-[15px] [&>svg]:w-[15px] ${t.icon}`}
+              className={`shrink-0 [&>svg]:h-[14px] [&>svg]:w-[14px] sm:[&>svg]:h-[15px] sm:[&>svg]:w-[15px] ${t.icon}`}
             >
               {icon}
             </span>
           )}
-          {label}
+          <span>{label}</span>
         </p>
       )}
       {hint && (
-        <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+        <p className="mt-0.5 text-[11px] sm:text-xs text-slate-400 dark:text-slate-500">
           {hint}
         </p>
       )}
@@ -212,7 +212,7 @@ export function Card({
 
 /* ─────────────────────────── CardGroup ─────────────────────────── */
 
-/** Fila de Card separadas por líneas punteadas (horizontales en móvil). */
+/** Cuadrícula 2x2 en móvil (2 arriba y 2 abajo) y fila horizontal en pantallas sm+. */
 export function CardGroup({
   children,
   className = '',
@@ -225,22 +225,36 @@ export function CardGroup({
   const items = React.Children.toArray(children);
   const style = divider === 'dashed' ? 'border-dashed' : 'border-solid';
 
+  const getBorderClasses = (i: number) => {
+    if (divider === 'none' || i === 0) return '';
+    if (i === 1) {
+      return `border-l ${style} ${DASH}`;
+    }
+    if (i % 2 === 0) {
+      // Fila inferior izquierda en móvil (solo borde superior en móvil, borde izquierdo en desktop)
+      return `border-t sm:border-t-0 sm:border-l ${style} ${DASH}`;
+    }
+    // Fila inferior derecha en móvil (borde superior e izquierdo en móvil, solo izquierdo en desktop)
+    return `border-t border-l sm:border-t-0 sm:border-l ${style} ${DASH}`;
+  };
+
   return (
     <div
-      className={`grid grid-cols-1 sm:grid-flow-col sm:auto-cols-fr ${className}`}
+      className={`grid grid-cols-2 sm:grid-flow-col sm:auto-cols-fr ${className}`}
     >
-      {items.map((child, i) => (
-        <div
-          key={i}
-          className={`px-4 py-6 ${
-            i > 0 && divider !== 'none'
-              ? `border-t ${style} sm:border-l sm:border-t-0 ${DASH}`
-              : ''
-          }`}
-        >
-          {child}
-        </div>
-      ))}
+      {items.map((child, i) => {
+        const esImparUltimo = items.length % 2 === 1 && i === items.length - 1;
+        return (
+          <div
+            key={i}
+            className={`px-2.5 py-4 sm:px-4 sm:py-6 ${
+              esImparUltimo ? 'col-span-2 sm:col-span-1' : ''
+            } ${getBorderClasses(i)}`}
+          >
+            {child}
+          </div>
+        );
+      })}
     </div>
   );
 }
