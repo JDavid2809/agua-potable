@@ -91,7 +91,7 @@ export function CobrosManager() {
         .select(`
           *,
           persona:personas (*),
-          cajero:perfiles (id, nombre_completo),
+          cajero:perfiles!cajero_id (id, nombre_completo),
           detalles:pago_detalles (
             id,
             toma_id,

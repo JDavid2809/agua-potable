@@ -89,7 +89,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'nombre_completo',
     label: 'Nombre Completo / Apellidos',
-    shortLabel: '👤 Nombre / Apellidos',
+    shortLabel: 'Nombre / Apellidos',
     obligatorio: true,
     permiteMultiples: true,
     ayuda: 'Si el nombre y apellidos vienen en columnas separadas, selecciona ambas con esta opción y se unirán automáticamente.',
@@ -102,7 +102,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'telefono',
     label: 'Teléfono / Celular',
-    shortLabel: '📞 Teléfono',
+    shortLabel: 'Teléfono',
     ayuda: 'Número telefónico o WhatsApp del contribuyente.',
     colorBg: 'bg-emerald-50/70 dark:bg-emerald-950/30',
     colorBorder: 'border-emerald-400 dark:border-emerald-600',
@@ -113,7 +113,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'direccion',
     label: 'Dirección / Calle / Número',
-    shortLabel: '📍 Dirección / Calle',
+    shortLabel: 'Dirección / Calle',
     permiteMultiples: true,
     ayuda: 'Calle, número o referencia domiciliaria. Puedes marcar varias columnas si calle y número vienen separados.',
     colorBg: 'bg-amber-50/70 dark:bg-amber-950/30',
@@ -125,7 +125,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'cantidad_tomas',
     label: 'Cantidad de Tomas (Núm.)',
-    shortLabel: '💧 Cant. de Tomas',
+    shortLabel: 'Tomas asignadas',
     ayuda: 'Cuántas tomas tiene la persona (1, 2, 3...). Si no existe esta columna, se asignará 1 por defecto.',
     colorBg: 'bg-cyan-50/70 dark:bg-cyan-950/30',
     colorBorder: 'border-cyan-400 dark:border-cyan-600',
@@ -136,7 +136,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'barrio',
     label: 'Barrio / Colonia / Sector',
-    shortLabel: '🗺️ Barrio / Sector',
+    shortLabel: 'Barrio / Sector',
     ayuda: 'Nombre del barrio, colonia o sección territorial.',
     colorBg: 'bg-purple-50/70 dark:bg-purple-950/30',
     colorBorder: 'border-purple-400 dark:border-purple-600',
@@ -147,7 +147,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'numero_manzana',
     label: 'Manzana / Cuadra',
-    shortLabel: '🧱 Manzana',
+    shortLabel: 'Manzana',
     ayuda: 'Número o nombre de manzana (ej. Mz 1, Manzana 4).',
     colorBg: 'bg-indigo-50/70 dark:bg-indigo-950/30',
     colorBorder: 'border-indigo-400 dark:border-indigo-600',
@@ -158,7 +158,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'codigo_toma',
     label: 'Código / Folio de Toma',
-    shortLabel: '🏷️ Folio Toma',
+    shortLabel: 'Folio Toma',
     ayuda: 'Opcional. Si el censo ya tiene número de contrato o toma (ej. TOMA-0015).',
     colorBg: 'bg-teal-50/70 dark:bg-teal-950/30',
     colorBorder: 'border-teal-400 dark:border-teal-600',
@@ -169,7 +169,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'documento_identidad',
     label: 'CURP / INE / Identificación',
-    shortLabel: '🪪 CURP / INE',
+    shortLabel: 'CURP / INE',
     ayuda: 'Opcional. Clave electoral o CURP del titular.',
     colorBg: 'bg-slate-100 dark:bg-slate-800/70',
     colorBorder: 'border-slate-400 dark:border-slate-600',
@@ -180,7 +180,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'tipo_toma',
     label: 'Tipo de Toma',
-    shortLabel: '🔧 Tipo de Toma',
+    shortLabel: 'Tipo de Toma',
     ayuda: 'Opcional. Doméstica, Comercial, Comunal o Lote Baldío.',
     colorBg: 'bg-sky-50/70 dark:bg-sky-950/30',
     colorBorder: 'border-sky-400 dark:border-sky-600',
@@ -191,7 +191,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'numero_medidor',
     label: 'Número de Medidor',
-    shortLabel: '⏲️ Medidor',
+    shortLabel: 'Medidor',
     ayuda: 'Opcional. Serie del medidor físico si cuenta con uno.',
     colorBg: 'bg-violet-50/70 dark:bg-violet-950/30',
     colorBorder: 'border-violet-400 dark:border-violet-600',
@@ -202,7 +202,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'saldo_pendiente',
     label: 'Saldo / Adeudo Inicial ($)',
-    shortLabel: '💲 Adeudo Inicial',
+    shortLabel: 'Adeudo Inicial',
     ayuda: 'Opcional. Monto de adeudo previo en pesos.',
     colorBg: 'bg-rose-50/70 dark:bg-rose-950/30',
     colorBorder: 'border-rose-400 dark:border-rose-600',
@@ -213,7 +213,7 @@ const DEFINICION_CAMPOS: DefinicionCampo[] = [
   {
     key: 'notas',
     label: 'Notas / Observaciones',
-    shortLabel: '📝 Observaciones',
+    shortLabel: 'Observaciones',
     ayuda: 'Opcional. Comentarios adicionales capturados en el censo.',
     colorBg: 'bg-orange-50/70 dark:bg-orange-950/30',
     colorBorder: 'border-orange-400 dark:border-orange-600',
@@ -1752,7 +1752,7 @@ export function ImportadorCensoExcel({
                   <strong className="font-bold block">
                     ¡Falta seleccionar la columna del Nombre del Contribuyente!
                   </strong>
-                  Elige <strong>«👤 Nombre / Apellidos»</strong> en la columna correspondiente de la tabla de abajo para poder leer a las personas.
+                  Elige <strong>«Nombre / Apellidos»</strong> en la columna correspondiente de la tabla de abajo para poder leer a las personas.
                 </div>
               </div>
             )}
@@ -1816,7 +1816,7 @@ export function ImportadorCensoExcel({
                                   : 'bg-white/80 dark:bg-slate-900/80 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
                               }`}
                             >
-                              <option value="ignorar">🚫 Ignorar esta columna</option>
+                              <option value="ignorar">Ignorar esta columna</option>
                               <optgroup label="Datos Principales del Censo">
                                 {camposPrincipales.map((campo) => (
                                   <option key={campo.key} value={campo.key}>
@@ -2222,11 +2222,11 @@ export function ImportadorCensoExcel({
                       />
                     </TableHead>
                     <TableHead className="w-14">Fila</TableHead>
-                    <TableHead>👤 Nombre Completo / Titular</TableHead>
-                    <TableHead>📞 Teléfono</TableHead>
-                    <TableHead>📍 Dirección / Referencia</TableHead>
-                    <TableHead>🗺️ Barrio / Manzana</TableHead>
-                    <TableHead className="text-center w-28">💧 Tomas</TableHead>
+                    <TableHead>Nombre Completo / Titular</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Dirección / Referencia</TableHead>
+                    <TableHead>Barrio / Manzana</TableHead>
+                    <TableHead className="text-center w-28">Tomas</TableHead>
                     <TableHead className="text-center">Estado</TableHead>
                   </TableRow>
                 </TableHeader>
