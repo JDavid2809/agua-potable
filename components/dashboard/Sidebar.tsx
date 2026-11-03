@@ -17,6 +17,7 @@ import {
   Settings,
   User,
   X,
+  HeartHandshake,
 } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 
@@ -61,6 +62,7 @@ const operacionItems: NavItem[] = [
   { href: '/tomas', label: 'Padrón de Tomas', short: 'Tomas', icon: Droplets },
   { href: '/personas', label: 'Contratos y Personas', short: 'Personas', icon: Users },
   { href: '/cobros', label: 'Caja y Cobros', short: 'Cobros', icon: CreditCard },
+  { href: '/cooperaciones', label: 'Cooperaciones y Obras', short: 'Obras', icon: HeartHandshake },
 ];
 
 // Igual que en la versión original, este grupo no se muestra en el menú
