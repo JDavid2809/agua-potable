@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   Filter,
   ChevronRight,
+  ChevronLeft,
   Check,
   FileText,
   Building2,
@@ -41,7 +42,7 @@ import {
 import { ReciboCooperacionModal } from './ReciboCooperacionModal';
 import { ModalProrroga } from './ModalProrroga';
 import { ModalNuevaCooperacion, type NuevaCooperacionData } from './ModalNuevaCooperacion';
-import { VentanillaCobroAbonos } from './VentanillaCobroAbonos';
+import { VentanillaCobroAbonos, limpiarDireccion } from './VentanillaCobroAbonos';
 import type { Persona, Toma, Organizacion } from '@/types/database';
 import type {
   Cooperacion,
@@ -87,9 +88,11 @@ export function CooperacionesManager() {
   const [itemUltimoRecibo, setItemUltimoRecibo] = useState<CooperacionPadronItem | null>(null);
   const [ultimoEfectivoRecibido, setUltimoEfectivoRecibido] = useState<number | null>(null);
 
-  // Filtro del padrón (dentro del detalle)
+  // Filtro y paginación del padrón (dentro del detalle)
   const [filtroEstadoPadron, setFiltroEstadoPadron] = useState<string>('todos');
   const [busquedaPadron, setBusquedaPadron] = useState('');
+  const [paginaPadron, setPaginaPadron] = useState(1);
+  const [itemsPorPaginaPadron, setItemsPorPaginaPadron] = useState(25);
 
   // Modales
   const [modalNuevaOpen, setModalNuevaOpen] = useState(false);
@@ -829,6 +832,16 @@ export function CooperacionesManager() {
     });
   }, [padron, filtroEstadoPadron, busquedaPadron]);
 
+  // Cálculos de paginación del padrón
+  const totalPaginasPadron = Math.max(1, Math.ceil(padronFiltrado.length / itemsPorPaginaPadron));
+  const paginaSeguraPadron = Math.min(paginaPadron, totalPaginasPadron);
+  const indiceInicioPadron = (paginaSeguraPadron - 1) * itemsPorPaginaPadron;
+  const indiceFinPadron = Math.min(indiceInicioPadron + itemsPorPaginaPadron, padronFiltrado.length);
+
+  const padronPaginado = useMemo(() => {
+    return padronFiltrado.slice(indiceInicioPadron, indiceInicioPadron + itemsPorPaginaPadron);
+  }, [padronFiltrado, indiceInicioPadron, itemsPorPaginaPadron]);
+
   if (cargando) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 text-slate-500 dark:text-slate-400">
@@ -1231,7 +1244,10 @@ export function CooperacionesManager() {
                 <input
                   type="text"
                   value={busquedaPadron}
-                  onChange={(e) => setBusquedaPadron(e.target.value)}
+                  onChange={(e) => {
+                    setBusquedaPadron(e.target.value);
+                    setPaginaPadron(1);
+                  }}
                   placeholder="Buscar aportante..."
                   className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
                 />
@@ -1239,7 +1255,10 @@ export function CooperacionesManager() {
 
               <select
                 value={filtroEstadoPadron}
-                onChange={(e) => setFiltroEstadoPadron(e.target.value)}
+                onChange={(e) => {
+                  setFiltroEstadoPadron(e.target.value);
+                  setPaginaPadron(1);
+                }}
                 className="px-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none"
               >
                 <option value="todos">Todos los estados</option>
@@ -1278,7 +1297,7 @@ export function CooperacionesManager() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    padronFiltrado.map((item) => {
+                    padronPaginado.map((item) => {
                       const liquidado = item.estado === 'liquidado';
                       const faena = item.cumplio_con_faena || item.estado === 'exento_faena';
                       const pct =
@@ -1302,10 +1321,20 @@ export function CooperacionesManager() {
 
                           <TableCell>
                             {item.toma?.codigo_toma ? (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono font-bold">
-                                <Droplets className="w-3 h-3" />
-                                {item.toma.codigo_toma}
-                              </span>
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono font-bold">
+                                  <Droplets className="w-3 h-3" />
+                                  {item.toma.codigo_toma}
+                                </span>
+                                {item.toma.direccion_referencia && (
+                                  <span
+                                    className="block text-[11px] text-slate-400 max-w-[220px] truncate"
+                                    title={limpiarDireccion(item.toma.direccion_referencia)}
+                                  >
+                                    {limpiarDireccion(item.toma.direccion_referencia)}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-xs text-slate-500">Titular en censo</span>
                             )}
@@ -1370,6 +1399,76 @@ export function CooperacionesManager() {
                   )}
                 </TableBody>
               </Table>
+
+              {/* Barra de Paginación */}
+              {padronFiltrado.length > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/50">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div>
+                      Mostrando{' '}
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {indiceInicioPadron + 1}–{indiceFinPadron}
+                      </span>{' '}
+                      de{' '}
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {padronFiltrado.length}
+                      </span>{' '}
+                      aportantes
+                    </div>
+
+                    <div className="flex items-center gap-1.5 pl-3 border-l border-slate-200 dark:border-slate-800">
+                      <span className="text-[11px] text-slate-400">Por página:</span>
+                      <select
+                        value={itemsPorPaginaPadron}
+                        onChange={(e) => {
+                          setItemsPorPaginaPadron(Number(e.target.value));
+                          setPaginaPadron(1);
+                        }}
+                        className="px-2 py-1 text-xs rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none"
+                      >
+                        <option value={15}>15</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {totalPaginasPadron > 1 && (
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={paginaSeguraPadron <= 1}
+                        onClick={() => setPaginaPadron((p) => Math.max(1, p - 1))}
+                      >
+                        <span className="flex items-center gap-1">
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                          Anterior
+                        </span>
+                      </Button>
+
+                      <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
+                        Página {paginaSeguraPadron} de {totalPaginasPadron}
+                      </span>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={paginaSeguraPadron >= totalPaginasPadron}
+                        onClick={() => setPaginaPadron((p) => Math.min(totalPaginasPadron, p + 1))}
+                      >
+                        <span className="flex items-center gap-1">
+                          Siguiente
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

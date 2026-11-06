@@ -19,6 +19,7 @@ export interface DashboardHeaderProps {
 
 const SECTION_NAMES: Record<string, string> = {
   '/dashboard': 'Panel Principal',
+  '/cooperaciones': 'Cooperaciones y Obras',
   '/tomas': 'Padrón de Tomas',
   '/personas': 'Contratos y Personas',
   '/cobros': 'Caja y Cobros',
@@ -60,7 +61,10 @@ export function DashboardHeader({
   const [now, setNow] = useState<Date | null>(null);
 
   const path = pathname ?? '';
-  const currentSection = SECTION_NAMES[path] || 'Panel';
+  const currentSection =
+    SECTION_NAMES[path] ||
+    Object.entries(SECTION_NAMES).find(([k]) => path.startsWith(k + '/') || path === k)?.[1] ||
+    'Panel';
   const sectionIndex = SECTION_KEYS.indexOf(path);
   void onToggleMobileMenu;
   void sectionIndex;
