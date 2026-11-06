@@ -179,7 +179,7 @@ function SidebarBody({ collapsed, organizacionNombre, esAdmin }: BodyProps) {
   let order = 0;
 
   return (
-    <div className="flex h-full select-none flex-col overflow-hidden">
+    <div className="flex h-full select-none flex-col overflow-hidden rounded-[inherit]">
       {/* Header: logo fijo, el nombre se desvanece al colapsar */}
       <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200/70 px-5 dark:border-slate-800/70">
         <Image
@@ -670,7 +670,7 @@ export function Sidebar({
 
       {/* Sidebar para ESCRITORIO */}
       <aside
-        className={`group/aside sticky top-0 z-30 hidden h-screen shrink-0 border-r border-slate-200 bg-white transition-[width] duration-300 ${EASE} dark:border-slate-800 dark:bg-slate-900 md:block ${
+        className={`group/aside sticky top-3 z-30 my-3 ml-3 hidden h-[calc(100vh-1.5rem)] shrink-0 rounded-[26px] border border-slate-200 bg-white shadow-sm transition-[width] duration-300 ${EASE} dark:border-slate-800 dark:bg-slate-900 dark:shadow-2xl dark:shadow-black/50 md:block ${
           collapsed ? 'w-20' : 'w-64'
         }`}
       >

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sun, Moon, User, WifiOff, RefreshCw } from 'lucide-react';
+import { Sun, Moon, User, RefreshCw } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -81,16 +81,8 @@ export function DashboardHeader({
   const mm = now ? pad(now.getMinutes()) : '';
 
   return (
-    <header className="sticky top-0 z-20 flex h-20 w-full items-center justify-between gap-2 border-b border-slate-200 bg-white/85 px-4 backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-slate-900/85 sm:gap-6 sm:px-6 lg:px-8">
+    <header className="sticky top-3 z-20 mx-3 mt-3 flex h-[72px] items-center justify-between gap-2 rounded-[22px] border border-slate-200 bg-white px-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900 dark:shadow-2xl dark:shadow-black/50 sm:mx-4 sm:gap-6 sm:px-6 lg:mx-6 lg:px-8">
       <style>{css}</style>
-
-      {/* Destello azul que recorre el borde en cada cambio de ruta */}
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 -bottom-px h-px overflow-hidden">
-        <span
-          key={path}
-          className="fh-flow absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-blue-500 to-transparent dark:via-blue-400"
-        />
-      </span>
 
       {/* 1. Lado Izquierdo: título de sección */}
       <div className="flex min-w-0 items-center gap-2.5 sm:gap-5">
@@ -119,56 +111,8 @@ export function DashboardHeader({
         </nav>
       </div>
 
-      {/* 2. Lado Derecho: en móvil solo el botón de tema; en web estado sync, fecha, tema, usuario y cerrar sesión */}
+      {/* 2. Lado Derecho: en móvil solo el botón de tema; en web fecha, tema, usuario (con punto de estado) y cerrar sesión */}
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
-        {/* Indicador de conectividad y cola de sincronización (solo web md+) */}
-        <button
-          type="button"
-          onClick={onSyncNow}
-          disabled={!enLinea || isSyncing}
-          title={
-            !enLinea
-              ? `Modo sin conexión (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'} de subir)`
-              : pendientesSync > 0
-                ? `Sincronizar ahora (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'})`
-                : 'Conectado y sincronizado con la nube'
-          }
-          className={`hidden md:inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-            !enLinea
-              ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800/80 dark:bg-amber-950/50 dark:text-amber-300'
-              : isSyncing || pendientesSync > 0
-                ? 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800/80 dark:bg-blue-950/50 dark:text-blue-300'
-                : 'border-slate-200 bg-slate-50/80 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300'
-          }`}
-        >
-          {!enLinea ? (
-            <>
-              <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="hidden sm:inline">Offline</span>
-              {pendientesSync > 0 && (
-                <span className="rounded-full bg-amber-200/80 px-1.5 py-0.2 text-[10px] font-extrabold dark:bg-amber-900">
-                  {pendientesSync}
-                </span>
-              )}
-            </>
-          ) : isSyncing ? (
-            <>
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600 dark:text-blue-400" />
-              <span className="hidden sm:inline">Sincronizando</span>
-            </>
-          ) : pendientesSync > 0 ? (
-            <>
-              <RefreshCw className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-              <span>{pendientesSync} pend.</span>
-            </>
-          ) : (
-            <>
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="hidden sm:inline">En línea</span>
-            </>
-          )}
-        </button>
-
         {fecha && (
           <div className="fh-fade hidden items-center gap-3 font-mono text-xs text-slate-400 dark:text-slate-500 lg:flex">
             <span className="capitalize">{fecha}</span>
@@ -197,12 +141,38 @@ export function DashboardHeader({
 
         <div aria-hidden className="hidden h-8 w-px bg-slate-200 dark:bg-slate-800 md:block" />
 
-        {/* Usuario: icono en un círculo (solo web md+) */}
+        {/* Usuario: icono en un círculo con punto de estado online/offline encima (solo web md+) */}
         <div className="group hidden items-center gap-3 md:flex">
           <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-700 shadow-xs transition-all duration-300 group-hover:border-blue-500/50 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:border-blue-400/50 dark:group-hover:bg-blue-950/40 dark:group-hover:text-blue-400"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-700 shadow-xs transition-all duration-300 group-hover:border-blue-500/50 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:border-blue-400/50 dark:group-hover:bg-blue-950/40 dark:group-hover:text-blue-400"
           >
             <User className="h-5 w-5" />
+
+            {/* Punto indicador de estado: verde (en línea) o amarillo (offline) en esquina superior izquierda */}
+            <span
+              onClick={onSyncNow}
+              role="status"
+              title={
+                !enLinea
+                  ? `Sin conexión (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'})`
+                  : isSyncing
+                    ? 'Sincronizando...'
+                    : pendientesSync > 0
+                      ? `Sincronizar ahora (${pendientesSync} pendientes)`
+                      : 'En línea'
+              }
+              className={`absolute top-0 left-0 flex h-2.5 w-2.5 items-center justify-center rounded-full ring-2 ring-white transition-colors duration-300 dark:ring-slate-900 ${
+                isSyncing
+                  ? 'bg-blue-500'
+                  : enLinea
+                    ? 'bg-emerald-500'
+                    : 'bg-amber-400'
+              }`}
+            >
+              {isSyncing && (
+                <RefreshCw className="h-1.5 w-1.5 animate-spin text-white" />
+              )}
+            </span>
           </div>
 
           <div className="hidden flex-col text-left leading-tight md:flex">
