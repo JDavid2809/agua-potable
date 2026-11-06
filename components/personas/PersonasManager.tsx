@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
@@ -132,39 +133,40 @@ export function PersonasManager() {
       if (errManzanas) throw errManzanas;
       setManzanas(dataManzanas || []);
 
-      // Cargar personas con tomas y sus manzanas asociadas
-      const { data: dataPersonas, error: errPersonas } = await supabase
-        .from('personas')
-        .select(`
-          *,
-          tomas:tomas (
-            id,
-            organizacion_id,
-            codigo_toma,
-            persona_id,
-            manzana_id,
-            direccion_referencia,
-            tipo_toma,
-            estado,
-            numero_medidor,
-            saldo_pendiente,
-            created_at,
-            updated_at,
-            deleted_at,
-            manzana:manzanas (
+      // Cargar 100% de personas con tomas y sus manzanas asociadas sin truncamiento a 1,000 filas
+      const dataPersonas = await fetchAllRows<any>((from, to) =>
+        supabase
+          .from('personas')
+          .select(`
+            *,
+            tomas:tomas (
               id,
-              barrio,
-              seccion,
-              numero_manzana,
-              cuadra
+              organizacion_id,
+              codigo_toma,
+              persona_id,
+              manzana_id,
+              direccion_referencia,
+              tipo_toma,
+              estado,
+              numero_medidor,
+              saldo_pendiente,
+              created_at,
+              updated_at,
+              deleted_at,
+              manzana:manzanas (
+                id,
+                barrio,
+                seccion,
+                numero_manzana,
+                cuadra
+              )
             )
-          )
-        `)
-        .is('deleted_at', null)
-        .order('nombre_completo', { ascending: true })
-        .range(0, 4999);
-
-      if (errPersonas) throw errPersonas;
+          `)
+          .is('deleted_at', null)
+          .order('nombre_completo', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
 
       // Limpiar tomas con baja lógica de la vista activa
       const formateadas: PersonaConTomas[] = (dataPersonas || []).map((p: any) => ({

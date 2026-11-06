@@ -4,6 +4,7 @@ import { connection } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getSesionActual } from '@/lib/auth/session';
 import { DashboardOverview } from '@/components/dashboard/DashboardOverview';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import type { Toma, Pago } from '@/types/database';
 
 export const instant = false;
@@ -21,19 +22,23 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const orgId = perfil.organizacion_id;
 
-  // 2. Cargar en paralelo métricas, padrón y cobros para el panel general
+  // 2. Cargar en paralelo métricas, padrón y cobros para el panel general sin límites de 1,000
   const [
-    { count: tomasCount, data: tomasData },
+    tomasData,
     { count: personasCount },
     { count: usuariosCount },
     { data: pagosData },
   ] = await Promise.all([
-    supabase
-      .from('tomas')
-      .select('id, codigo_toma, tipo_toma, estado, saldo_pendiente, persona:personas(nombre_completo)', { count: 'exact' })
-      .eq('organizacion_id', orgId)
-      .is('deleted_at', null)
-      .order('codigo_toma', { ascending: true }),
+    fetchAllRows<any>((from, to) =>
+      supabase
+        .from('tomas')
+        .select('id, codigo_toma, tipo_toma, estado, saldo_pendiente, persona:personas(nombre_completo)')
+        .eq('organizacion_id', orgId)
+        .is('deleted_at', null)
+        .order('codigo_toma', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to)
+    ),
     supabase
       .from('personas')
       .select('*', { count: 'exact', head: true })
@@ -59,6 +64,8 @@ export default async function DashboardPage() {
       .order('fecha_pago', { ascending: false })
       .limit(100),
   ]);
+
+  const tomasCount = tomasData.length;
 
   return (
     <DashboardOverview

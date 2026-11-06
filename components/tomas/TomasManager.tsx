@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
@@ -97,28 +98,32 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
-      // 1. Cargar tomas con persona y manzana
-      const { data: dataTomas, error: errTomas } = await supabase
-        .from('tomas')
-        .select(`
-          *,
-          persona:personas(id, nombre_completo, documento_identidad, telefono),
-          manzana:manzanas(id, barrio, seccion, numero_manzana, cuadra)
-        `)
-        .is('deleted_at', null)
-        .order('codigo_toma', { ascending: true });
-
-      if (errTomas) throw errTomas;
+      // 1. Cargar tomas con persona y manzana sin truncamiento a 1,000 filas
+      const dataTomas = await fetchAllRows<TomaDetallada>((from, to) =>
+        supabase
+          .from('tomas')
+          .select(`
+            *,
+            persona:personas(id, nombre_completo, documento_identidad, telefono),
+            manzana:manzanas(id, barrio, seccion, numero_manzana, cuadra)
+          `)
+          .is('deleted_at', null)
+          .order('codigo_toma', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
       setTomas(dataTomas || []);
 
-      // 2. Cargar personas para selector
-      const { data: dataPersonas, error: errPersonas } = await supabase
-        .from('personas')
-        .select('*')
-        .is('deleted_at', null)
-        .order('nombre_completo', { ascending: true });
-
-      if (errPersonas) throw errPersonas;
+      // 2. Cargar personas para selector sin truncamiento a 1,000 filas
+      const dataPersonas = await fetchAllRows<Persona>((from, to) =>
+        supabase
+          .from('personas')
+          .select('*')
+          .is('deleted_at', null)
+          .order('nombre_completo', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
       setPersonas(dataPersonas || []);
 
       // 3. Cargar manzanas para selector

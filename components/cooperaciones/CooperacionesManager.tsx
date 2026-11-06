@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
+import { fetchAllRows, insertInBatches } from '@/lib/supabase/fetch-all';
 import { PageHeader, PageTabs } from '@/components/ui/PageHeader';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -155,47 +156,55 @@ export function CooperacionesManager() {
         : perfilData.organizacion) as unknown as Organizacion;
       setOrganizacion(org);
 
-      // 2. Cargar tomas y personas reales de la organización
-      const [{ data: pData }, { data: tData }, { data: coopsData, error: errCoops }] =
-        await Promise.all([
+      // 2. Cargar tomas y personas reales de la organización sin límite de 1,000 filas
+      const [personasCargadas, tomasCargadas, coopsRes] = await Promise.all([
+        fetchAllRows<Persona>((from, to) =>
           supabase
             .from('personas')
             .select('*')
             .eq('organizacion_id', orgId)
             .is('deleted_at', null)
-            .order('nombre_completo'),
+            .order('nombre_completo', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to)
+        ),
+        fetchAllRows<Toma & { persona?: Persona }>((from, to) =>
           supabase
             .from('tomas')
             .select('*, persona:personas(*), manzana:manzanas(*)')
             .eq('organizacion_id', orgId)
             .is('deleted_at', null)
-            .order('codigo_toma'),
-          supabase
-            .from('cooperaciones')
-            .select('*')
-            .eq('organizacion_id', orgId)
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false }),
-        ]);
+            .order('codigo_toma', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to)
+        ),
+        supabase
+          .from('cooperaciones')
+          .select('*')
+          .eq('organizacion_id', orgId)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false }),
+      ]);
 
-      const personasCargadas = pData || [];
-      const tomasCargadas = (tData || []) as (Toma & { persona?: Persona })[];
       setPersonas(personasCargadas);
       setTomas(tomasCargadas);
 
-      if (errCoops) {
+      if (coopsRes.error) {
         // Si la tabla no existe aún en la base de datos, mostramos lista vacía
         setCooperaciones([]);
       } else {
-        const listaCoops = (coopsData || []) as unknown as Cooperacion[];
+        const listaCoops = (coopsRes.data || []) as unknown as Cooperacion[];
         setCooperaciones(listaCoops);
 
-        // 3. Cargar recaudación real de todas las cooperaciones
+        // 3. Cargar recaudación real de todas las cooperaciones sin límite de 1,000 filas
         if (listaCoops.length > 0) {
-          const { data: abonosData } = await supabase
-            .from('cooperacion_abonos')
-            .select('monto_abono, padron:cooperacion_padron!inner(cooperacion_id)')
-            .eq('organizacion_id', orgId);
+          const abonosData = await fetchAllRows<any>((from, to) =>
+            supabase
+              .from('cooperacion_abonos')
+              .select('monto_abono, padron:cooperacion_padron!inner(cooperacion_id)')
+              .eq('organizacion_id', orgId)
+              .range(from, to)
+          );
 
           const mapaTotales: Record<string, number> = {};
           (abonosData || []).forEach((ab: any) => {
@@ -228,20 +237,25 @@ export function CooperacionesManager() {
     async (coop: Cooperacion) => {
       try {
         setCargandoPadron(true);
-        const { data: padronData, error: errPadron } = await supabase
-          .from('cooperacion_padron')
-          .select(`
-            *,
-            persona:personas(*),
-            toma:tomas(*),
-            abonos:cooperacion_abonos(*)
-          `)
-          .eq('cooperacion_id', coop.id)
-          .order('created_at', { ascending: true });
+        // Cargar 100% de los aportantes del padrón real paginando sin truncamiento a 1,000
+        const padronData = await fetchAllRows<CooperacionPadronItem>((from, to) =>
+          supabase
+            .from('cooperacion_padron')
+            .select(`
+              *,
+              persona:personas(*),
+              toma:tomas(*),
+              abonos:cooperacion_abonos(*)
+            `)
+            .eq('cooperacion_id', coop.id)
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
 
-        if (!errPadron && padronData && padronData.length > 0) {
+        if (padronData && padronData.length > 0) {
           // Padrón real existente en la base de datos
-          setPadron(padronData as unknown as CooperacionPadronItem[]);
+          setPadron(padronData);
         } else {
           // Si el padrón de esta cooperación no se ha poblado aún en la BD,
           // lo generamos a partir de las tomas o personas reales de la organización
@@ -266,20 +280,21 @@ export function CooperacionesManager() {
           });
 
           if (rowsParaInsertar.length > 0) {
-            const { data: insertados, error: errInsert } = await supabase
-              .from('cooperacion_padron')
-              .insert(rowsParaInsertar)
-              .select(`
-                *,
-                persona:personas(*),
-                toma:tomas(*)
-              `);
-
-            if (!errInsert && insertados) {
-              setPadron(insertados as unknown as CooperacionPadronItem[]);
-            } else {
-              setPadron([]);
-            }
+            await insertInBatches(supabase, 'cooperacion_padron', rowsParaInsertar, 150);
+            const padronRecargado = await fetchAllRows<CooperacionPadronItem>((from, to) =>
+              supabase
+                .from('cooperacion_padron')
+                .select(`
+                  *,
+                  persona:personas(*),
+                  toma:tomas(*),
+                  abonos:cooperacion_abonos(*)
+                `)
+                .eq('cooperacion_id', coop.id)
+                .order('created_at', { ascending: true })
+                .range(from, to)
+            );
+            setPadron(padronRecargado);
           } else {
             setPadron([]);
           }
@@ -492,7 +507,7 @@ export function CooperacionesManager() {
         });
 
         if (rowsParaInsertar.length > 0) {
-          await supabase.from('cooperacion_padron').insert(rowsParaInsertar);
+          await insertInBatches(supabase, 'cooperacion_padron', rowsParaInsertar, 150);
         }
       }
 

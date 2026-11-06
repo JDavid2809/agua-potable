@@ -137,7 +137,7 @@ export function DashboardOverview({
       }
     });
 
-    const totalCalculado = tomas.length || totalTomasCount || 1;
+    const totalCalculado = totalTomasCount || tomas.length || 1;
     const porcentajeAlCorriente = Math.round(
       ((totalCalculado - conSaldoPendiente) / totalCalculado) * 100
     );

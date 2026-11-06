@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { CreditCard, Receipt, Banknote, Droplets } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
+import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { dbLocal } from '@/lib/db/offline-db';
 import { PageHeader, PageTabs } from '@/components/ui/PageHeader';
 import { VentanillaCobro } from './VentanillaCobro';
@@ -61,28 +62,32 @@ export function CobrosManager() {
         }
       }
 
-      // 2. Cargar Tomas activas con su persona y manzana asociada
-      const { data: dataTomas, error: errTomas } = await supabase
-        .from('tomas')
-        .select(`
-          *,
-          persona:personas (*),
-          manzana:manzanas (id, barrio, seccion, numero_manzana)
-        `)
-        .is('deleted_at', null)
-        .order('codigo_toma', { ascending: true });
-
-      if (errTomas) throw errTomas;
+      // 2. Cargar Tomas activas con su persona y manzana asociada sin límite de 1,000
+      const dataTomas = await fetchAllRows<any>((from, to) =>
+        supabase
+          .from('tomas')
+          .select(`
+            *,
+            persona:personas (*),
+            manzana:manzanas (id, barrio, seccion, numero_manzana)
+          `)
+          .is('deleted_at', null)
+          .order('codigo_toma', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
       setTomas(dataTomas || []);
 
-      // 3. Cargar personas
-      const { data: dataPersonas, error: errPersonas } = await supabase
-        .from('personas')
-        .select('*')
-        .is('deleted_at', null)
-        .order('nombre_completo', { ascending: true });
-
-      if (errPersonas) throw errPersonas;
+      // 3. Cargar personas sin límite de 1,000
+      const dataPersonas = await fetchAllRows<Persona>((from, to) =>
+        supabase
+          .from('personas')
+          .select('*')
+          .is('deleted_at', null)
+          .order('nombre_completo', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
       setPersonas(dataPersonas || []);
 
       // 4. Cargar Historial de Pagos con sus detalles
