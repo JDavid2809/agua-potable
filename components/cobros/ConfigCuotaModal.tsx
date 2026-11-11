@@ -33,10 +33,10 @@ export function ConfigCuotaModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cuotaNum = parseFloat(cuota);
-    const recargoNum = parseFloat(recargo);
+    const cuotaNum = Number.parseFloat(cuota);
+    const recargoNum = Number.parseFloat(recargo);
 
-    if (isNaN(cuotaNum) || cuotaNum <= 0) {
+    if (Number.isNaN(cuotaNum) || cuotaNum <= 0) {
       sileo.error({
         title: 'Valor inválido',
         description: 'La cuota base debe ser un monto numérico mayor a cero.',
@@ -44,7 +44,7 @@ export function ConfigCuotaModal({
       return;
     }
 
-    if (isNaN(recargoNum) || recargoNum < 0) {
+    if (Number.isNaN(recargoNum) || recargoNum < 0) {
       sileo.error({
         title: 'Valor inválido',
         description: 'El recargo por mora debe ser cero o un número positivo.',
@@ -150,10 +150,14 @@ export function ConfigCuotaModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+            <label
+              htmlFor="config-cuota-base"
+              className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+            >
               Cuota Base Mensual ($ MXN)
             </label>
             <Input
+              id="config-cuota-base"
               type="number"
               step="0.50"
               min="1"
@@ -168,10 +172,14 @@ export function ConfigCuotaModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+            <label
+              htmlFor="config-recargo-mora"
+              className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+            >
               Recargo por Mora Mensual ($ MXN)
             </label>
             <Input
+              id="config-recargo-mora"
               type="number"
               step="0.50"
               min="0"

@@ -35,6 +35,39 @@ let isSyncInProgress = false;
 let activeSyncPromise: Promise<ResultadoSincronizacion> | null = null;
 
 /**
+ * Determina si un error corresponde a una falla real de red / desconexión
+ */
+function esErrorDeRed(err: unknown): boolean {
+  if (typeof window !== 'undefined' && !navigator.onLine) return true;
+  const msg = obtenerMensajeError(err, '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed') ||
+    msg.includes('internet') ||
+    msg.includes('offline')
+  );
+}
+
+function generarSufijoDispositivoSeguro(): string {
+  if (typeof crypto !== 'undefined') {
+    if (typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase();
+    }
+    if (typeof crypto.getRandomValues === 'function') {
+      const buffer = new Uint32Array(2);
+      crypto.getRandomValues(buffer);
+      return Array.from(buffer, (n) => n.toString(16).padStart(8, '0'))
+        .join('')
+        .substring(0, 8)
+        .toUpperCase();
+    }
+  }
+  return Date.now().toString(36).toUpperCase();
+}
+
+/**
  * Obtiene o inicializa un identificador único persistente para este dispositivo físico.
  * Utilizado para generar folios únicos offline y auditar el origen del cobro.
  */
@@ -43,13 +76,11 @@ export async function obtenerODefinirDispositivoId(): Promise<string> {
     return 'DEV-SERVER';
   }
 
-  // 1. Intentar leer de localStorage
   let deviceId = localStorage.getItem('fluvib_device_id');
   if (deviceId && deviceId.trim()) {
     return deviceId.trim();
   }
 
-  // 2. Intentar leer de la base de datos local Dexie
   const registroDb = await dbLocal.config_sync.get('device_id');
   if (registroDb && registroDb.valor) {
     deviceId = registroDb.valor;
@@ -57,10 +88,7 @@ export async function obtenerODefinirDispositivoId(): Promise<string> {
     return deviceId;
   }
 
-  // 3. Generar un nuevo ID con entropía de 8 caracteres alfanuméricos
-  const randomPart = typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase()
-    : Math.random().toString(36).substring(2, 10).toUpperCase();
+  const randomPart = generarSufijoDispositivoSeguro();
 
   deviceId = `DEV-${randomPart}`;
 
@@ -71,7 +99,7 @@ export async function obtenerODefinirDispositivoId(): Promise<string> {
 }
 
 /**
- * Genera un folio offline garantizado único por dispositivo y año.
+ * Genera un folio garantizado único por dispositivo y año.
  * Formato: REC-{ANIO}-{DISPOSITIVO_CORTO}-{CORRELATIVO} (Ej: REC-2026-F8A2-0001)
  */
 export async function generarFolioOffline(_organizacionId?: string): Promise<string> {
@@ -81,14 +109,12 @@ export async function generarFolioOffline(_organizacionId?: string): Promise<str
   const anio = new Date().getFullYear();
   const claveCorrelativo = `correlativo_folio_${anio}`;
 
-  // Obtener último número usado en este dispositivo
   const itemConfig = await dbLocal.config_sync.get(claveCorrelativo);
   let consecutivo = 1;
-  if (itemConfig && !isNaN(parseInt(itemConfig.valor, 10))) {
-    consecutivo = parseInt(itemConfig.valor, 10) + 1;
+  if (itemConfig && !Number.isNaN(Number.parseInt(itemConfig.valor, 10))) {
+    consecutivo = Number.parseInt(itemConfig.valor, 10) + 1;
   }
 
-  // Guardar nuevo consecutivo local
   await dbLocal.config_sync.put({
     clave: claveCorrelativo,
     valor: consecutivo.toString(),
@@ -99,29 +125,197 @@ export async function generarFolioOffline(_organizacionId?: string): Promise<str
 }
 
 /**
- * Registra un cobro de forma atómica en Dexie (IndexedDB) y encola la transacción
- * completa (pago + conceptos) como una sola unidad para la RPC en la nube.
+ * Guarda un pago y sus detalles directamente en Supabase.
+ * 1. Intenta primero la RPC transaccional `registrar_pago_sincronizado`.
+ * 2. Si la RPC falla (ej. restricción antigua UNIQUE(toma_id, anio, mes) o RPC no creada),
+ *    ejecuta INSERT directo en `pagos`, `pago_detalles` y actualiza `tomas.saldo_pendiente`.
+ *    Usa `.insert()` en lugar de `.upsert()` para no requerir permisos RLS de UPDATE (cobros.anular).
+ */
+async function guardarPagoEnSupabase(
+  pago: Pago,
+  detalles: PagoDetalle[]
+): Promise<{ folioFinal: string }> {
+  let folioActual = pago.folio;
+
+  const pagoLimpio: Record<string, unknown> = {
+    id: pago.id,
+    organizacion_id: pago.organizacion_id,
+    folio: folioActual,
+    persona_id: pago.persona_id,
+    cajero_id: pago.cajero_id || null,
+    total: Number(pago.total),
+    metodo_pago: pago.metodo_pago || 'efectivo',
+    fecha_pago: pago.fecha_pago || new Date().toISOString(),
+    notas: pago.notas || null,
+    dispositivo_offline_id: pago.dispositivo_offline_id || null,
+    created_at: pago.created_at || new Date().toISOString(),
+  };
+
+  const detallesLimpios: Record<string, unknown>[] = (detalles || []).map((d) => ({
+    id: d.id,
+    organizacion_id: d.organizacion_id || pago.organizacion_id,
+    pago_id: d.pago_id || pago.id,
+    toma_id: d.toma_id,
+    anio: Number(d.anio),
+    mes: Number(d.mes),
+    monto: Number(d.monto),
+    recargo: Number(d.recargo || 0),
+    created_at: d.created_at || new Date().toISOString(),
+  }));
+
+  // 1. Intentar mediante RPC transaccional
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+    'registrar_pago_sincronizado',
+    {
+      p_pago: pagoLimpio,
+      p_detalles: detallesLimpios,
+    }
+  );
+
+  if (!rpcErr && rpcRes?.success) {
+    return { folioFinal: (rpcRes.folio as string) || folioActual };
+  }
+
+  // 2. Fallback directo con INSERT (compatible con políticas RLS de cobros.crear)
+  const { data: pagoExistente } = await supabase
+    .from('pagos')
+    .select('id, folio')
+    .eq('id', pago.id)
+    .maybeSingle();
+
+  if (!pagoExistente) {
+    let { error: errInsertPago } = await supabase.from('pagos').insert(pagoLimpio);
+
+    // Si hubo colisión de folio en la misma organización, agregar sufijo único y reintentar
+    if (
+      errInsertPago &&
+      (errInsertPago.code === '23505' || errInsertPago.message?.includes('duplicate key')) &&
+      errInsertPago.message?.includes('folio')
+    ) {
+      folioActual = `${folioActual}-${pago.id.substring(0, 4).toUpperCase()}`;
+      pagoLimpio.folio = folioActual;
+      const retry = await supabase.from('pagos').insert(pagoLimpio);
+      errInsertPago = retry.error;
+    }
+
+    if (
+      errInsertPago &&
+      errInsertPago.code !== '23505' &&
+      !errInsertPago.message?.includes('duplicate key')
+    ) {
+      throw errInsertPago;
+    }
+  } else if (pagoExistente.folio) {
+    folioActual = pagoExistente.folio;
+  }
+
+  // 3. Insertar cada detalle de pago con INSERT individual tolerante a duplicados de periodo
+  for (const det of detallesLimpios) {
+    const { error: errDet } = await supabase.from('pago_detalles').insert(det);
+    if (errDet) {
+      const esDuplicado =
+        errDet.code === '23505' || errDet.message?.includes('duplicate key');
+      if (!esDuplicado) {
+        throw errDet;
+      }
+    }
+  }
+
+  // 4. Descontar saldo pendiente de la toma en Supabase
+  for (const det of detallesLimpios) {
+    try {
+      const { data: tomaNube } = await supabase
+        .from('tomas')
+        .select('saldo_pendiente')
+        .eq('id', det.toma_id)
+        .maybeSingle();
+
+      if (tomaNube && typeof tomaNube.saldo_pendiente === 'number') {
+        const nuevoSaldo = Math.max(0, Number(tomaNube.saldo_pendiente) - Number(det.monto));
+        await supabase
+          .from('tomas')
+          .update({
+            saldo_pendiente: nuevoSaldo,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', det.toma_id);
+      }
+    } catch {
+      // No bloquear si el rol cajero no tiene permiso de update directo en tomas
+    }
+  }
+
+  return { folioFinal: folioActual };
+}
+
+/**
+ * Registra un cobro:
+ * - Si hay conexión a internet: lo guarda DIRECTAMENTE en Supabase sin encolarlo en local.
+ * - Solo si NO hay internet (fallo de red real): lo guarda en IndexedDB (`cola_sync`)
+ *   para sincronizarlo cuando regrese la conexión.
  */
 export async function registrarPagoLocal(pago: Pago, detalles: PagoDetalle[]) {
   const deviceId = await obtenerODefinirDispositivoId();
 
-  // Asegurar dispositivo offline id y folio
   const pagoFinal: Pago = {
     ...pago,
     dispositivo_offline_id: pago.dispositivo_offline_id || deviceId,
     folio: pago.folio || (await generarFolioOffline(pago.organizacion_id)),
   };
 
-  // 1. Guardar de forma atómica en Dexie
+  // MODO EN LÍNEA PRIMERO: Si hay conectividad, guardar directamente en Supabase
+  if (typeof window !== 'undefined' && navigator.onLine && isSupabaseConfigured) {
+    try {
+      const { folioFinal } = await guardarPagoEnSupabase(pagoFinal, detalles);
+      pagoFinal.folio = folioFinal;
+      pagoFinal.sincronizado_en = new Date().toISOString();
+
+      // Actualizar caché local de solo lectura (sin agregar nada a cola_sync)
+      try {
+        await dbLocal.transaction('rw', [dbLocal.pagos, dbLocal.pago_detalles, dbLocal.tomas], async () => {
+          await dbLocal.pagos.put(pagoFinal);
+          for (const detalle of detalles) {
+            await dbLocal.pago_detalles.put(detalle);
+            const tomaLocal = await dbLocal.tomas.get(detalle.toma_id);
+            if (tomaLocal) {
+              const nuevoSaldo = Math.max(0, (tomaLocal.saldo_pendiente || 0) - detalle.monto);
+              await dbLocal.tomas.update(detalle.toma_id, {
+                saldo_pendiente: nuevoSaldo,
+                updated_at: new Date().toISOString(),
+              });
+            }
+          }
+        });
+      } catch {
+        // Ignorar errores de caché local cuando ya se guardó en Supabase
+      }
+
+      // Aprovechar conexión para vaciar cualquier otro elemento antiguo de la cola
+      sincronizarConNube().catch(() => {});
+
+      return {
+        success: true,
+        pagoId: pagoFinal.id,
+        folio: pagoFinal.folio,
+        guardadoEnNube: true,
+      };
+    } catch (err: unknown) {
+      // Si NO es un fallo de desconexión de internet (ej. error de permisos o validación de BD),
+      // lanzar el error para que el usuario lo vea en pantalla y NO guardarlo engañosamente en local.
+      if (!esErrorDeRed(err)) {
+        throw err;
+      }
+      console.warn('[SyncEngine] Sin conexión real a Supabase, guardando cobro en cola offline:', err);
+    }
+  }
+
+  // MODO OFFLINE (Solo cuando realmente no hay conexión a internet)
   await dbLocal.transaction('rw', [dbLocal.pagos, dbLocal.pago_detalles, dbLocal.tomas, dbLocal.cola_sync], async () => {
-    // Guardar encabezado del pago
     await dbLocal.pagos.put(pagoFinal);
 
-    // Guardar cada detalle del recibo
     for (const detalle of detalles) {
       await dbLocal.pago_detalles.put(detalle);
 
-      // Actualizar saldo de la toma en la BD local de inmediato para el cajero
       const tomaLocal = await dbLocal.tomas.get(detalle.toma_id);
       if (tomaLocal) {
         const nuevoSaldo = Math.max(0, (tomaLocal.saldo_pendiente || 0) - detalle.monto);
@@ -132,7 +326,6 @@ export async function registrarPagoLocal(pago: Pago, detalles: PagoDetalle[]) {
       }
     }
 
-    // 2. Encolar como transacción atómica única (L1 & L2)
     const itemTransaccion: ElementoColaSync = {
       tabla: 'transaccion_pago',
       accion: 'INSERT',
@@ -149,16 +342,12 @@ export async function registrarPagoLocal(pago: Pago, detalles: PagoDetalle[]) {
     await dbLocal.cola_sync.add(itemTransaccion);
   });
 
-  // Si hay conexión activa, sincronizar antes de resolver para que las vistas en la nube reflejen el pago de inmediato
-  if (typeof window !== 'undefined' && navigator.onLine && isSupabaseConfigured) {
-    try {
-      await sincronizarConNube();
-    } catch (err) {
-      console.warn('Sincronización en segundo plano pospuesta:', err);
-    }
-  }
-
-  return { success: true, pagoId: pagoFinal.id, folio: pagoFinal.folio };
+  return {
+    success: true,
+    pagoId: pagoFinal.id,
+    folio: pagoFinal.folio,
+    guardadoEnNube: false,
+  };
 }
 
 /**
@@ -203,12 +392,10 @@ async function descargarTablaPaginada<T extends { id: string; updated_at?: strin
 }
 
 /**
- * Sincroniza datos pendientes hacia Supabase (PUSH) usando RPC transaccional
+ * Sincroniza todos los datos pendientes en `cola_sync` hacia Supabase (PUSH)
  * y descarga datos nuevos/modificados de forma paginada (PULL).
- * Protegido contra concurrencia con un mutex de módulo.
  */
 export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
-  // Si ya hay una sincronización en curso, reutilizar la promesa existente
   if (isSyncInProgress && activeSyncPromise) {
     return activeSyncPromise;
   }
@@ -238,127 +425,34 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
     let conError = 0;
 
     try {
-      // --- FASE 1: PUSH (Enviar lo que se cobró u operó offline) ---
-      // Traer elementos pendientes o procesables (excluyendo aquellos que ya superaron el límite de reintentos)
-      const todosLosItems = await dbLocal.cola_sync.toArray();
-      const itemsAProcesar = todosLosItems.filter(
-        (item) => item.estado !== 'error' && (item.intentos || 0) < MAX_INTENTOS
-      );
+      // --- FASE 1: PUSH (Procesar TODOS los elementos de la cola local, incluyendo los que tenían error previo) ---
+      const itemsAProcesar = await dbLocal.cola_sync.toArray();
 
       for (const item of itemsAProcesar) {
         try {
           if (item.tabla === 'transaccion_pago') {
             const payload = item.datos as TransaccionPagoData;
+            const { folioFinal } = await guardarPagoEnSupabase(
+              payload.pago,
+              payload.detalles || []
+            );
 
-            // Sanitizar objetos: remover relaciones de UI (persona, cajero, detalles, toma)
-            // para evitar que PostgreSQL o PostgREST fallen por campos que no pertenecen a las tablas
-            const pagoLimpio: Record<string, unknown> = {
-              id: payload.pago.id,
-              organizacion_id: payload.pago.organizacion_id,
-              folio: payload.pago.folio,
-              persona_id: payload.pago.persona_id,
-              cajero_id: payload.pago.cajero_id || null,
-              total: Number(payload.pago.total),
-              metodo_pago: payload.pago.metodo_pago || 'efectivo',
-              fecha_pago: payload.pago.fecha_pago || new Date().toISOString(),
-              notas: payload.pago.notas || null,
-              dispositivo_offline_id: payload.pago.dispositivo_offline_id || null,
-              created_at: payload.pago.created_at || new Date().toISOString(),
-            };
-
-            const detallesLimpios: Record<string, unknown>[] = (payload.detalles || []).map((d) => ({
-              id: d.id,
-              organizacion_id: d.organizacion_id || payload.pago.organizacion_id,
-              pago_id: d.pago_id || payload.pago.id,
-              toma_id: d.toma_id,
-              anio: Number(d.anio),
-              mes: Number(d.mes),
-              monto: Number(d.monto),
-              recargo: Number(d.recargo || 0),
-              created_at: d.created_at || new Date().toISOString(),
-            }));
-
-            let sincronizado = false;
-
-            // 1. Intentar registrar a través de RPC transaccional
-            try {
-              const { data: rpcRes, error: rpcErr } = await supabase.rpc(
-                'registrar_pago_sincronizado',
-                {
-                  p_pago: pagoLimpio,
-                  p_detalles: detallesLimpios,
-                }
-              );
-
-              if (rpcErr) {
-                console.warn('[SyncEngine] RPC registrar_pago_sincronizado devolvió error, intentando inserción directa:', rpcErr);
-              } else if (rpcRes?.success) {
-                sincronizado = true;
-              } else {
-                console.warn('[SyncEngine] RPC registrar_pago_sincronizado no exitosa:', rpcRes?.mensaje);
-              }
-            } catch (rpcCatch) {
-              console.warn('[SyncEngine] Fallo al invocar RPC registrar_pago_sincronizado:', rpcCatch);
-            }
-
-            // 2. Fallback: Inserción directa en tablas si la RPC falló o no existe en Supabase
-            if (!sincronizado) {
-              // Insertar encabezado de pago
-              const { error: errPago } = await supabase.from('pagos').upsert(pagoLimpio);
-              if (errPago && !errPago.message?.includes('duplicate key')) {
-                throw errPago;
-              }
-
-              // Insertar detalles
-              if (detallesLimpios.length > 0) {
-                const { error: errDetalles } = await supabase
-                  .from('pago_detalles')
-                  .upsert(detallesLimpios, { onConflict: 'id' });
-                if (errDetalles && !errDetalles.message?.includes('duplicate key')) {
-                  throw errDetalles;
-                }
-              }
-
-              // Descontar saldo de la toma en la nube si es posible
-              for (const det of detallesLimpios) {
-                try {
-                  const { data: tomaNube } = await supabase
-                    .from('tomas')
-                    .select('saldo_pendiente')
-                    .eq('id', det.toma_id)
-                    .single();
-                  if (tomaNube && typeof tomaNube.saldo_pendiente === 'number') {
-                    const nuevoSaldo = Math.max(0, tomaNube.saldo_pendiente - Number(det.monto));
-                    await supabase
-                      .from('tomas')
-                      .update({ saldo_pendiente: nuevoSaldo, updated_at: new Date().toISOString() })
-                      .eq('id', det.toma_id);
-                  }
-                } catch {
-                  // Saldo de toma no crítico en fallback
-                }
-              }
-
-              sincronizado = true;
-            }
-
-            // Actualizar timestamp de sincronización en el registro local
             await dbLocal.pagos.update(payload.pago.id, {
+              folio: folioFinal,
               sincronizado_en: new Date().toISOString(),
             });
           } else if (item.tabla === 'pagos' && item.accion === 'INSERT') {
-            // Compatibilidad hacia atrás con items individuales
             const { error } = await supabase.from('pagos').insert(item.datos);
             if (error && !error.message.includes('duplicate key')) throw error;
           } else if (item.tabla === 'pago_detalles' && item.accion === 'INSERT') {
             const { error } = await supabase.from('pago_detalles').insert(item.datos);
             if (error && !error.message.includes('duplicate key')) throw error;
           } else if (item.tabla === 'personas' && item.accion === 'INSERT') {
-            const { error } = await supabase.from('personas').upsert(item.datos);
-            if (error) throw error;
+            const { error } = await supabase.from('personas').insert(item.datos);
+            if (error && !error.message.includes('duplicate key')) throw error;
           } else if (item.tabla === 'tomas' && item.accion === 'INSERT') {
-            const { error } = await supabase.from('tomas').upsert(item.datos);
-            if (error) throw error;
+            const { error } = await supabase.from('tomas').insert(item.datos);
+            if (error && !error.message.includes('duplicate key')) throw error;
           }
 
           // Si el envío concluyó con éxito, retirar de la cola local
@@ -402,7 +496,6 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
           descargarTablaPaginada<Tarifa>('tarifas', desdeTimestamp),
         ]);
 
-        // Procesar inserciones/actualizaciones y borrados suaves (soft-deletes)
         if (personasNuevas.length > 0) {
           const activas = personasNuevas.filter((p) => !p.deleted_at);
           const eliminadas = personasNuevas.filter((p) => !!p.deleted_at);
@@ -419,7 +512,7 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
 
         if (manzanasNuevas.length > 0) {
           const activas = manzanasNuevas.filter((m) => !m.deleted_at);
-          const eliminadas = manzanasNuevas.filter((m) => !!m.deleted_at);
+          const eliminadas = manzanasNuevas.filter((m) => !!tHasDeleted(m));
           if (activas.length > 0) await dbLocal.manzanas.bulkPut(activas);
           for (const m of eliminadas) await dbLocal.manzanas.delete(m.id);
         }
@@ -428,7 +521,6 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
           await dbLocal.tarifas.bulkPut(tarifasNuevas);
         }
 
-        // Actualizar marca de agua de última sincronización completada
         await dbLocal.config_sync.put({
           clave: 'ultima_sincronizacion',
           valor: inicioDescarga,
@@ -438,7 +530,7 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
       }
 
       return {
-        exito: true,
+        exito: conError === 0,
         elementosEnviados: enviados,
         elementosConError: conError,
         mensaje: `Sincronización finalizada. ${enviados} subido(s) a la nube.${conError > 0 ? ` ${conError} con error.` : ''}`,
@@ -452,12 +544,16 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
   return activeSyncPromise;
 }
 
+function tHasDeleted(m: Manzana): boolean {
+  return Boolean(m.deleted_at);
+}
+
 /**
  * Obtiene el resumen actual de la cola de sincronización, errores y conectividad
  */
 export async function obtenerEstadoSincronizacion(): Promise<ResumenSincronizacion> {
   const todosLosItems = await dbLocal.cola_sync.toArray();
-  const pendientes = todosLosItems.filter((i) => i.estado !== 'error' && (i.intentos || 0) < MAX_INTENTOS).length;
+  const pendientes = todosLosItems.length;
   const conError = todosLosItems.filter((i) => i.estado === 'error' || (i.intentos || 0) >= MAX_INTENTOS).length;
   const config = await dbLocal.config_sync.get('ultima_sincronizacion');
 
@@ -479,14 +575,14 @@ export async function reintentarElementoError(id: number): Promise<boolean> {
     estado: 'pendiente',
     ultimo_error: undefined,
   });
-  sincronizarConNube().catch(console.error);
+  await sincronizarConNube();
   return true;
 }
 
 /**
- * Obtiene la lista de elementos envenenados o con fallos permanentes en la cola local
+ * Obtiene la lista de elementos envenenados o con fallos en la cola local
  */
 export async function obtenerElementosConError(): Promise<ElementoColaSync[]> {
   const items = await dbLocal.cola_sync.toArray();
-  return items.filter((i) => i.estado === 'error' || (i.intentos || 0) >= MAX_INTENTOS);
+  return items.filter((i) => i.estado === 'error' || (i.intentos || 0) >= MAX_INTENTOS || Boolean(i.ultimo_error));
 }

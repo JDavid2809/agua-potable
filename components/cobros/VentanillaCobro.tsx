@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SearchInput } from '@/components/ui/FilterBar';
 import { registrarPagoLocal } from '@/lib/sync/sync-engine';
+import { obtenerMensajeError } from '@/lib/utils/errors';
 import { ReciboTicketModal } from './ReciboTicketModal';
 import type {
   Persona,
@@ -163,11 +164,11 @@ export function VentanillaCobro({
     } else if (modoCobro === 'saldo') {
       subtotal = tomaSeleccionada?.saldo_pendiente || cuotaBase;
     } else {
-      subtotal = parseFloat(montoPersonalizado) || 0;
+      subtotal = Number.parseFloat(montoPersonalizado) || 0;
     }
 
     const total = subtotal + recargos;
-    const efectivoNum = parseFloat(efectivoRecibido) || 0;
+    const efectivoNum = Number.parseFloat(efectivoRecibido) || 0;
     const cambio = metodoPago === 'efectivo' && efectivoNum >= total ? efectivoNum - total : 0;
 
     return {
@@ -307,13 +308,13 @@ export function VentanillaCobro({
         detalles,
       };
 
-      // Registrar de forma atómica con soporte offline / online
+      // Registrar de forma atómica (en línea directo a Supabase, o local si no hay internet)
       const res = await registrarPagoLocal(pagoObj, detalles);
 
       pagoObj.folio = res.folio;
 
       sileo.success({
-        title: '¡Cobro registrado!',
+        title: res.guardadoEnNube ? '¡Cobro guardado en la nube!' : 'Cobro guardado en modo sin conexión',
         description: `Recibo ${res.folio} emitido por $${calculos.total.toFixed(2)} MXN.`,
       });
 
@@ -331,7 +332,7 @@ export function VentanillaCobro({
     } catch (err: unknown) {
       sileo.error({
         title: 'Error al procesar cobro',
-        description: 'No se pudo registrar el pago. Intenta de nuevo.',
+        description: obtenerMensajeError(err, 'No se pudo registrar el pago en Supabase.'),
       });
     } finally {
       setProcesando(false);
@@ -570,8 +571,12 @@ export function VentanillaCobro({
 
                   {recargoMora > 0 && (
                     <div className="pt-2">
-                      <label className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                      <label
+                        htmlFor="ventanilla-aplicar-recargo"
+                        className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+                      >
                         <input
+                          id="ventanilla-aplicar-recargo"
                           type="checkbox"
                           checked={aplicarRecargo}
                           onChange={(e) => setAplicarRecargo(e.target.checked)}
@@ -597,10 +602,14 @@ export function VentanillaCobro({
 
               {modoCobro === 'personalizado' && (
                 <div className="space-y-1.5 pt-2">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="ventanilla-monto-personalizado"
+                    className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
+                  >
                     Monto del abono libre ($ MXN)
                   </label>
                   <Input
+                    id="ventanilla-monto-personalizado"
                     type="number"
                     step="0.50"
                     min="1"
@@ -615,10 +624,14 @@ export function VentanillaCobro({
 
             {/* Notas opcionales */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+              <label
+                htmlFor="ventanilla-notas"
+                className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+              >
                 Observaciones o Notas (Opcional)
               </label>
               <input
+                id="ventanilla-notas"
                 type="text"
                 value={notas}
                 onChange={(e) => setNotas(e.target.value)}
@@ -670,10 +683,14 @@ export function VentanillaCobro({
               {/* Si es transferencia: folio de rastreo */}
               {metodoPago === 'transferencia' && (
                 <div className="space-y-1.5 animate-in fade-in duration-150">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="ventanilla-referencia-transferencia"
+                    className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
+                  >
                     Número de Autorización / Rastreo
                   </label>
                   <Input
+                    id="ventanilla-referencia-transferencia"
                     type="text"
                     value={referenciaTransferencia}
                     onChange={(e) => setReferenciaTransferencia(e.target.value)}
@@ -686,10 +703,14 @@ export function VentanillaCobro({
               {metodoPago === 'efectivo' && (
                 <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl space-y-3">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                    <label
+                      htmlFor="ventanilla-efectivo-recibido"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1"
+                    >
                       Efectivo Recibido ($ MXN)
                     </label>
                     <input
+                      id="ventanilla-efectivo-recibido"
                       type="number"
                       step="0.50"
                       min="0"

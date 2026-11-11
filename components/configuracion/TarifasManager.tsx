@@ -251,12 +251,12 @@ export function TarifasManager() {
   const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const cuotaNum = parseFloat(cuotaBase);
-    const recargoNum = parseFloat(recargoMora);
-    const anioNum = parseInt(anioVigencia, 10);
+    const cuotaNum = Number.parseFloat(cuotaBase);
+    const recargoNum = Number.parseFloat(recargoMora);
+    const anioNum = Number.parseInt(anioVigencia, 10);
     const registrosNum = normalizarRegistrosPorPagina(registrosPorPagina);
 
-    if (isNaN(cuotaNum) || cuotaNum <= 0) {
+    if (Number.isNaN(cuotaNum) || cuotaNum <= 0) {
       sileo.error({
         title: 'Cuota inválida',
         description: 'La cuota base debe ser un número mayor a cero.',
@@ -264,7 +264,7 @@ export function TarifasManager() {
       return;
     }
 
-    if (isNaN(recargoNum) || recargoNum < 0) {
+    if (Number.isNaN(recargoNum) || recargoNum < 0) {
       sileo.error({
         title: 'Recargo inválido',
         description: 'El recargo por mora debe ser cero o positivo.',
@@ -272,7 +272,7 @@ export function TarifasManager() {
       return;
     }
 
-    if (isNaN(anioNum) || anioNum < 2000 || anioNum > 2100) {
+    if (Number.isNaN(anioNum) || anioNum < 2000 || anioNum > 2100) {
       sileo.error({
         title: 'Año inválido',
         description: 'Ingresa un año fiscal válido.',
@@ -413,8 +413,8 @@ export function TarifasManager() {
   const handleAplicarCargo = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const montoNum = parseFloat(montoCargo);
-    if (isNaN(montoNum) || montoNum <= 0) {
+    const montoNum = Number.parseFloat(montoCargo);
+    if (Number.isNaN(montoNum) || montoNum <= 0) {
       sileo.warning({
         title: 'Monto inválido',
         description: 'El monto a cargar por toma debe ser mayor a cero.',
@@ -767,10 +767,14 @@ export function TarifasManager() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="tarifa-cuota-base"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
                     Cuota Base Mensual ($) *
                   </label>
                   <Input
+                    id="tarifa-cuota-base"
                     type="number"
                     step="0.50"
                     min="1"
@@ -783,10 +787,14 @@ export function TarifasManager() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="tarifa-recargo-mora"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
                     Recargo por Mora Mensual ($)
                   </label>
                   <Input
+                    id="tarifa-recargo-mora"
                     type="number"
                     step="0.50"
                     min="0"
@@ -798,10 +806,14 @@ export function TarifasManager() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="tarifa-anio-vigencia"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
                     Año de Vigencia *
                   </label>
                   <Input
+                    id="tarifa-anio-vigencia"
                     type="number"
                     min="2020"
                     max="2050"
@@ -813,10 +825,14 @@ export function TarifasManager() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="tarifa-moneda"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
                     Moneda *
                   </label>
                   <Input
+                    id="tarifa-moneda"
                     type="text"
                     value={moneda}
                     onChange={(e) => setMoneda(e.target.value)}
@@ -839,10 +855,14 @@ export function TarifasManager() {
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-8 space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="tarifa-descripcion"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
                     Acuerdo de Asamblea / Justificación (Opcional)
                   </label>
                   <textarea
+                    id="tarifa-descripcion"
                     rows={2}
                     value={descripcion}
                     onChange={(e) => setDescripcion(e.target.value)}
@@ -852,8 +872,12 @@ export function TarifasManager() {
                 </div>
 
                 <div className="lg:col-span-4 pt-6">
-                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <label
+                    htmlFor="tarifa-permitir-offline"
+                    className="flex items-start gap-3 cursor-pointer select-none"
+                  >
                     <input
+                      id="tarifa-permitir-offline"
                       type="checkbox"
                       checked={permitirOffline}
                       onChange={(e) => setPermitirOffline(e.target.checked)}
@@ -1013,21 +1037,25 @@ export function TarifasManager() {
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 items-center p-4 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-dashed border-slate-300 dark:border-[#26345C]">
                 <div className="sm:col-span-8 space-y-2">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px]">
+                    <label
+                      htmlFor="tarifa-registros-rango"
+                      className="text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px]"
+                    >
                       Ajuste gradual por barra:
-                    </span>
+                    </label>
                     <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-xs">
                       {registrosPorPagina} registros por vista
                     </span>
                   </div>
                   <input
+                    id="tarifa-registros-rango"
                     type="range"
                     min={5}
                     max={50}
                     step={5}
                     value={registrosPorPagina}
                     onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
+                      const val = Number.parseInt(e.target.value, 10);
                       setRegistrosPorPagina(val);
                       guardarRegistrosPorPagina(val);
                     }}
@@ -1041,16 +1069,20 @@ export function TarifasManager() {
                 </div>
 
                 <div className="sm:col-span-4 space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="tarifa-registros-manual"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
                     Límite manual exacto
                   </label>
                   <Input
+                    id="tarifa-registros-manual"
                     type="number"
                     min={5}
                     max={50}
                     value={registrosPorPagina}
                     onChange={(e) => {
-                      const val = Math.min(50, Math.max(5, parseInt(e.target.value, 10) || 5));
+                      const val = Math.min(50, Math.max(5, Number.parseInt(e.target.value, 10) || 5));
                       setRegistrosPorPagina(val);
                       guardarRegistrosPorPagina(val);
                     }}
@@ -1186,9 +1218,9 @@ export function TarifasManager() {
               tone="cyan"
               icon={<Banknote />}
               label="Emisión Estimada"
-              value={`$${(tomasActivasCount * (parseFloat(montoCargo) || cuotaActualNum)).toLocaleString('es-MX', { maximumFractionDigits: 0 })}`}
+              value={`$${(tomasActivasCount * (Number.parseFloat(montoCargo) || cuotaActualNum)).toLocaleString('es-MX', { maximumFractionDigits: 0 })}`}
               unit={monedaActual}
-              hint={`${tomasActivasCount} tomas × $${(parseFloat(montoCargo) || cuotaActualNum).toFixed(0)}`}
+              hint={`${tomasActivasCount} tomas × $${(Number.parseFloat(montoCargo) || cuotaActualNum).toFixed(0)}`}
             />
             <Card
               tone="purple"
@@ -1305,12 +1337,16 @@ export function TarifasManager() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-5 items-end">
                   {/* Mes del Periodo */}
                   <div className="lg:col-span-3 space-y-1.5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="cargo-mes-periodo"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    >
                       Mes del Periodo *
                     </label>
                     <select
+                      id="cargo-mes-periodo"
                       value={mesCargo}
-                      onChange={(e) => handleCambiarMesCargo(parseInt(e.target.value, 10))}
+                      onChange={(e) => handleCambiarMesCargo(Number.parseInt(e.target.value, 10))}
                       className="w-full text-sm bg-transparent border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"
                     >
                       {MESES.map((nombre, idx) => (
@@ -1327,16 +1363,20 @@ export function TarifasManager() {
 
                   {/* Año */}
                   <div className="lg:col-span-2 space-y-1.5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="cargo-anio-periodo"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    >
                       Año *
                     </label>
                     <Input
+                      id="cargo-anio-periodo"
                       type="number"
                       min="2020"
                       max="2050"
                       value={anioCargo}
                       onChange={(e) =>
-                        handleCambiarAnioCargo(parseInt(e.target.value, 10) || anioActualNum)
+                        handleCambiarAnioCargo(Number.parseInt(e.target.value, 10) || anioActualNum)
                       }
                       required
                     />
@@ -1344,10 +1384,14 @@ export function TarifasManager() {
 
                   {/* Monto Unitario */}
                   <div className="lg:col-span-3 space-y-1.5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="cargo-monto-unitario"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    >
                       Monto a Cargar ($ {monedaActual}) *
                     </label>
                     <Input
+                      id="cargo-monto-unitario"
                       type="number"
                       step="0.50"
                       min="1"
@@ -1382,10 +1426,14 @@ export function TarifasManager() {
               {/* Sección 3: Concepto y Resumen de Proyección */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 <div className="lg:col-span-8 space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="cargo-concepto"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
                     Concepto / Referencia del Cargo *
                   </label>
                   <Input
+                    id="cargo-concepto"
                     type="text"
                     value={conceptoCargo}
                     onChange={(e) => setConceptoCargo(e.target.value)}
@@ -1409,7 +1457,7 @@ export function TarifasManager() {
                   <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-dashed border-slate-200 dark:border-[#26345C] pt-1.5">
                     <span>Emisión proyectada:</span>
                     <strong className="text-blue-600 dark:text-blue-400 font-mono text-sm font-black">
-                      ${(tomasActivasCount * (parseFloat(montoCargo) || 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })} {monedaActual}
+                      ${(tomasActivasCount * (Number.parseFloat(montoCargo) || 0)).toLocaleString('es-MX', { minimumFractionDigits: 2 })} {monedaActual}
                     </strong>
                   </div>
                 </div>

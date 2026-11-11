@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 export interface SelectOption {
   value: string;
@@ -21,7 +21,8 @@ export function Select({
   id,
   ...props
 }: SelectProps) {
-  const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  const generatedId = useId();
+  const selectId = id || generatedId;
 
   return (
     <div className="w-full space-y-1.5">

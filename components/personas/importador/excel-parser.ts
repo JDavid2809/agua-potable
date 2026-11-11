@@ -465,10 +465,10 @@ export function parsearCantidadTomasSeguro(texto: string, valorPorDefecto: numbe
     return 0;
   }
 
-  const match = limpio.match(/(\d+(?:[.,]\d+)?)/);
+  const match = limpio.match(/\d+(?:[.,]\d+)?/);
   if (match) {
-    const num = parseFloat(match[1].replace(',', '.'));
-    if (!isNaN(num)) {
+    const num = Number.parseFloat(match[0].replace(',', '.'));
+    if (!Number.isNaN(num)) {
       return Math.min(20, Math.max(0, Math.round(num)));
     }
   }
@@ -556,8 +556,8 @@ export function construirRegistrosDesdeMatriz(
     const tipoTxt = leerUniendoColumnas(c, colsTipoToma, ' ');
 
     const saldoRaw = leerUniendoColumnas(c, colsSaldo, '');
-    const saldoMatch = saldoRaw.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
-    const saldoNum = saldoMatch ? Math.max(0, parseFloat(saldoMatch[1]) || 0) : 0;
+    const saldoMatch = saldoRaw.replace(/,/g, '').match(/\d+(?:\.\d+)?/);
+    const saldoNum = saldoMatch ? Math.max(0, Number.parseFloat(saldoMatch[0]) || 0) : 0;
 
     let cantTomas = 0;
     if (colsCantTomas.length > 0) {

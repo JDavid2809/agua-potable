@@ -43,8 +43,18 @@ export interface VentanillaCobroAbonosProps {
 }
 
 export function limpiarDireccion(direccion?: string | null): string {
-  if (!direccion || !direccion.trim()) return 'Sin dirección registrada';
-  return direccion.replace(/\s+(true|false)\s*$/i, '').trim() || 'Sin dirección registrada';
+  if (!direccion) return 'Sin dirección registrada';
+  let limpia = direccion.trim();
+  if (!limpia) return 'Sin dirección registrada';
+
+  const lower = limpia.toLowerCase();
+  if (lower.endsWith(' true')) {
+    limpia = limpia.slice(0, -5).trimEnd();
+  } else if (lower.endsWith(' false')) {
+    limpia = limpia.slice(0, -6).trimEnd();
+  }
+
+  return limpia || 'Sin dirección registrada';
 }
 
 export function VentanillaCobroAbonos({
@@ -209,12 +219,16 @@ export function VentanillaCobroAbonos({
         <div className="lg:col-span-7 space-y-4">
           {/* BUSCADOR CON RESULTADOS FLOTANTES (POP-OVER OVERLAY) */}
           <div ref={dropdownRef} className="relative">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+            <label
+              htmlFor="abonos-buscar-cooperador"
+              className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+            >
               Buscar Cooperador / Toma de Agua *
             </label>
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
+                id="abonos-buscar-cooperador"
                 ref={searchInputRef}
                 type="text"
                 value={busqueda}
@@ -514,9 +528,9 @@ export function VentanillaCobroAbonos({
 
               {/* Modalidad de pago: Total vs Parcial */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   Tipo de Cobro
-                </label>
+                </span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -554,7 +568,10 @@ export function VentanillaCobroAbonos({
               {/* Monto a Cobrar */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <label
+                    htmlFor="abonos-monto-input"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
                     Monto a Ingresar ($ MXN) *
                   </label>
                   {tipoPago === 'total' && (
@@ -564,6 +581,7 @@ export function VentanillaCobroAbonos({
                   )}
                 </div>
                 <Input
+                  id="abonos-monto-input"
                   type="number"
                   step="0.50"
                   min="1"
@@ -602,9 +620,9 @@ export function VentanillaCobroAbonos({
 
               {/* Método de Pago */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   Forma de Pago
-                </label>
+                </span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -638,10 +656,14 @@ export function VentanillaCobroAbonos({
               {metodoPago === 'efectivo' && (
                 <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2 border border-slate-200 dark:border-slate-800">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="abonos-efectivo-recibido"
+                      className="font-bold text-slate-700 dark:text-slate-300"
+                    >
                       Efectivo Recibido:
-                    </span>
+                    </label>
                     <input
+                      id="abonos-efectivo-recibido"
                       type="number"
                       step="0.50"
                       value={efectivoRecibido}
@@ -696,10 +718,14 @@ export function VentanillaCobroAbonos({
 
               {/* Observaciones */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="abonos-notas"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Observaciones en Recibo
                 </label>
                 <input
+                  id="abonos-notas"
                   type="text"
                   value={notas}
                   onChange={(e) => setNotas(e.target.value)}

@@ -237,7 +237,7 @@ export function ImportadorCensoExcel({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleLeerArchivo(file);
+      void handleLeerArchivo(file);
     }
   };
 
@@ -245,7 +245,7 @@ export function ImportadorCensoExcel({
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      handleLeerArchivo(file);
+      void handleLeerArchivo(file);
     }
   };
 
@@ -430,9 +430,14 @@ export function ImportadorCensoExcel({
         .is('deleted_at', null);
 
       tomasExistentes?.forEach((t) => {
-        const match = t.codigo_toma?.match(/(\d+)$/);
-        if (match) {
-          const num = parseInt(match[1], 10);
+        const cod = t.codigo_toma || '';
+        let idx = cod.length - 1;
+        while (idx >= 0 && cod.charCodeAt(idx) >= 48 && cod.charCodeAt(idx) <= 57) {
+          idx--;
+        }
+        const sufijoDigitos = cod.slice(idx + 1);
+        if (sufijoDigitos) {
+          const num = Number.parseInt(sufijoDigitos, 10);
           if (num > maxConsecutivo) maxConsecutivo = num;
         }
       });
@@ -517,7 +522,7 @@ export function ImportadorCensoExcel({
         description: `Se registraron ${totalPersonasCreadas} contribuyentes y ${totalTomasCreadas} tomas de agua.`,
       });
 
-      onImportacionCompletada();
+      await Promise.resolve(onImportacionCompletada());
     } catch (err: unknown) {
       sileo.error({
         title: 'Error durante la importación',

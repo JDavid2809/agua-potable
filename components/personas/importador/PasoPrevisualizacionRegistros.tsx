@@ -279,7 +279,7 @@ export function PasoPrevisualizacionRegistros({
                         onActualizarFila(
                           reg.idTemporal,
                           'cantidadTomas',
-                          Math.max(0, parseInt(e.target.value, 10) || 0)
+                          Math.max(0, Number.parseInt(e.target.value, 10) || 0)
                         )
                       }
                       className="w-16 text-center font-extrabold text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-1 text-blue-600 dark:text-blue-400"

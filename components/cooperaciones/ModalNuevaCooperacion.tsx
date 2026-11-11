@@ -221,10 +221,14 @@ export function ModalNuevaCooperacion({
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
           {/* Nombre */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            <label
+              htmlFor="coop-nombre"
+              className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+            >
               Nombre de la Obra o Proyecto Comunitario *
             </label>
             <Input
+              id="coop-nombre"
               type="text"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
@@ -235,10 +239,14 @@ export function ModalNuevaCooperacion({
 
           {/* Descripción */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            <label
+              htmlFor="coop-descripcion"
+              className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+            >
               Descripción y Justificación del Acuerdo de Asamblea
             </label>
             <textarea
+              id="coop-descripcion"
               rows={2}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
@@ -252,9 +260,9 @@ export function ModalNuevaCooperacion({
           ───────────────────────────────────────────────────────────── */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                 Modalidad de Asignación del Padrón *
-              </label>
+              </span>
               <span className="text-[11px] text-slate-400">
                 Define cómo se calcula el cobro a vecinos con 1 o más tomas
               </span>
@@ -352,10 +360,14 @@ export function ModalNuevaCooperacion({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="coop-cuota-input"
+                  className="block text-xs font-bold text-slate-700 dark:text-slate-300"
+                >
                   Cuota por {tipoSujeto === 'toma' ? 'Toma' : 'Persona'} ($ MXN) *
                 </label>
                 <Input
+                  id="coop-cuota-input"
                   type="number"
                   min="1"
                   step="0.50"
@@ -370,10 +382,14 @@ export function ModalNuevaCooperacion({
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="coop-meta-input"
+                  className="block text-xs font-bold text-slate-700 dark:text-slate-300"
+                >
                   Presupuesto Meta de la Obra ($ MXN) *
                 </label>
                 <Input
+                  id="coop-meta-input"
                   type="number"
                   min="1"
                   step="1"
@@ -440,10 +456,14 @@ export function ModalNuevaCooperacion({
           {/* Fechas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <label
+                htmlFor="coop-fecha-inicio"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
                 Fecha de Inicio de Recaudación *
               </label>
               <Input
+                id="coop-fecha-inicio"
                 type="date"
                 value={fechaInicio}
                 onChange={(e) => setFechaInicio(e.target.value)}
@@ -452,10 +472,14 @@ export function ModalNuevaCooperacion({
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <label
+                htmlFor="coop-fecha-limite"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
                 Fecha Límite para Aportar *
               </label>
               <Input
+                id="coop-fecha-limite"
                 type="date"
                 value={fechaLimite}
                 min={fechaInicio}
@@ -471,8 +495,12 @@ export function ModalNuevaCooperacion({
               Reglas de Recaudación Comunitaria
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+              <label
+                htmlFor="coop-permite-abonos"
+                className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
                 <input
+                  id="coop-permite-abonos"
                   type="checkbox"
                   checked={permiteAbonos}
                   onChange={(e) => setPermiteAbonos(e.target.checked)}
@@ -481,8 +509,12 @@ export function ModalNuevaCooperacion({
                 <span>Permitir pagos en abonos parciales</span>
               </label>
 
-              <label className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+              <label
+                htmlFor="coop-permite-faena"
+                className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
                 <input
+                  id="coop-permite-faena"
                   type="checkbox"
                   checked={permiteFaena}
                   onChange={(e) => setPermiteFaena(e.target.checked)}

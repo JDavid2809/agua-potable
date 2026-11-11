@@ -155,7 +155,7 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
     manzanas.forEach((m) => {
       if (m.barrio?.trim()) set.add(m.barrio.trim());
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [manzanas]);
 
   const manzanasFiltradasPorBarrio = useMemo(() => {
@@ -210,8 +210,13 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
     const primerMz = manzanas.find((m) => m.barrio === primerBarrio) || manzanas[0];
     setManzanaId(primerMz?.id || '');
     const maxNum = tomas.reduce((max, t) => {
-      const m = t.codigo_toma?.match(/(\d+)$/);
-      const n = m ? parseInt(m[1], 10) : 0;
+      const cod = t.codigo_toma || '';
+      let idx = cod.length - 1;
+      while (idx >= 0 && cod.charCodeAt(idx) >= 48 && cod.charCodeAt(idx) <= 57) {
+        idx--;
+      }
+      const sufijoDigitos = cod.slice(idx + 1);
+      const n = sufijoDigitos ? Number.parseInt(sufijoDigitos, 10) : 0;
       return n > max ? n : max;
     }, tomas.length);
     setCodigoToma(`TOMA-${String(maxNum + 1).padStart(4, '0')}`);
@@ -262,7 +267,7 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
       return;
     }
 
-    const saldoNum = Math.max(0, parseFloat(saldoPendiente) || 0);
+    const saldoNum = Math.max(0, Number.parseFloat(saldoPendiente) || 0);
 
     setGuardando(true);
     try {
@@ -401,10 +406,14 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="toma-persona"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Titular / Contribuyente *
                 </label>
                 <select
+                  id="toma-persona"
                   value={personaId}
                   onChange={(e) => setPersonaId(e.target.value)}
                   className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"
@@ -423,10 +432,14 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="toma-barrio"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Barrio o Sector *
                 </label>
                 <select
+                  id="toma-barrio"
                   value={barrioSeleccionado}
                   onChange={(e) => {
                     const b = e.target.value;
@@ -445,10 +458,14 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="toma-manzana"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Manzana y Cuadra *
                 </label>
                 <select
+                  id="toma-manzana"
                   value={manzanaId}
                   onChange={(e) => setManzanaId(e.target.value)}
                   className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"
@@ -484,10 +501,14 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
               />
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="toma-tipo"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Tipo de Toma *
                 </label>
                 <select
+                  id="toma-tipo"
                   value={tipoToma}
                   onChange={(e) => setTipoToma(e.target.value as TipoToma)}
                   className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"
@@ -501,10 +522,14 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="toma-estado"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Estado de Conexión *
                 </label>
                 <select
+                  id="toma-estado"
                   value={estadoToma}
                   onChange={(e) => setEstadoToma(e.target.value as EstadoToma)}
                   className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"

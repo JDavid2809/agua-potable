@@ -195,7 +195,7 @@ export function PersonasManager() {
     manzanas.forEach((m) => {
       if (m.barrio?.trim()) set.add(m.barrio.trim());
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [manzanas]);
 
   // Manzanas filtradas por el barrio seleccionado en modal crear persona
@@ -220,8 +220,13 @@ export function PersonasManager() {
     let maxNum = totalTomasGlobal;
     personas.forEach((p) => {
       p.tomas?.forEach((t) => {
-        const m = t.codigo_toma?.match(/(\d+)$/);
-        const n = m ? parseInt(m[1], 10) : 0;
+        const cod = t.codigo_toma || '';
+        let idx = cod.length - 1;
+        while (idx >= 0 && cod.charCodeAt(idx) >= 48 && cod.charCodeAt(idx) <= 57) {
+          idx--;
+        }
+        const sufijoDigitos = cod.slice(idx + 1);
+        const n = sufijoDigitos ? Number.parseInt(sufijoDigitos, 10) : 0;
         if (n > maxNum) maxNum = n;
       });
     });
@@ -674,8 +679,12 @@ export function PersonasManager() {
 
               {modoFormulario === 'editar' && (
                 <div className="lg:col-span-12 pt-1">
-                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <label
+                    htmlFor="persona-activo"
+                    className="flex items-center gap-3 cursor-pointer select-none"
+                  >
                     <input
+                      id="persona-activo"
                       type="checkbox"
                       checked={activo}
                       onChange={(e) => setActivo(e.target.checked)}
@@ -698,8 +707,12 @@ export function PersonasManager() {
                   <Droplets className="w-4 h-4 text-blue-500" />
                   <span>Vincular Toma y Ubicación Geográfica</span>
                 </h3>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
+                <label
+                  htmlFor="persona-incluir-toma-inicial"
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                >
                   <input
+                    id="persona-incluir-toma-inicial"
                     type="checkbox"
                     checked={incluirTomaInicial}
                     onChange={(e) => setIncluirTomaInicial(e.target.checked)}
@@ -715,10 +728,14 @@ export function PersonasManager() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-5 pt-2">
                   {/* Barrio */}
                   <div className="lg:col-span-3 space-y-1.5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="persona-barrio-inicial"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    >
                       Barrio o Sector *
                     </label>
                     <select
+                      id="persona-barrio-inicial"
                       value={barrioSeleccionado}
                       onChange={(e) => {
                         const b = e.target.value;
@@ -738,10 +755,14 @@ export function PersonasManager() {
 
                   {/* Manzana y Cuadra */}
                   <div className="lg:col-span-3 space-y-1.5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="persona-manzana-inicial"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    >
                       Manzana y Cuadra *
                     </label>
                     <select
+                      id="persona-manzana-inicial"
                       value={manzanaIdSeleccionada}
                       onChange={(e) => setManzanaIdSeleccionada(e.target.value)}
                       className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"
@@ -769,10 +790,14 @@ export function PersonasManager() {
 
                   {/* Tipo */}
                   <div className="lg:col-span-3 space-y-1.5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    <label
+                      htmlFor="persona-tipo-toma-inicial"
+                      className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                    >
                       Tipo de Toma *
                     </label>
                     <select
+                      id="persona-tipo-toma-inicial"
                       value={tipoToma}
                       onChange={(e) => setTipoToma(e.target.value as TipoToma)}
                       className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"
@@ -875,10 +900,14 @@ export function PersonasManager() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="nueva-toma-barrio"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Barrio o Sector *
                 </label>
                 <select
+                  id="nueva-toma-barrio"
                   value={barrioNuevaToma}
                   onChange={(e) => {
                     const b = e.target.value;
@@ -897,10 +926,14 @@ export function PersonasManager() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="nueva-toma-manzana"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Manzana y Cuadra *
                 </label>
                 <select
+                  id="nueva-toma-manzana"
                   value={manzanaIdNuevaToma}
                   onChange={(e) => setManzanaIdNuevaToma(e.target.value)}
                   className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"
@@ -926,10 +959,14 @@ export function PersonasManager() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <label
+                  htmlFor="nueva-toma-tipo"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
                   Tipo de Toma *
                 </label>
                 <select
+                  id="nueva-toma-tipo"
                   value={tipoNuevaToma}
                   onChange={(e) => setTipoNuevaToma(e.target.value as TipoToma)}
                   className="w-full text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-600"

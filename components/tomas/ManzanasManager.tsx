@@ -104,7 +104,7 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
     manzanas.forEach((m) => {
       if (m.barrio?.trim()) set.add(m.barrio.trim());
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [manzanas]);
 
   // Filtrado de elementos
@@ -328,10 +328,14 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {/* Barrio */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                <label
+                  htmlFor="manzana-barrio"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+                >
                   Barrio o Sector *
                 </label>
                 <Input
+                  id="manzana-barrio"
                   required
                   value={barrio}
                   onChange={(e) => setBarrio(e.target.value)}
@@ -350,10 +354,14 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
 
               {/* Sección */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                <label
+                  htmlFor="manzana-seccion"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+                >
                   Sección *
                 </label>
                 <Input
+                  id="manzana-seccion"
                   required
                   value={seccion}
                   onChange={(e) => setSeccion(e.target.value)}
@@ -363,10 +371,14 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
 
               {/* Número de Manzana */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                <label
+                  htmlFor="manzana-numero"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+                >
                   Número o Nombre de Manzana *
                 </label>
                 <Input
+                  id="manzana-numero"
                   required
                   value={numeroManzana}
                   onChange={(e) => setNumeroManzana(e.target.value)}
@@ -376,10 +388,14 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
 
               {/* Cuadra */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                <label
+                  htmlFor="manzana-cuadra"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+                >
                   Cuadra o Tramo (Opcional)
                 </label>
                 <Input
+                  id="manzana-cuadra"
                   value={cuadra}
                   onChange={(e) => setCuadra(e.target.value)}
                   placeholder="Ej: Cuadra 2, Entre calles..."
@@ -398,10 +414,14 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+              <label
+                htmlFor="manzana-descripcion"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
+              >
                 Descripción o Límites Físicos (Opcional)
               </label>
               <textarea
+                id="manzana-descripcion"
                 rows={3}
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
@@ -412,8 +432,12 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
 
             {modoFormulario === 'editar' && (
               <div className="pt-2">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
+                <label
+                  htmlFor="manzana-activo"
+                  className="flex items-center gap-3 cursor-pointer select-none"
+                >
                   <input
+                    id="manzana-activo"
                     type="checkbox"
                     checked={activo}
                     onChange={(e) => setActivo(e.target.checked)}

@@ -115,10 +115,14 @@ export function ModalProrroga({
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            <label
+              htmlFor="prorroga-nueva-fecha"
+              className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+            >
               Nueva Fecha Límite de Aportación *
             </label>
             <Input
+              id="prorroga-nueva-fecha"
               type="date"
               value={nuevaFecha}
               onChange={(e) => setNuevaFecha(e.target.value)}
@@ -131,10 +135,14 @@ export function ModalProrroga({
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            <label
+              htmlFor="prorroga-motivo"
+              className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+            >
               Motivo o Acuerdo de Asamblea *
             </label>
             <textarea
+              id="prorroga-motivo"
               rows={3}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}

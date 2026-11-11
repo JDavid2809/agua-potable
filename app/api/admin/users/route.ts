@@ -117,8 +117,18 @@ export async function POST(request: Request) {
     }
 
     const emailLimpio = String(email).trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailLimpio)) {
+    const partesArroba = emailLimpio.split('@');
+    const dominio = partesArroba[1] || '';
+    const esEmailValido =
+      emailLimpio.length <= 254 &&
+      !emailLimpio.includes(' ') &&
+      partesArroba.length === 2 &&
+      partesArroba[0].length > 0 &&
+      dominio.includes('.') &&
+      !dominio.startsWith('.') &&
+      !dominio.endsWith('.');
+
+    if (!esEmailValido) {
       return NextResponse.json(
         { error: 'El formato de correo electrónico no es válido.' },
         { status: 400 }
