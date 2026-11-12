@@ -133,7 +133,7 @@ export function HistorialCobros({
         title: 'No se pudo anular el recibo',
         description: obtenerMensajeError(
           err,
-          'Verifica tus permisos o que la migración SQL de anulación esté aplicada en Supabase.'
+          'Verifica tus permisos o intenta nuevamente.'
         ),
       });
     } finally {

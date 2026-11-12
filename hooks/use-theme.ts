@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useSyncExternalStore } from 'react';
-import { THEME_STORAGE_KEY } from '@/lib/theme';
+import { useCallback, useEffect, useLayoutEffect, useSyncExternalStore } from 'react';
+import { THEME_STORAGE_KEY, syncBrowserThemeColor } from '@/lib/theme';
 
 function resolverTemaGuardado(): boolean {
   try {
@@ -17,6 +17,7 @@ function aplicarTema(dark: boolean) {
   const root = document.documentElement;
   root.classList.toggle('dark', dark);
   root.style.colorScheme = dark ? 'dark' : 'light';
+  syncBrowserThemeColor(dark);
 }
 
 function subscribe(callback: () => void) {
@@ -39,7 +40,22 @@ export function useTheme() {
   // En desarrollo, Strict Mode reinicia los atributos de <html>; se re-aplica antes de pintar.
   useLayoutEffect(() => {
     const dark = resolverTemaGuardado();
-    if (document.documentElement.classList.contains('dark') !== dark) aplicarTema(dark);
+    aplicarTema(dark);
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (e: MediaQueryListEvent) => {
+      try {
+        if (!localStorage.getItem(THEME_STORAGE_KEY)) {
+          aplicarTema(e.matches);
+        }
+      } catch {
+        aplicarTema(e.matches);
+      }
+    };
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
   }, []);
 
   const toggleTheme = useCallback(() => {

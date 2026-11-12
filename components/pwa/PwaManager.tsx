@@ -88,7 +88,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       setIosGuideOpen(false);
       sileo.success({
         title: '¡Aplicación instalada!',
-        description: 'Fluvib ya está instalada en tu dispositivo con acceso directo y soporte offline.',
+        description: 'Fluvib ya está lista en tu dispositivo.',
       });
     };
 

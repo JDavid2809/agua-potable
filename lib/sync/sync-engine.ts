@@ -412,7 +412,7 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
       exito: false,
       elementosEnviados: 0,
       elementosConError: 0,
-      mensaje: 'Supabase no está configurado en las variables de entorno.',
+      mensaje: 'El servicio no está disponible en este momento.',
     };
   }
 
@@ -421,7 +421,7 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
       exito: false,
       elementosEnviados: 0,
       elementosConError: 0,
-      mensaje: 'Sin conexión a internet. Los cambios se conservan seguros de forma local.',
+      mensaje: 'Sin conexión a internet. Tus cambios siguen guardados en este equipo.',
     };
   }
 
@@ -547,7 +547,7 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
         exito: conError === 0,
         elementosEnviados: enviados,
         elementosConError: conError,
-        mensaje: `Sincronización finalizada. ${enviados} subido(s) a la nube.${conError > 0 ? ` ${conError} con error.` : ''}`,
+        mensaje: `${enviados} registro(s) guardado(s).${conError > 0 ? ` ${conError} con error.` : ''}`,
       };
     } finally {
       isSyncInProgress = false;

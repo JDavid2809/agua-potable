@@ -477,7 +477,7 @@ export function TarifasManager() {
         title: 'No se pudo aplicar el cargo',
         description: obtenerMensajeError(
           err,
-          'Verifica que hayas ejecutado la migración SQL de cargos_ciclo en Supabase.'
+          'No se pudo aplicar el cargo. Intenta nuevamente.'
         ),
       });
     } finally {
@@ -516,8 +516,8 @@ export function TarifasManager() {
         ]);
 
         sileo.success({
-          title: 'Caché local vaciada',
-          description: 'Se eliminaron los datos locales almacenados en este dispositivo.',
+          title: 'Limpieza completada',
+          description: 'Se borraron los datos temporales de este dispositivo.',
         });
 
         setModuloEnConfirmacion(null);
@@ -637,7 +637,7 @@ export function TarifasManager() {
         title: 'Error al vaciar datos',
         description: obtenerMensajeError(
           err,
-          'No se pudieron eliminar los datos. Ejecuta el script SQL de vaciado_datos en Supabase.'
+          'No se pudieron eliminar los datos. Verifica tus permisos o intenta más tarde.'
         ),
       });
     } finally {
@@ -725,7 +725,7 @@ export function TarifasManager() {
             <Card
               tone={permitirOffline ? 'green' : 'neutral'}
               icon={permitirOffline ? <Wifi /> : <WifiOff />}
-              label="Cobro Offline"
+              label="Cobro sin internet"
               value={permitirOffline ? 'Activo' : 'Inactivo'}
               progress={permitirOffline ? 1 : 0}
               hint="Permite cobrar sin internet"
@@ -885,7 +885,7 @@ export function TarifasManager() {
                     />
                     <div>
                       <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 block">
-                        Permitir cobro sin conexión (Offline)
+                        Permitir cobrar sin internet
                       </span>
                       <span className="text-xs text-slate-400 block">
                         Habilita cobrar en campo o durante fallas de internet.
@@ -1688,7 +1688,7 @@ export function TarifasManager() {
                           'Tarifas, cuotas y usuarios del sistema',
                         ],
                         notaRelacion:
-                          'Como cada toma y recibo pertenece obligatoriamente a un titular, el sistema limpia primero cobros y tomas en cascada para no generar errores de llave foránea.',
+                          'Al borrar los contribuyentes también se eliminarán sus tomas y recibos relacionados.',
                       });
                       setPalabraConfirmacion('');
                     }}
@@ -1792,7 +1792,7 @@ export function TarifasManager() {
                           `${totalPagosCount} recibos emitidos`,
                         ],
                         notaRelacion:
-                          'El sistema desvincula automáticamente las tomas existentes (manzana_id = NULL) antes de borrar los barrios. Ningún contribuyente ni toma se pierde ni marca error.',
+                          'Las tomas existentes conservarán sus datos aunque se borren los barrios.',
                       });
                       setPalabraConfirmacion('');
                     }}
@@ -1865,14 +1865,14 @@ export function TarifasManager() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                        Memoria Offline Local (IndexedDB)
+                        Datos temporales de este dispositivo
                       </h4>
                       <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                        Dispositivo Local
+                        Este equipo
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-                      Limpia únicamente la base de datos local guardada en este navegador sin borrar ningún dato de la nube en Supabase.
+                      Limpia únicamente la información temporal guardada en este dispositivo sin borrar los datos principales del comité.
                     </p>
                   </div>
                 </div>
@@ -1886,24 +1886,24 @@ export function TarifasManager() {
                     onClick={() => {
                       setModuloEnConfirmacion({
                         id: 'cache_local',
-                        titulo: 'Memoria Offline Local de este Dispositivo',
+                        titulo: 'Datos temporales de este dispositivo',
                         descripcion:
-                          'Se vaciará la caché local (IndexedDB) y la cola offline en este navegador.',
+                          'Se borrarán los datos temporales guardados en este dispositivo.',
                         eliminara: [
-                          'Caché local IndexedDB en este navegador',
-                          'Cola de sincronización offline local',
+                          'Copia temporal guardada en este dispositivo',
+                          'Cambios pendientes de envío en este equipo',
                         ],
                         conservara: [
-                          'Todos los datos en la nube (Supabase)',
-                          'Contribuyentes, tomas, barrios y recibos sincronizados',
+                          'Toda la información principal de tu comité',
+                          'Contribuyentes, tomas, barrios y recibos ya guardados',
                         ],
                         notaRelacion:
-                          'Esta operación solo limpia el almacenamiento local de tu navegador actual y vuelve a descargar datos limpios desde Supabase.',
+                          'Esta acción solo limpia los datos temporales de este equipo y vuelve a descargar la información actualizada.',
                       });
                       setPalabraConfirmacion('');
                     }}
                   >
-                    Limpiar Caché
+                    Limpiar datos locales
                   </Button>
                 </div>
               </div>
@@ -1952,7 +1952,7 @@ export function TarifasManager() {
                           'Configuración de tarifas y usuarios/cajeros',
                         ],
                         notaRelacion:
-                          'El vaciado se ejecuta en el orden jerárquico exacto (detalles -> recibos -> cortes -> tomas -> contribuyentes -> manzanas) sin conflictos.',
+                          'Se eliminará de forma ordenada toda la información operativa del comité.',
                       });
                       setPalabraConfirmacion('');
                     }}

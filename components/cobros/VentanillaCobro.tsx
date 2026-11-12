@@ -265,8 +265,8 @@ export function VentanillaCobro({
       organizacion?.config?.permitir_cobro_offline === false
     ) {
       sileo.error({
-        title: 'Cobro sin conexión deshabilitado',
-        description: 'El comité ha desactivado el cobro en modo offline. Conéctate a internet para emitir recibos.',
+        title: 'Se requiere internet',
+        description: 'Conéctate a internet para emitir recibos.',
       });
       return;
     }
@@ -365,7 +365,7 @@ export function VentanillaCobro({
       pagoObj.folio = res.folio;
 
       sileo.success({
-        title: res.guardadoEnNube ? '¡Cobro guardado en la nube!' : 'Cobro guardado en modo sin conexión',
+        title: res.guardadoEnNube ? '¡Cobro registrado!' : 'Cobro guardado sin internet',
         description: `Recibo ${res.folio} emitido por $${calculos.total.toFixed(2)} MXN.`,
       });
 
@@ -381,7 +381,7 @@ export function VentanillaCobro({
     } catch (err: unknown) {
       sileo.error({
         title: 'Error al procesar cobro',
-        description: obtenerMensajeError(err, 'No se pudo registrar el pago en Supabase.'),
+        description: obtenerMensajeError(err, 'No se pudo registrar el pago. Intenta de nuevo.'),
       });
     } finally {
       setProcesando(false);

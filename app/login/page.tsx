@@ -39,8 +39,8 @@ export default function LoginPage() {
     try {
       if (!isSupabaseConfigured) {
         sileo.error({
-          title: 'Configuración pendiente',
-          description: 'Las variables de Supabase no están configuradas en el entorno.',
+          title: 'Servicio no disponible',
+          description: 'No se pudo iniciar el sistema en este momento. Intenta más tarde.',
         });
         return;
       }
@@ -61,7 +61,7 @@ export default function LoginPage() {
       if (authData.user) {
         const { data: perfil } = await supabase
           .from('perfiles')
-          .select('rol, nombre_completo, activo, organizacion_id')
+          .select('nombre_completo, activo, organizacion_id')
           .eq('id', authData.user.id)
           .single();
 
@@ -103,17 +103,10 @@ export default function LoginPage() {
 
         await aislarOrganizacionLocal(perfil.organizacion_id);
 
-        const rolNombre =
-          perfil?.rol === 'administrador'
-            ? 'Administrador'
-            : perfil?.rol === 'lector'
-            ? 'Lector'
-            : 'Cajero';
         const usuarioNombre = perfil?.nombre_completo || authData.user.email;
 
         sileo.success({
-          title: `¡Hola, ${usuarioNombre}!`,
-          description: `Turno iniciado automáticamente como ${rolNombre}.`,
+          title: `¡Bienvenido, ${usuarioNombre}!`,
         });
 
         router.push('/dashboard');

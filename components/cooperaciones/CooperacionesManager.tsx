@@ -204,7 +204,7 @@ export function CooperacionesManager() {
       }
     } catch (err: unknown) {
       sileo.error({
-        title: 'Error de sincronización',
+        title: 'Error de carga',
         description: obtenerMensajeError(err, 'No se pudieron consultar los datos de cooperaciones.'),
       });
     } finally {
@@ -510,7 +510,7 @@ export function CooperacionesManager() {
     } catch (err: unknown) {
       sileo.error({
         title: 'Error al registrar',
-        description: obtenerMensajeError(err, 'Verifica la conexión a Supabase y la migración.'),
+        description: obtenerMensajeError(err, 'No se pudo registrar la cooperación. Revisa tu conexión e intenta de nuevo.'),
       });
     } finally {
       setGuardando(false);

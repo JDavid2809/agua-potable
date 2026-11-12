@@ -153,12 +153,12 @@ export function DashboardHeader({
             {isSyncing ? (
               <>
                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                <span className="hidden sm:inline">Sincronizando</span>
+                <span className="hidden sm:inline">Guardando</span>
               </>
             ) : !enLinea ? (
               <>
                 <WifiOff className="h-3.5 w-3.5" />
-                <span>Offline</span>
+                <span>Sin red</span>
                 {pendientesSync > 0 && (
                   <span className="rounded-full bg-amber-600/20 px-1.5 text-[10px]">
                     {pendientesSync}

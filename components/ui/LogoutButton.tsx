@@ -26,17 +26,17 @@ export function LogoutButton() {
 
       if (count === 0) {
         sileo.success({
-          title: 'Sincronización completada',
-          description: 'Todos los cobros locales se transmitieron exitosamente a la nube.',
+          title: 'Cobros guardados',
+          description: 'Todos los cobros pendientes quedaron registrados.',
         });
         setModalAbierto(false);
       } else {
         setErrorSync(
-          res.mensaje || 'Algunos cobros no pudieron subirse. Revisa tu conexión con la nube.'
+          res.mensaje || 'Algunos cobros no pudieron enviarse. Revisa tu conexión e intenta de nuevo.'
         );
       }
     } catch (err: unknown) {
-      setErrorSync('Fallo al conectar con el servidor. Intenta de nuevo en unos momentos.');
+      setErrorSync('No se pudo conectar en este momento. Intenta de nuevo.');
     } finally {
       setSincronizando(false);
     }
@@ -60,7 +60,7 @@ export function LogoutButton() {
       await supabase.auth.signOut();
       sileo.info({
         title: 'Sesión cerrada',
-        description: 'Has salido del sistema con éxito y se limpió el almacenamiento local.',
+        description: '¡Hasta pronto!',
       });
       setModalAbierto(false);
       router.push('/login');
@@ -134,14 +134,13 @@ export function LogoutButton() {
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                Cobros pendientes de sincronizar
+                Cobros pendientes por enviar
               </h3>
             </div>
 
             <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
-              Hay <strong className="text-amber-600 dark:text-amber-400">{pendientes} cobro(s)</strong> guardados
-              localmente que aún no se han transmitido a la nube. Si limpias el equipo compartido ahora,
-              esos cobros locales no respaldados podrían perderse.
+              Hay <strong className="text-amber-600 dark:text-amber-400">{pendientes} cobro(s)</strong> sin
+              enviar todavía. Si sales limpiando este equipo ahora, podrían perderse.
             </p>
 
             {errorSync && (
@@ -159,12 +158,12 @@ export function LogoutButton() {
                 {sincronizando ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Sincronizando con la nube...</span>
+                    <span>Enviando cobros...</span>
                   </>
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4" />
-                    <span>Intentar subir cobros a la nube ahora</span>
+                    <span>Enviar cobros ahora</span>
                   </>
                 )}
               </button>
@@ -174,7 +173,7 @@ export function LogoutButton() {
                 disabled={cargando || sincronizando}
                 className="w-full py-2.5 px-4 rounded-lg bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-medium text-sm transition-colors text-center"
               >
-                Cerrar sesión conservando cobros para sincronizar
+                Salir y conservar cobros pendientes
               </button>
 
               <button
@@ -182,7 +181,7 @@ export function LogoutButton() {
                 disabled={cargando || sincronizando}
                 className="w-full py-2.5 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-colors text-center"
               >
-                Forzar salida y limpiar todo el equipo
+                Salir y descartar pendientes
               </button>
 
               <button
@@ -190,7 +189,7 @@ export function LogoutButton() {
                 disabled={cargando || sincronizando}
                 className="w-full py-2.5 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/60 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm transition-colors text-center"
               >
-                Cancelar y permanecer en el sistema
+                Cancelar
               </button>
             </div>
           </div>

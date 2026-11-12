@@ -33,10 +33,10 @@ export default function OfflinePage() {
 
         <div className="space-y-2">
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
-            {enLinea ? 'Conexión restablecida' : 'Modo Sin Conexión'}
+            {enLinea ? 'Conexión restablecida' : 'Sin conexión a internet'}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Esta sección aún no se ha guardado en la caché local del dispositivo. Puedes regresar a los módulos principales disponibles sin internet o reintentar.
+            Esta pantalla no está disponible sin internet. Puedes entrar a las secciones principales o volver a intentar.
           </p>
         </div>
 

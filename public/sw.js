@@ -1,6 +1,6 @@
-const STATIC_CACHE = 'fluvib-static-v1';
-const PAGES_CACHE = 'fluvib-pages-v1';
-const RSC_CACHE = 'fluvib-rsc-v1';
+const STATIC_CACHE = 'fluvib-static-v2';
+const PAGES_CACHE = 'fluvib-pages-v2';
+const RSC_CACHE = 'fluvib-rsc-v2';
 const ALL_CACHES = [STATIC_CACHE, PAGES_CACHE, RSC_CACHE];
 
 const PRECACHE_ASSETS = [
