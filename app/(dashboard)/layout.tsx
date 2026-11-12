@@ -36,6 +36,8 @@ export default async function DashboardLayout({
 
   return (
     <DashboardShell
+      organizacionId={perfil.organizacion_id}
+      currentUserId={user.id}
       organizacionNombre={orgNombre}
       userName={perfil.nombre_completo || user.email || 'Usuario'}
       userRole={rolLabel}

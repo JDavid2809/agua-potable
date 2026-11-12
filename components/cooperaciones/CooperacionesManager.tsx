@@ -300,6 +300,8 @@ export function CooperacionesManager() {
     setCoopSeleccionadaId(coop.id);
     setTabDetalle('abonos');
     setItemSeleccionado(null);
+    setPaginaPadron(1);
+    setBusquedaPadron('');
     cargarPadronDeCoop(coop);
   };
 
@@ -677,7 +679,7 @@ export function CooperacionesManager() {
         }
 
         // 2. Actualizar el saldo del aportante en el padrón
-        await supabase
+        const { error: errUpdatePadron } = await supabase
           .from('cooperacion_padron')
           .update({
             monto_pagado: nuevoTotalPagado,
@@ -687,6 +689,10 @@ export function CooperacionesManager() {
             updated_at: new Date().toISOString(),
           })
           .eq('id', item.id);
+
+        if (errUpdatePadron) {
+          throw errUpdatePadron;
+        }
 
         nuevoAbono = abonoGuardado as unknown as CooperacionAbono;
       }
@@ -725,9 +731,10 @@ export function CooperacionesManager() {
       setItemSeleccionado(null);
       setModalReciboOpen(true);
 
+      const folioFinal = nuevoAbono?.folio_recibo || folioGenerado;
       sileo.success({
         title: nuevoEstado === 'liquidado' ? 'Aportación liquidada' : 'Abono registrado',
-        description: `Folio ${folioGenerado} generado correctamente por $${monto.toFixed(2)} MXN.`,
+        description: `Folio ${folioFinal} generado correctamente por $${monto.toFixed(2)} MXN.`,
       });
     } catch (err: unknown) {
       sileo.error({

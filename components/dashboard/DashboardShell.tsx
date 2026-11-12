@@ -7,6 +7,7 @@ import { DashboardHeader } from './DashboardHeader';
 import { sileo } from 'sileo';
 import { SIDEBAR_COOKIE } from '@/lib/theme';
 import { useOfflineSync } from '@/hooks/use-offline-sync';
+import { PresenceProvider } from '@/hooks/use-presence-tracker';
 
 function AccesoDenegadoListener() {
   const searchParams = useSearchParams();
@@ -34,6 +35,8 @@ export interface DashboardShellProps {
   userName: string;
   userRole: string;
   esAdmin: boolean;
+  organizacionId?: string;
+  currentUserId?: string;
   initialCollapsed?: boolean;
 }
 
@@ -43,6 +46,8 @@ export function DashboardShell({
   userName,
   userRole,
   esAdmin,
+  organizacionId,
+  currentUserId,
   initialCollapsed = false,
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -74,40 +79,47 @@ export function DashboardShell({
   }, [handleToggleCollapse]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex transition-colors duration-200">
-      <Suspense fallback={null}>
-        <AccesoDenegadoListener />
-      </Suspense>
+    <PresenceProvider
+      organizacionId={organizacionId}
+      currentUserId={currentUserId}
+      userName={userName}
+      userRole={userRole}
+    >
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex transition-colors duration-200">
+        <Suspense fallback={null}>
+          <AccesoDenegadoListener />
+        </Suspense>
 
-      {/* 1. BARRA LATERAL (SIDEBAR) PRINCIPAL */}
-      <Sidebar
-        collapsed={collapsed}
-        onToggleCollapse={handleToggleCollapse}
-        mobileOpen={mobileOpen}
-        onCloseMobile={handleCloseMobile}
-        organizacionNombre={organizacionNombre}
-        userName={userName}
-        userRole={userRole}
-        esAdmin={esAdmin}
-      />
-
-      {/* 2. ÁREA PRINCIPAL: HEADER SUPERIOR + CONTENIDO */}
-      <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
-        <DashboardHeader
-          onToggleMobileMenu={() => setMobileOpen(true)}
+        {/* 1. BARRA LATERAL (SIDEBAR) PRINCIPAL */}
+        <Sidebar
+          collapsed={collapsed}
+          onToggleCollapse={handleToggleCollapse}
+          mobileOpen={mobileOpen}
+          onCloseMobile={handleCloseMobile}
           organizacionNombre={organizacionNombre}
           userName={userName}
           userRole={userRole}
-          enLinea={syncState.enLinea}
-          pendientesSync={syncState.pendientes}
-          isSyncing={syncState.isSyncing}
-          onSyncNow={syncState.sincronizar}
+          esAdmin={esAdmin}
         />
 
-        <main className="flex-1 w-full min-w-0 max-w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          {children}
-        </main>
+        {/* 2. ÁREA PRINCIPAL: HEADER SUPERIOR + CONTENIDO */}
+        <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
+          <DashboardHeader
+            onToggleMobileMenu={() => setMobileOpen(true)}
+            organizacionNombre={organizacionNombre}
+            userName={userName}
+            userRole={userRole}
+            enLinea={syncState.enLinea}
+            pendientesSync={syncState.pendientes}
+            isSyncing={syncState.isSyncing}
+            onSyncNow={syncState.sincronizar}
+          />
+
+          <main className="flex-1 w-full min-w-0 max-w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </PresenceProvider>
   );
 }

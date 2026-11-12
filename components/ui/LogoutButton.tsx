@@ -11,8 +11,36 @@ import { sileo } from 'sileo';
 export function LogoutButton() {
   const router = useRouter();
   const [cargando, setCargando] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [pendientes, setPendientes] = useState(0);
+  const [errorSync, setErrorSync] = useState<string | null>(null);
+
+  const reintentarSincronizacion = async () => {
+    try {
+      setSincronizando(true);
+      setErrorSync(null);
+      const res = await sincronizarConNube();
+      const count = await obtenerConteoPendientesSync();
+      setPendientes(count);
+
+      if (count === 0) {
+        sileo.success({
+          title: 'Sincronización completada',
+          description: 'Todos los cobros locales se transmitieron exitosamente a la nube.',
+        });
+        setModalAbierto(false);
+      } else {
+        setErrorSync(
+          res.mensaje || 'Algunos cobros no pudieron subirse. Revisa tu conexión con la nube.'
+        );
+      }
+    } catch (err: unknown) {
+      setErrorSync('Fallo al conectar con el servidor. Intenta de nuevo en unos momentos.');
+    } finally {
+      setSincronizando(false);
+    }
+  };
 
   const ejecutarSalida = async (limpiarCola: boolean) => {
     setCargando(true);
@@ -99,24 +127,48 @@ export function LogoutButton() {
               </h3>
             </div>
 
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
               Hay <strong className="text-amber-600 dark:text-amber-400">{pendientes} cobro(s)</strong> guardados
               localmente que aún no se han transmitido a la nube. Si limpias el equipo compartido ahora,
               esos cobros locales no respaldados podrían perderse.
             </p>
 
+            {errorSync && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400">
+                {errorSync}
+              </div>
+            )}
+
             <div className="flex flex-col gap-2.5">
               <button
+                onClick={reintentarSincronizacion}
+                disabled={cargando || sincronizando}
+                className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-sm transition-colors text-center flex items-center justify-center gap-2 shadow-xs"
+              >
+                {sincronizando ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Sincronizando con la nube...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Intentar subir cobros a la nube ahora</span>
+                  </>
+                )}
+              </button>
+
+              <button
                 onClick={() => ejecutarSalida(false)}
-                disabled={cargando}
-                className="w-full py-2.5 px-4 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium text-sm transition-colors text-center"
+                disabled={cargando || sincronizando}
+                className="w-full py-2.5 px-4 rounded-lg bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-medium text-sm transition-colors text-center"
               >
                 Cerrar sesión conservando cobros para sincronizar
               </button>
 
               <button
                 onClick={() => ejecutarSalida(true)}
-                disabled={cargando}
+                disabled={cargando || sincronizando}
                 className="w-full py-2.5 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-colors text-center"
               >
                 Forzar salida y limpiar todo el equipo
@@ -124,8 +176,8 @@ export function LogoutButton() {
 
               <button
                 onClick={() => setModalAbierto(false)}
-                disabled={cargando}
-                className="w-full py-2.5 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm transition-colors text-center"
+                disabled={cargando || sincronizando}
+                className="w-full py-2.5 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/60 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm transition-colors text-center"
               >
                 Cancelar y permanecer en el sistema
               </button>

@@ -52,6 +52,7 @@ export interface Perfil {
   permisos: PermisoSistema[] | string[];
   telefono?: string;
   activo: boolean;
+  ultima_conexion?: string | null;
   created_at: string;
   updated_at: string;
   // Joins para UI

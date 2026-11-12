@@ -55,7 +55,7 @@ export async function GET() {
     // 3. Obtener perfiles de la organización directamente desde la base de datos
     const { data: usuarios, error: listError } = await supabase
       .from('perfiles')
-      .select('id, email, nombre_completo, rol, permisos, telefono, activo, created_at, updated_at')
+      .select('id, email, nombre_completo, rol, permisos, telefono, activo, ultima_conexion, created_at, updated_at')
       .eq('organizacion_id', perfilAdmin.organizacion_id)
       .order('created_at', { ascending: false });
 
@@ -63,7 +63,10 @@ export async function GET() {
       return NextResponse.json({ error: listError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ usuarios: usuarios || [] });
+    return NextResponse.json({
+      usuarios: usuarios || [],
+      organizacionId: perfilAdmin.organizacion_id,
+    });
   } catch (err: unknown) {
     return NextResponse.json(
       { error: obtenerMensajeError(err, 'Error interno del servidor') },
@@ -237,7 +240,8 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { userId, activo } = body;
+    const userId = body.userId || body.id;
+    const { activo } = body;
 
     if (!userId || typeof activo !== 'boolean') {
       return NextResponse.json(
@@ -288,6 +292,223 @@ export async function PATCH(request: Request) {
   } catch (err: unknown) {
     return NextResponse.json(
       { error: obtenerMensajeError(err, 'Error interno al actualizar usuario') },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/admin/users
+ * Actualiza los datos de un usuario existente (nombre, rol, permisos, teléfono, contraseña opcional).
+ */
+export async function PUT(request: Request) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const { data: perfilAdmin, error: perfilError } = await supabase
+      .from('perfiles')
+      .select('rol, organizacion_id, activo')
+      .eq('id', user.id)
+      .single();
+
+    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
+      return NextResponse.json(
+        { error: 'Solo los administradores activos pueden modificar usuarios.' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const userId = body.userId || body.id;
+    const { nombre_completo, rol, permisos, telefono, password } = body;
+
+    if (!userId || !nombre_completo || !rol) {
+      return NextResponse.json(
+        { error: 'userId, nombre_completo y rol son requeridos.' },
+        { status: 400 }
+      );
+    }
+
+    if (!ROLES_PERMITIDOS.includes(rol)) {
+      return NextResponse.json(
+        { error: `Rol no válido. Permitidos: ${ROLES_PERMITIDOS.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    // Verificar que el usuario objetivo pertenezca a la misma organización
+    const { data: usuarioObjetivo, error: errTarget } = await supabase
+      .from('perfiles')
+      .select('id, organizacion_id, nombre_completo, rol')
+      .eq('id', userId)
+      .eq('organizacion_id', perfilAdmin.organizacion_id)
+      .single();
+
+    if (errTarget || !usuarioObjetivo) {
+      return NextResponse.json(
+        { error: 'El usuario no existe o no pertenece a tu organización.' },
+        { status: 404 }
+      );
+    }
+
+    // Si se modifica el propio usuario admin, evitar que se degrade a un rol inferior
+    if (userId === user.id && rol !== 'administrador') {
+      return NextResponse.json(
+        { error: 'No puedes cambiar tu propio rol de administrador.' },
+        { status: 400 }
+      );
+    }
+
+    let permisosFinales: PermisoSistema[] = [];
+    if (rol === 'administrador') {
+      permisosFinales = ['*'] as unknown as PermisoSistema[];
+    } else if (Array.isArray(permisos)) {
+      permisosFinales = permisos.filter((p: PermisoSistema) =>
+        PERMISOS_PERMITIDOS.includes(p)
+      );
+    }
+
+    // Si se ingresó una nueva contraseña, actualizarla mediante Supabase Admin API
+    if (password && typeof password === 'string' && password.trim().length >= 6) {
+      const supabaseAdmin = createAdminClient();
+      const { error: passErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: password.trim(),
+      });
+      if (passErr) {
+        return NextResponse.json(
+          { error: `Error al actualizar la contraseña: ${passErr.message}` },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Actualizar perfil en PostgreSQL
+    const { error: updateErr } = await supabase
+      .from('perfiles')
+      .update({
+        nombre_completo: String(nombre_completo).trim(),
+        rol,
+        permisos: permisosFinales,
+        telefono: telefono ? String(telefono).trim() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+      .eq('organizacion_id', perfilAdmin.organizacion_id);
+
+    if (updateErr) {
+      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      mensaje: `Datos de ${nombre_completo} actualizados con éxito.`,
+    });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: obtenerMensajeError(err, 'Error interno al actualizar el usuario.') },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/admin/users
+ * Elimina la cuenta de usuario de Supabase Auth y su perfil asociado.
+ */
+export async function DELETE(request: Request) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const { data: perfilAdmin, error: perfilError } = await supabase
+      .from('perfiles')
+      .select('rol, organizacion_id, activo')
+      .eq('id', user.id)
+      .single();
+
+    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
+      return NextResponse.json(
+        { error: 'Solo los administradores activos pueden eliminar usuarios.' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId') || searchParams.get('id');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Se requiere el parámetro userId para eliminar.' },
+        { status: 400 }
+      );
+    }
+
+    if (userId === user.id) {
+      return NextResponse.json(
+        { error: 'No puedes eliminar tu propia cuenta de administrador en sesión.' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar que el usuario pertenezca a la misma organización
+    const { data: usuarioObjetivo, error: errTarget } = await supabase
+      .from('perfiles')
+      .select('id, nombre_completo, organizacion_id')
+      .eq('id', userId)
+      .eq('organizacion_id', perfilAdmin.organizacion_id)
+      .single();
+
+    if (errTarget || !usuarioObjetivo) {
+      return NextResponse.json(
+        { error: 'El usuario no existe o no pertenece a tu organización.' },
+        { status: 404 }
+      );
+    }
+
+    // Eliminar el usuario en Supabase Auth mediante Admin API (hace cascade a perfiles)
+    const supabaseAdmin = createAdminClient();
+    const { error: deleteAuthErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+    if (deleteAuthErr) {
+      // Fallback: eliminar directamente de perfiles si Auth ya no existía
+      const { error: deletePerfilErr } = await supabase
+        .from('perfiles')
+        .delete()
+        .eq('id', userId)
+        .eq('organizacion_id', perfilAdmin.organizacion_id);
+
+      if (deletePerfilErr) {
+        return NextResponse.json(
+          { error: `No se pudo eliminar el usuario: ${deleteAuthErr.message}` },
+          { status: 500 }
+        );
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      mensaje: `El usuario ${usuarioObjetivo.nombre_completo} ha sido eliminado permanentemente del sistema.`,
+    });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: obtenerMensajeError(err, 'Error interno al eliminar usuario.') },
       { status: 500 }
     );
   }

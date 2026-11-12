@@ -231,6 +231,8 @@ export function CobrosManager() {
           organizacion={organizacion}
           cajeroId={cajeroId}
           cajeroNombre={cajeroNombre}
+          cargando={cargando}
+          onRefresh={cargarDatos}
           initialCodigoToma={codigoTomaUrl}
           onPagoCompletado={cargarDatos}
           onCuotaActualizada={handleCuotaActualizada}

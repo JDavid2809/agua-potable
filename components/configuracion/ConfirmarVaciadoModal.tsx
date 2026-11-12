@@ -253,6 +253,18 @@ export function ConfirmarVaciadoModal({
                     ))}
                   </ul>
                 </div>
+
+                <div
+                  className={`border-t border-dashed py-4 md:border-l md:border-t-0 md:pl-5 ${LINE}`}
+                >
+                  <p className="flex items-center gap-2 text-[13px] font-semibold text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    Regla de relación
+                  </p>
+                  <p className="mt-2.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                    {modulo.notaRelacion}
+                  </p>
+                </div>
               </div>
 
               {/* Confirmación y acciones en una sola fila (escritorio) */}

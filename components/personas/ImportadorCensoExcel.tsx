@@ -444,35 +444,56 @@ export function ImportadorCensoExcel({
 
       const TAMANIO_LOTE = 150;
       let totalPersonasCreadas = 0;
+      let totalPersonasVinculadas = 0;
       let totalTomasCreadas = 0;
 
       for (let offset = 0; offset < seleccionados.length; offset += TAMANIO_LOTE) {
         const lote = seleccionados.slice(offset, offset + TAMANIO_LOTE);
 
-        const personasPayload = lote.map((r) => ({
-          organizacion_id: orgId,
-          nombre_completo: r.nombre_completo.trim(),
-          documento_identidad: r.documento_identidad.trim() || null,
-          telefono: r.telefono.trim() || null,
-          direccion: r.direccion.trim() || null,
-          notas: r.notas.trim() || null,
-          activo: true,
-        }));
+        const registrosNuevos: { indexEnLote: number; payload: any }[] = [];
+        const personaIdPorIndex = new Map<number, string>();
 
-        const { data: personasGuardadas, error: errP } = await supabase
-          .from('personas')
-          .insert(personasPayload)
-          .select('id');
+        lote.forEach((r, idx) => {
+          if (r.personaExistenteId) {
+            personaIdPorIndex.set(idx, r.personaExistenteId);
+            totalPersonasVinculadas += 1;
+          } else {
+            registrosNuevos.push({
+              indexEnLote: idx,
+              payload: {
+                organizacion_id: orgId,
+                nombre_completo: r.nombre_completo.trim(),
+                documento_identidad: r.documento_identidad.trim() || null,
+                telefono: r.telefono.trim() || null,
+                direccion: r.direccion.trim() || null,
+                notas: r.notas.trim() || null,
+                activo: true,
+              },
+            });
+          }
+        });
 
-        if (errP || !personasGuardadas) {
-          throw errP || new Error('Error al registrar bloque de contribuyentes.');
+        if (registrosNuevos.length > 0) {
+          const { data: personasGuardadas, error: errP } = await supabase
+            .from('personas')
+            .insert(registrosNuevos.map((rn) => rn.payload))
+            .select('id');
+
+          if (errP || !personasGuardadas) {
+            throw errP || new Error('Error al registrar bloque de contribuyentes.');
+          }
+
+          personasGuardadas.forEach((p, i) => {
+            const indexOriginal = registrosNuevos[i].indexEnLote;
+            personaIdPorIndex.set(indexOriginal, p.id);
+          });
+
+          totalPersonasCreadas += personasGuardadas.length;
         }
-
-        totalPersonasCreadas += personasGuardadas.length;
 
         const tomasPayload: any[] = [];
         lote.forEach((r, idx) => {
-          const personaId = personasGuardadas[idx]?.id;
+          const personaId = personaIdPorIndex.get(idx);
           if (!personaId) return;
 
           const cantTomas = r.cantidadTomas || 0;
@@ -519,7 +540,9 @@ export function ImportadorCensoExcel({
 
       sileo.success({
         title: 'Censo importado con éxito',
-        description: `Se registraron ${totalPersonasCreadas} contribuyentes y ${totalTomasCreadas} tomas de agua.`,
+        description: `Se registraron ${totalPersonasCreadas} contribuyentes nuevos${
+          totalPersonasVinculadas > 0 ? `, se vincularon ${totalPersonasVinculadas} existentes` : ''
+        } y se crearon ${totalTomasCreadas} tomas de agua.`,
       });
 
       await Promise.resolve(onImportacionCompletada());

@@ -15,6 +15,12 @@ import {
   Phone,
   Key,
   ArrowLeft,
+  Receipt,
+  Clock,
+  Pencil,
+  Trash2,
+  UserX,
+  UserCheck,
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { Button } from '@/components/ui/Button';
@@ -31,6 +37,9 @@ import {
 } from '@/components/ui/Table';
 import type { PermisoSistema, RolUsuario } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
+import { useOnlineUsers } from '@/hooks/use-presence-tracker';
+import { ModalActividadCajero } from '@/components/usuarios/ModalActividadCajero';
+import { ModalEditarUsuario } from '@/components/usuarios/ModalEditarUsuario';
 
 interface UsuarioItem {
   id: string;
@@ -40,7 +49,30 @@ interface UsuarioItem {
   permisos: string[];
   telefono?: string;
   activo: boolean;
+  ultima_conexion?: string | null;
   created_at: string;
+}
+
+function formatearUltimaConexion(fechaIso?: string | null, isOnline?: boolean): string {
+  if (isOnline) {
+    return 'Activo ahora';
+  }
+  if (!fechaIso) {
+    return 'Sin registro';
+  }
+
+  const fecha = new Date(fechaIso);
+  if (Number.isNaN(fecha.getTime())) {
+    return 'Sin registro';
+  }
+
+  return fecha.toLocaleString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 const PERMISOS_DISPONIBLES: { id: PermisoSistema; etiqueta: string; categoria: string }[] = [
@@ -57,10 +89,44 @@ const PERMISOS_DISPONIBLES: { id: PermisoSistema; etiqueta: string; categoria: s
 export default function UsuariosPage() {
   const router = useRouter();
   const [usuarios, setUsuarios] = useState<UsuarioItem[]>([]);
+  const onlineUserIds = useOnlineUsers();
+  const [modalActividadCajeroId, setModalActividadCajeroId] = useState<string | null>(null);
+  const [modalActividadCajeroNombre, setModalActividadCajeroNombre] = useState<string>('');
+  const [usuarioAEditar, setUsuarioAEditar] = useState<UsuarioItem | null>(null);
   const [cargando, setCargando] = useState(true);
   const [vista, setVista] = useState<'lista' | 'formulario'>('lista');
   const [guardando, setGuardando] = useState(false);
   const [procesandoUsuarioId, setProcesandoUsuarioId] = useState<string | null>(null);
+
+  const handleEliminarUsuario = async (u: UsuarioItem) => {
+    const confirmar = window.confirm(
+      `¿Deseas ELIMINAR permanentemente la cuenta de ${u.nombre_completo} (${u.email})?\n\nEsta acción no se puede deshacer. Los cobros y recibos que haya emitido históricamente se conservarán intactos para las auditorías.`
+    );
+    if (!confirmar) return;
+
+    try {
+      setProcesandoUsuarioId(u.id);
+      const res = await fetch(`/api/admin/users?userId=${u.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'No se pudo eliminar el usuario.');
+      }
+      sileo.success({
+        title: 'Usuario eliminado',
+        description: data.mensaje || `${u.nombre_completo} fue eliminado del sistema.`,
+      });
+      cargarUsuarios();
+    } catch (err: unknown) {
+      sileo.error({
+        title: 'Error al eliminar',
+        description: obtenerMensajeError(err, 'No se pudo eliminar el usuario.'),
+      });
+    } finally {
+      setProcesandoUsuarioId(null);
+    }
+  };
 
   const handleToggleEstadoUsuario = async (u: UsuarioItem) => {
     const nuevoEstado = !u.activo;
@@ -74,7 +140,7 @@ export default function UsuariosPage() {
       const res = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: u.id, activo: nuevoEstado }),
+        body: JSON.stringify({ userId: u.id, activo: nuevoEstado }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -484,8 +550,8 @@ export default function UsuariosPage() {
             <TableHead>Usuario</TableHead>
             <TableHead>Rol</TableHead>
             <TableHead>Permisos Asignados</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Fecha de Alta</TableHead>
+            <TableHead>Conexión</TableHead>
+            <TableHead>Última Conexión</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </tr>
         </TableHeader>
@@ -514,6 +580,7 @@ export default function UsuariosPage() {
           ) : (
             usuarios.map((u) => {
               const esAdmin = u.rol === 'administrador';
+              const isOnline = onlineUserIds.has(u.id);
               const iniciales = u.nombre_completo
                 .split(' ')
                 .slice(0, 2)
@@ -526,13 +593,28 @@ export default function UsuariosPage() {
                   {/* Datos del Usuario */}
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-sm shadow-sm">
-                        {iniciales || 'U'}
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-sm shadow-sm">
+                          {iniciales || 'U'}
+                        </div>
+                        {isOnline && (
+                          <span
+                            title="En línea"
+                            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-xs"
+                          />
+                        )}
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 dark:text-white">
-                          {u.nombre_completo}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-900 dark:text-white">
+                            {u.nombre_completo}
+                          </p>
+                          {!u.activo && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              Suspendido
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
                           <Mail className="w-3 h-3" />
                           {u.email || 'Sin correo asociado'}
@@ -578,45 +660,79 @@ export default function UsuariosPage() {
                     )}
                   </TableCell>
 
-                  {/* Estado */}
+                  {/* Conexión en vivo */}
                   <TableCell>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        u.activo
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          u.activo ? 'bg-emerald-500' : 'bg-slate-400'
-                        }`}
-                      />
-                      {u.activo ? 'Activo' : 'Inactivo'}
-                    </span>
+                    {isOnline ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        En línea
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20">
+                        <span className="w-2 h-2 rounded-full bg-slate-400" />
+                        Desconectado
+                      </span>
+                    )}
                   </TableCell>
 
-                  {/* Fecha de creación */}
-                  <TableCell className="text-xs text-slate-500 dark:text-slate-400">
-                    {new Date(u.created_at).toLocaleDateString('es-MX', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                  {/* Última Conexión */}
+                  <TableCell className="text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <span className={isOnline ? 'font-bold text-emerald-600 dark:text-emerald-400' : ''}>
+                        {formatearUltimaConexion(u.ultima_conexion, isOnline)}
+                      </span>
+                    </span>
                   </TableCell>
 
                   {/* Acciones */}
                   <TableCell className="text-right">
-                    <Button
-                      type="button"
-                      variant={u.activo ? 'outline' : 'primary'}
-                      size="sm"
-                      disabled={procesandoUsuarioId === u.id}
-                      onClick={() => handleToggleEstadoUsuario(u)}
-                      icon={u.activo ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
-                    >
-                      {u.activo ? 'Suspender' : 'Reactivar'}
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalActividadCajeroId(u.id);
+                          setModalActividadCajeroNombre(u.nombre_completo);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                        title="Ver cobros y recibos emitidos"
+                      >
+                        <Receipt className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setUsuarioAEditar(u)}
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                        title="Editar datos, rol y permisos"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={procesandoUsuarioId === u.id}
+                        onClick={() => handleToggleEstadoUsuario(u)}
+                        className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                          u.activo
+                            ? 'text-slate-500 hover:text-amber-600 dark:text-slate-400 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                            : 'text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                        }`}
+                        title={u.activo ? 'Suspender acceso del usuario' : 'Reactivar acceso del usuario'}
+                      >
+                        {u.activo ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={procesandoUsuarioId === u.id}
+                        onClick={() => handleEliminarUsuario(u)}
+                        className="p-1.5 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors disabled:opacity-50"
+                        title="Eliminar usuario permanentemente"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -624,6 +740,28 @@ export default function UsuariosPage() {
           )}
         </TableBody>
       </Table>
+
+      {/* Modal de auditoría de actividad y recibos del cajero */}
+      {modalActividadCajeroId && (
+        <ModalActividadCajero
+          cajeroId={modalActividadCajeroId}
+          cajeroNombre={modalActividadCajeroNombre}
+          isOnline={onlineUserIds.has(modalActividadCajeroId)}
+          onClose={() => {
+            setModalActividadCajeroId(null);
+            setModalActividadCajeroNombre('');
+          }}
+        />
+      )}
+
+      {/* Modal de edición de usuario y permisos */}
+      {usuarioAEditar && (
+        <ModalEditarUsuario
+          usuario={usuarioAEditar}
+          onClose={() => setUsuarioAEditar(null)}
+          onUsuarioActualizado={cargarUsuarios}
+        />
+      )}
 
     </div>
   );

@@ -454,7 +454,9 @@ function MobileSheet({
   }, [onClose]);
 
   const requestCloseRef = useRef(requestClose);
-  requestCloseRef.current = requestClose;
+  useEffect(() => {
+    requestCloseRef.current = requestClose;
+  }, [requestClose]);
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -507,7 +509,13 @@ function MobileSheet({
     };
   }, []);
 
-  const mobileGroups = groups.filter((g) => g.title !== 'Operación');
+  const tabHrefs = new Set(operacionItems.slice(0, MAX_TABS - 1).map((item) => item.href));
+  const mobileGroups = groups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => !tabHrefs.has(item.href)),
+    }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <div className="fixed inset-0 z-50 md:hidden">

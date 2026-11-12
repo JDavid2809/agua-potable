@@ -103,7 +103,12 @@ export default function LoginPage() {
 
         await aislarOrganizacionLocal(perfil.organizacion_id);
 
-        const rolNombre = perfil?.rol === 'administrador' ? 'Administrador' : 'Cajero';
+        const rolNombre =
+          perfil?.rol === 'administrador'
+            ? 'Administrador'
+            : perfil?.rol === 'lector'
+            ? 'Lector'
+            : 'Cajero';
         const usuarioNombre = perfil?.nombre_completo || authData.user.email;
 
         sileo.success({

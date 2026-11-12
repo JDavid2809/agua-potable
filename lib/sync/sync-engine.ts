@@ -146,6 +146,7 @@ async function guardarPagoEnSupabase(
     total: Number(pago.total),
     metodo_pago: pago.metodo_pago || 'efectivo',
     fecha_pago: pago.fecha_pago || new Date().toISOString(),
+    estado: pago.estado || 'completado',
     notas: pago.notas || null,
     dispositivo_offline_id: pago.dispositivo_offline_id || null,
     created_at: pago.created_at || new Date().toISOString(),
@@ -174,6 +175,12 @@ async function guardarPagoEnSupabase(
 
   if (!rpcErr && rpcRes?.success) {
     return { folioFinal: (rpcRes.folio as string) || folioActual };
+  }
+
+  if (rpcErr) {
+    console.warn(
+      `[SyncEngine] RPC registrar_pago_sincronizado devolvió error (${rpcErr.code}): ${rpcErr.message}. Usando inserción directa.`
+    );
   }
 
   // 2. Fallback directo con INSERT (compatible con políticas RLS de cobros.crear)
@@ -425,8 +432,15 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
     let conError = 0;
 
     try {
-      // --- FASE 1: PUSH (Procesar TODOS los elementos de la cola local, incluyendo los que tenían error previo) ---
-      const itemsAProcesar = await dbLocal.cola_sync.toArray();
+      // --- FASE 1: PUSH (Procesar elementos activos pendientes de la cola local) ---
+      const todosLosItemsCola = await dbLocal.cola_sync.toArray();
+      const itemsConErrorPermanente = todosLosItemsCola.filter(
+        (i) => i.estado === 'error' || (i.intentos || 0) >= MAX_INTENTOS
+      );
+      const itemsAProcesar = todosLosItemsCola.filter(
+        (i) => i.estado !== 'error' && (i.intentos || 0) < MAX_INTENTOS
+      );
+      conError += itemsConErrorPermanente.length;
 
       for (const item of itemsAProcesar) {
         try {

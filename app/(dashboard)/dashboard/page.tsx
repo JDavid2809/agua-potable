@@ -27,7 +27,7 @@ export default async function DashboardPage() {
     tomasData,
     { count: personasCount },
     { count: usuariosCount },
-    { data: pagosData },
+    pagosData,
   ] = await Promise.all([
     fetchAllRows<any>((from, to) =>
       supabase
@@ -48,21 +48,25 @@ export default async function DashboardPage() {
       .from('perfiles')
       .select('*', { count: 'exact', head: true })
       .eq('organizacion_id', orgId),
-    supabase
-      .from('pagos')
-      .select(`
-        id,
-        folio,
-        total,
-        metodo_pago,
-        fecha_pago,
-        created_at,
-        persona:personas(nombre_completo),
-        detalles:pago_detalles(monto, recargo)
-      `)
-      .eq('organizacion_id', orgId)
-      .order('fecha_pago', { ascending: false })
-      .limit(100),
+    fetchAllRows<any>((from, to) =>
+      supabase
+        .from('pagos')
+        .select(`
+          id,
+          folio,
+          total,
+          metodo_pago,
+          fecha_pago,
+          estado,
+          created_at,
+          persona:personas(nombre_completo),
+          detalles:pago_detalles(monto, recargo)
+        `)
+        .eq('organizacion_id', orgId)
+        .order('fecha_pago', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, to)
+    ),
   ]);
 
   const tomasCount = tomasData.length;

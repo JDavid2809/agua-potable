@@ -52,7 +52,11 @@ export function Button({
       ) : (
         icon && <span className="shrink-0">{icon}</span>
       )}
-      <span>{children}</span>
+      {children !== undefined && children !== null && children !== false && (
+        <span className="inline-flex items-center justify-center gap-1.5">
+          {children}
+        </span>
+      )}
     </button>
   );
 }
