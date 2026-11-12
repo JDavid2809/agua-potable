@@ -57,7 +57,12 @@ export function CobrosManager() {
             const org = Array.isArray(perfilData.organizacion)
               ? perfilData.organizacion[0]
               : perfilData.organizacion;
-            setOrganizacion(org as unknown as Organizacion);
+            const orgObj = org as unknown as Organizacion;
+            setOrganizacion(orgObj);
+            // Guardar configuración de organización localmente para modo offline
+            dbLocal.config_sync
+              .put({ clave: 'organizacion_cache', valor: JSON.stringify(orgObj) })
+              .catch(() => {});
           }
         }
       }
@@ -130,16 +135,38 @@ export function CobrosManager() {
     } catch (err: unknown) {
       // Fallback a base de datos local Dexie si el dispositivo está sin conexión
       try {
-        const [tomasLocal, personasLocal, manzanasLocal, pagosLocal] = await Promise.all([
-          dbLocal.tomas.toArray(),
-          dbLocal.personas.toArray(),
-          dbLocal.manzanas.toArray(),
-          dbLocal.pagos.toArray(),
-        ]);
+        const [tomasLocal, personasLocal, manzanasLocal, pagosLocal, detallesLocal, orgCache] =
+          await Promise.all([
+            dbLocal.tomas.toArray(),
+            dbLocal.personas.toArray(),
+            dbLocal.manzanas.toArray(),
+            dbLocal.pagos.toArray(),
+            dbLocal.pago_detalles.toArray(),
+            dbLocal.config_sync.get('organizacion_cache'),
+          ]);
+
+        if (orgCache?.valor) {
+          try {
+            setOrganizacion(JSON.parse(orgCache.valor) as Organizacion);
+          } catch {
+            // Ignorar error de parseo de caché de organización
+          }
+        }
 
         if (tomasLocal.length > 0 || personasLocal.length > 0 || pagosLocal.length > 0) {
           const mapaPersonas = new Map(personasLocal.map((p) => [p.id, p]));
           const mapaManzanas = new Map(manzanasLocal.map((m) => [m.id, m]));
+          const mapaTomas = new Map(tomasLocal.map((t) => [t.id, t]));
+          const detallesPorPago = new Map<string, any[]>();
+          detallesLocal.forEach((d) => {
+            const lista = detallesPorPago.get(d.pago_id) || [];
+            lista.push({
+              ...d,
+              toma: mapaTomas.get(d.toma_id),
+            });
+            detallesPorPago.set(d.pago_id, lista);
+          });
+
           setPersonas(personasLocal);
           setTomas(
             tomasLocal.map((t) => ({
@@ -149,11 +176,17 @@ export function CobrosManager() {
             }))
           );
           setPagos(
-            pagosLocal.sort(
-              (a, b) =>
-                new Date(b.fecha_pago || b.created_at).getTime() -
-                new Date(a.fecha_pago || a.created_at).getTime()
-            )
+            pagosLocal
+              .map((p) => ({
+                ...p,
+                persona: p.persona || mapaPersonas.get(p.persona_id),
+                detalles: p.detalles || detallesPorPago.get(p.id) || [],
+              }))
+              .sort(
+                (a, b) =>
+                  new Date(b.fecha_pago || b.created_at).getTime() -
+                  new Date(a.fecha_pago || a.created_at).getTime()
+              )
           );
           return;
         }

@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sun, Moon, User, RefreshCw } from 'lucide-react';
+import { Sun, Moon, User, RefreshCw, WifiOff, CloudUpload } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
+import { PwaInstallButton } from '@/components/pwa/PwaManager';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface DashboardHeaderProps {
@@ -115,8 +116,8 @@ export function DashboardHeader({
         </nav>
       </div>
 
-      {/* 2. Lado Derecho: en móvil solo el botón de tema; en web fecha, tema, usuario (con punto de estado) y cerrar sesión */}
-      <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+      {/* 2. Lado Derecho: estado offline/sync, instalar PWA, tema, usuario y cerrar sesión */}
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3.5">
         {fecha && (
           <div className="fh-fade hidden items-center gap-3 font-mono text-xs text-slate-400 dark:text-slate-500 lg:flex">
             <span className="capitalize">{fecha}</span>
@@ -127,6 +128,54 @@ export function DashboardHeader({
             </span>
           </div>
         )}
+
+        {/* Indicador visible en móvil y escritorio cuando está sin conexión o hay cobros por sincronizar */}
+        {(!enLinea || isSyncing || pendientesSync > 0) && (
+          <button
+            type="button"
+            onClick={onSyncNow}
+            disabled={isSyncing}
+            title={
+              !enLinea
+                ? `Sin conexión (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'})`
+                : isSyncing
+                  ? 'Sincronizando con la nube...'
+                  : `Sincronizar ${pendientesSync} elemento(s) pendiente(s)`
+            }
+            className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-xs font-bold transition-colors shrink-0 ${
+              isSyncing
+                ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                : !enLinea
+                  ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+                  : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+            }`}
+          >
+            {isSyncing ? (
+              <>
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <span className="hidden sm:inline">Sincronizando</span>
+              </>
+            ) : !enLinea ? (
+              <>
+                <WifiOff className="h-3.5 w-3.5" />
+                <span>Offline</span>
+                {pendientesSync > 0 && (
+                  <span className="rounded-full bg-amber-600/20 px-1.5 text-[10px]">
+                    {pendientesSync}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <CloudUpload className="h-3.5 w-3.5" />
+                <span>{pendientesSync} pend.</span>
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Botón para instalar la PWA en móvil o escritorio */}
+        <PwaInstallButton />
 
         {/* Botón de alternar tema (modo claro / oscuro) — visible en móvil y web */}
         <button

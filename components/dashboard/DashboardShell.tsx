@@ -8,6 +8,7 @@ import { sileo } from 'sileo';
 import { SIDEBAR_COOKIE } from '@/lib/theme';
 import { useOfflineSync } from '@/hooks/use-offline-sync';
 import { PresenceProvider } from '@/hooks/use-presence-tracker';
+import { usePwa } from '@/components/pwa/PwaManager';
 
 function AccesoDenegadoListener() {
   const searchParams = useSearchParams();
@@ -55,6 +56,12 @@ export function DashboardShell({
 
   // Activar motor de sincronización offline/online automático en todo el dashboard
   const syncState = useOfflineSync();
+  const { warmRoutes } = usePwa();
+
+  // Pre-cachear rutas operativas clave en el Service Worker para navegación sin conexión
+  useEffect(() => {
+    warmRoutes(['/dashboard', '/cobros', '/personas', '/tomas', '/cooperaciones']);
+  }, [warmRoutes]);
 
   const handleToggleCollapse = useCallback(() => {
     setCollapsed((prev) => {

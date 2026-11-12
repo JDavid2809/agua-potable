@@ -98,13 +98,16 @@ export function useOfflineSync() {
 
     let ignore = false;
 
-    // 1. Verificación inicial inmediata de estado local y conectividad real
+    // 1. Verificación inicial inmediata de estado local, conectividad y descarga incremental
     void (async () => {
       try {
         const res = await obtenerEstadoSincronizacion();
         const online = await probarConexionReal();
         if (!ignore) {
           setEstado({ ...res, enLinea: online });
+          if (online) {
+            void sincronizar();
+          }
         }
       } catch (e) {
         console.error('Error al inicializar estado de sincronización:', e);

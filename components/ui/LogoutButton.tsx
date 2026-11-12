@@ -54,6 +54,9 @@ export function LogoutButton() {
         }
       }
       await limpiarDatosLocales({ limpiarCola });
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.controller?.postMessage({ type: 'CLEAR_AUTH_CACHES' });
+      }
       await supabase.auth.signOut();
       sileo.info({
         title: 'Sesión cerrada',

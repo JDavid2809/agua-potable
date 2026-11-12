@@ -1,0 +1,62 @@
+import type { MetadataRoute } from 'next';
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    id: '/',
+    name: 'Fluvib | Sistema de Agua Potable',
+    short_name: 'Fluvib',
+    description:
+      'Sistema de cobro, padrón de tomas y control comunitario de agua potable con soporte offline',
+    start_url: '/dashboard',
+    scope: '/',
+    display: 'standalone',
+    orientation: 'any',
+    background_color: '#0B1224',
+    theme_color: '#0284c7',
+    categories: ['finance', 'utilities', 'productivity'],
+    icons: [
+      {
+        src: '/icons/icon-192x192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icons/icon-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icons/icon-maskable-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+    ],
+    shortcuts: [
+      {
+        name: 'Caja y Cobros',
+        short_name: 'Cobros',
+        description: 'Ir directamente a ventanilla de cobro por toma',
+        url: '/cobros',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }],
+      },
+      {
+        name: 'Padrón de Tomas',
+        short_name: 'Tomas',
+        description: 'Consultar tomas de agua registradas',
+        url: '/tomas',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }],
+      },
+      {
+        name: 'Contratos y Personas',
+        short_name: 'Personas',
+        description: 'Consultar contribuyentes y titulares',
+        url: '/personas',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }],
+      },
+    ],
+  };
+}
+

@@ -30,6 +30,7 @@ import {
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/fetch-all';
+import { dbLocal } from '@/lib/db/offline-db';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
@@ -176,6 +177,42 @@ export function PersonasManager() {
 
       setPersonas(formateadas);
     } catch (err: unknown) {
+      // Fallback offline desde IndexedDB (Dexie)
+      try {
+        const [personasLocal, tomasLocal, manzanasLocal] = await Promise.all([
+          dbLocal.personas.toArray(),
+          dbLocal.tomas.toArray(),
+          dbLocal.manzanas.toArray(),
+        ]);
+        if (personasLocal.length > 0 || manzanasLocal.length > 0) {
+          const mapaManzanas = new Map(manzanasLocal.map((m) => [m.id, m]));
+          const tomasPorPersona = new Map<string, any[]>();
+          tomasLocal.forEach((t) => {
+            if (t.deleted_at) return;
+            const lista = tomasPorPersona.get(t.persona_id) || [];
+            lista.push({
+              ...t,
+              manzana: t.manzana_id ? mapaManzanas.get(t.manzana_id) : undefined,
+            });
+            tomasPorPersona.set(t.persona_id, lista);
+          });
+
+          setManzanas(manzanasLocal.filter((m) => !m.deleted_at));
+          setPersonas(
+            personasLocal
+              .filter((p) => !p.deleted_at)
+              .sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo, 'es'))
+              .map((p) => ({
+                ...p,
+                tomas: tomasPorPersona.get(p.id) || [],
+              }))
+          );
+          return;
+        }
+      } catch {
+        // Ignorar error de caché local
+      }
+
       sileo.error({
         title: 'Error de carga',
         description: obtenerMensajeError(err, 'No se pudo cargar el listado de personas'),
