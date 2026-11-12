@@ -45,6 +45,14 @@ export function LogoutButton() {
   const ejecutarSalida = async (limpiarCola: boolean) => {
     setCargando(true);
     try {
+      // Guardar hora exacta de salida antes de invalidar la sesión
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        try {
+          await supabase.rpc('registrar_actividad_usuario');
+        } catch {
+          // Continuar aunque falle el registro de actividad
+        }
+      }
       await limpiarDatosLocales({ limpiarCola });
       await supabase.auth.signOut();
       sileo.info({

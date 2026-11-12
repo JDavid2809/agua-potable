@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/Table';
 import type { PermisoSistema, RolUsuario } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
-import { useOnlineUsers } from '@/hooks/use-presence-tracker';
+import { useOnlineUsers, useLastSeenMap } from '@/hooks/use-presence-tracker';
 import { ModalActividadCajero } from '@/components/usuarios/ModalActividadCajero';
 import { ModalEditarUsuario } from '@/components/usuarios/ModalEditarUsuario';
 
@@ -51,6 +51,16 @@ interface UsuarioItem {
   activo: boolean;
   ultima_conexion?: string | null;
   created_at: string;
+}
+
+function obtenerFechaMasReciente(dbIso?: string | null, liveIso?: string | null): string | null {
+  if (!dbIso) return liveIso || null;
+  if (!liveIso) return dbIso;
+  const tDb = new Date(dbIso).getTime();
+  const tLive = new Date(liveIso).getTime();
+  if (Number.isNaN(tDb)) return liveIso;
+  if (Number.isNaN(tLive)) return dbIso;
+  return tLive > tDb ? liveIso : dbIso;
 }
 
 function formatearUltimaConexion(fechaIso?: string | null, isOnline?: boolean): string {
@@ -90,6 +100,7 @@ export default function UsuariosPage() {
   const router = useRouter();
   const [usuarios, setUsuarios] = useState<UsuarioItem[]>([]);
   const onlineUserIds = useOnlineUsers();
+  const lastSeenMap = useLastSeenMap();
   const [modalActividadCajeroId, setModalActividadCajeroId] = useState<string | null>(null);
   const [modalActividadCajeroNombre, setModalActividadCajeroNombre] = useState<string>('');
   const [usuarioAEditar, setUsuarioAEditar] = useState<UsuarioItem | null>(null);
@@ -581,6 +592,10 @@ export default function UsuariosPage() {
             usuarios.map((u) => {
               const esAdmin = u.rol === 'administrador';
               const isOnline = onlineUserIds.has(u.id);
+              const ultimaConexionEfectiva = obtenerFechaMasReciente(
+                u.ultima_conexion,
+                lastSeenMap[u.id]
+              );
               const iniciales = u.nombre_completo
                 .split(' ')
                 .slice(0, 2)
@@ -680,7 +695,7 @@ export default function UsuariosPage() {
                     <span className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
                       <span className={isOnline ? 'font-bold text-emerald-600 dark:text-emerald-400' : ''}>
-                        {formatearUltimaConexion(u.ultima_conexion, isOnline)}
+                        {formatearUltimaConexion(ultimaConexionEfectiva, isOnline)}
                       </span>
                     </span>
                   </TableCell>
@@ -747,6 +762,7 @@ export default function UsuariosPage() {
           cajeroId={modalActividadCajeroId}
           cajeroNombre={modalActividadCajeroNombre}
           isOnline={onlineUserIds.has(modalActividadCajeroId)}
+          ultimaConexionEnVivo={lastSeenMap[modalActividadCajeroId]}
           onClose={() => {
             setModalActividadCajeroId(null);
             setModalActividadCajeroNombre('');

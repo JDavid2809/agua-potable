@@ -23,6 +23,7 @@ export interface ModalActividadCajeroProps {
   cajeroId: string | null;
   cajeroNombre?: string;
   isOnline: boolean;
+  ultimaConexionEnVivo?: string | null;
   onClose: () => void;
 }
 
@@ -97,6 +98,7 @@ export function ModalActividadCajero({
   cajeroId,
   cajeroNombre,
   isOnline,
+  ultimaConexionEnVivo,
   onClose,
 }: ModalActividadCajeroProps) {
   const [tabActiva, setTabActiva] = useState<'agua' | 'cooperaciones'>('agua');
@@ -228,22 +230,32 @@ export function ModalActividadCajero({
                 <span>{cajero?.email || 'Cargando datos...'}</span>
                 <span>•</span>
                 <span className="capitalize">{cajero?.rol || 'cajero'}</span>
-                {cajero?.ultima_conexion && (
-                  <>
-                    <span>•</span>
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-slate-400" />
-                      Última conexión:{' '}
-                      {new Date(cajero.ultima_conexion).toLocaleString('es-MX', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </>
-                )}
+                {(() => {
+                  const dbIso = cajero?.ultima_conexion;
+                  const fechaMostrar =
+                    dbIso && ultimaConexionEnVivo
+                      ? new Date(ultimaConexionEnVivo).getTime() > new Date(dbIso).getTime()
+                        ? ultimaConexionEnVivo
+                        : dbIso
+                      : ultimaConexionEnVivo || dbIso;
+                  if (!fechaMostrar) return null;
+                  return (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        Última conexión:{' '}
+                        {new Date(fechaMostrar).toLocaleString('es-MX', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </>
+                  );
+                })()}
               </p>
             </div>
           </div>
