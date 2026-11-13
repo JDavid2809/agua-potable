@@ -18,6 +18,7 @@ import {
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
@@ -589,21 +590,27 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
                   {m.cuadra ? `Cuadra ${m.cuadra}` : m.descripcion || '—'}
                 </TableCell>
                 <TableCell className="text-center">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <StatusMark mode="rail" tone="slate">
                     {m.tomas_count || 0} tomas
-                  </span>
+                  </StatusMark>
                 </TableCell>
                 <TableCell className="text-center">
                   {m.activo ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    <StatusMark
+                      mode="inline"
+                      tone="emerald"
+                      icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                    >
                       Activa
-                    </span>
+                    </StatusMark>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                      <XCircle className="w-3.5 h-3.5" />
+                    <StatusMark
+                      mode="inline"
+                      tone="slate"
+                      icon={<XCircle className="w-3.5 h-3.5" />}
+                    >
                       Inactiva
-                    </span>
+                    </StatusMark>
                   )}
                 </TableCell>
                 <TableCell className="text-right">

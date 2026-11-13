@@ -30,6 +30,7 @@ import { dbLocal } from '@/lib/db/offline-db';
 import { PageHeader, PageTabs } from '@/components/ui/PageHeader';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { Input } from '@/components/ui/Input';
 import {
   Table,
@@ -1657,9 +1658,9 @@ export function TarifasManager() {
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                         Padrón de Contribuyentes
                       </h4>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      <StatusMark mode="rail" tone="slate" className="font-mono text-[11px]">
                         {totalPersonasCount} registrados
-                      </span>
+                      </StatusMark>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
                       Elimina de manera permanente todos los contribuyentes registrados junto con sus tomas y recibos asociados. Conserva barrios y tarifas configuradas.
@@ -1710,9 +1711,9 @@ export function TarifasManager() {
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                         Padrón de Tomas de Agua
                       </h4>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      <StatusMark mode="rail" tone="slate" className="font-mono text-[11px]">
                         {totalTomasCount} conexiones
-                      </span>
+                      </StatusMark>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
                       Elimina permanentemente todas las tomas de agua y sus recibos, pero conserva intactos a los contribuyentes (quedan con 0 tomas) y la estructura barrial.
@@ -1762,9 +1763,9 @@ export function TarifasManager() {
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                         Catálogo de Barrios y Manzanas
                       </h4>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      <StatusMark mode="rail" tone="slate" className="font-mono text-[11px]">
                         {totalManzanasCount} zonas
-                      </span>
+                      </StatusMark>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
                       Elimina los barrios, secciones y manzanas registrados, desvinculando las tomas existentes sin borrarlas ni generar errores.
@@ -1814,9 +1815,9 @@ export function TarifasManager() {
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                         Historial de Cobros, Recibos y Cortes
                       </h4>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      <StatusMark mode="rail" tone="slate" className="font-mono text-[11px]">
                         {totalPagosCount} recibos
-                      </span>
+                      </StatusMark>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
                       Elimina permanentemente todos los recibos emitidos, la bitácora de cortes mensuales y reinicia en $0.00 el saldo pendiente de las tomas activas.
@@ -1867,9 +1868,9 @@ export function TarifasManager() {
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                         Datos temporales de este dispositivo
                       </h4>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      <StatusMark mode="rail" tone="slate" className="font-mono text-[11px]">
                         Este equipo
-                      </span>
+                      </StatusMark>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
                       Limpia únicamente la información temporal guardada en este dispositivo sin borrar los datos principales del comité.
@@ -1919,9 +1920,9 @@ export function TarifasManager() {
                       <h4 className="text-sm font-bold text-rose-700 dark:text-rose-300">
                         Vaciar Todo el Sistema Operativo
                       </h4>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
+                      <StatusMark mode="rail" tone="rose" className="font-mono text-[11px]">
                         Reinicio Total
-                      </span>
+                      </StatusMark>
                     </div>
                     <p className="text-xs text-rose-700/80 dark:text-rose-300/80 max-w-2xl leading-relaxed">
                       Elimina de manera permanente contribuyentes, tomas, barrios, manzanas, recibos y cortes para iniciar el sistema completamente desde cero.

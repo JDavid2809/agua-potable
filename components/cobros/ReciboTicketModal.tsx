@@ -160,28 +160,66 @@ export function ReciboTicketModal({
                 )}
               </div>
 
-              {pago.detalles && pago.detalles.length > 0 && pago.detalles[0].toma && (
-                <div className="pt-1 grid grid-cols-2 gap-2 text-[10px]">
-                  <div>
-                    <span className="text-slate-500 block">CÓDIGO DE TOMA:</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">
-                      {pago.detalles[0].toma.codigo_toma}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-slate-500 block">MEDIDOR:</span>
-                    <span>{pago.detalles[0].toma.numero_medidor || 'Cuota Fija (Sin medidor)'}</span>
-                  </div>
-                  {pago.detalles[0].toma.direccion_referencia && (
-                    <div className="col-span-2">
-                      <span className="text-slate-500 block">UBICACIÓN:</span>
-                      <span className="text-slate-700 dark:text-slate-300">
-                        {pago.detalles[0].toma.direccion_referencia}
-                      </span>
+              {(() => {
+                const tomasUnicas = Array.from(
+                  new Map(
+                    (pago.detalles || [])
+                      .filter((d) => d.toma)
+                      .map((d) => [d.toma_id || d.toma!.codigo_toma, d.toma!])
+                  ).values()
+                );
+
+                if (tomasUnicas.length === 0) return null;
+
+                if (tomasUnicas.length === 1) {
+                  const t = tomasUnicas[0];
+                  return (
+                    <div className="pt-1 grid grid-cols-2 gap-2 text-[10px]">
+                      <div>
+                        <span className="text-slate-500 block">CÓDIGO DE TOMA:</span>
+                        <span className="font-bold text-blue-600 dark:text-blue-400">
+                          {t.codigo_toma}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-slate-500 block">MEDIDOR:</span>
+                        <span>{t.numero_medidor || 'Cuota Fija (Sin medidor)'}</span>
+                      </div>
+                      {t.direccion_referencia && (
+                        <div className="col-span-2">
+                          <span className="text-slate-500 block">UBICACIÓN:</span>
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {t.direccion_referencia}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+                  );
+                }
+
+                return (
+                  <div className="pt-1 space-y-1 text-[10px]">
+                    <span className="text-slate-500 block">
+                      TOMAS INCLUIDAS ({tomasUnicas.length}):
+                    </span>
+                    <div className="space-y-1">
+                      {tomasUnicas.map((t, idx) => (
+                        <div key={t.id || idx} className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="font-bold text-blue-600 dark:text-blue-400">
+                            {t.codigo_toma}
+                            {t.numero_medidor ? ` (Med. ${t.numero_medidor})` : ''}
+                          </span>
+                          {t.direccion_referencia && (
+                            <span className="text-slate-600 dark:text-slate-300 truncate max-w-[210px]">
+                              {t.direccion_referencia}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Desglose de Conceptos Pagados */}
@@ -191,30 +229,44 @@ export function ReciboTicketModal({
               </span>
 
               <div className="space-y-1.5">
-                {pago.detalles && pago.detalles.length > 0 ? (
-                  pago.detalles.map((det, i) => (
-                    <div key={det.id || i} className="flex justify-between items-start text-[11px]">
-                      <div>
-                        <span className="font-semibold">
-                          Cuota {MESES[det.mes - 1] || `Mes ${det.mes}`} {det.anio}
-                        </span>
-                        {Number(det.recargo || 0) > 0 && (
-                          <span className="text-amber-600 dark:text-amber-400 text-[10px] block">
-                            + Recargo por mora: ${Number(det.recargo).toFixed(2)}
+                {(() => {
+                  const tomasDistintas = new Set(
+                    (pago.detalles || []).map((d) => d.toma_id || d.toma?.codigo_toma).filter(Boolean)
+                  ).size;
+                  const mostrarCodigoToma = tomasDistintas > 1;
+
+                  if (pago.detalles && pago.detalles.length > 0) {
+                    return pago.detalles.map((det, i) => (
+                      <div key={det.id || i} className="flex justify-between items-start text-[11px] gap-2">
+                        <div>
+                          <span className="font-semibold">
+                            {mostrarCodigoToma && det.toma?.codigo_toma ? (
+                              <span className="text-blue-600 dark:text-blue-400 mr-1">
+                                {det.toma.codigo_toma} ·
+                              </span>
+                            ) : null}
+                            Cuota {MESES[det.mes - 1] || `Mes ${det.mes}`} {det.anio}
                           </span>
-                        )}
+                          {Number(det.recargo || 0) > 0 && (
+                            <span className="text-amber-600 dark:text-amber-400 text-[10px] block">
+                              + Recargo por mora: ${Number(det.recargo).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-bold shrink-0">
+                          ${(Number(det.monto) + Number(det.recargo || 0)).toFixed(2)}
+                        </span>
                       </div>
-                      <span className="font-bold">
-                        ${(Number(det.monto) + Number(det.recargo || 0)).toFixed(2)}
-                      </span>
+                    ));
+                  }
+
+                  return (
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span>Servicio de Agua Potable</span>
+                      <span className="font-bold">${Number(pago.total).toFixed(2)}</span>
                     </div>
-                  ))
-                ) : (
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span>Servicio de Agua Potable</span>
-                    <span className="font-bold">${Number(pago.total).toFixed(2)}</span>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
 

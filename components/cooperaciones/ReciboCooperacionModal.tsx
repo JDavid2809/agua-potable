@@ -129,7 +129,7 @@ export function ReciboCooperacionModal({
                 {organizacion?.estado || 'México'}
               </p>
               <div className="pt-1">
-                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                <span className="inline-block text-[10px] font-bold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-400">
                   Comprobante Oficial de Aportación
                 </span>
               </div>

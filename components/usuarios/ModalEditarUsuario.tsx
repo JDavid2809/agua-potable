@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { sileo } from 'sileo';
-import type { PermisoSistema, RolUsuario } from '@/types/database';
+import type { RolUsuario } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
+import { PERMISOS_DISPONIBLES } from '@/lib/auth/permisos';
 
 export interface UsuarioAEditar {
   id: string;
@@ -24,17 +25,6 @@ export interface ModalEditarUsuarioProps {
   onClose: () => void;
   onUsuarioActualizado: () => void;
 }
-
-const PERMISOS_DISPONIBLES: { id: PermisoSistema; etiqueta: string; categoria: string }[] = [
-  { id: 'cobros.crear', etiqueta: 'Registrar cobros y emitir recibos', categoria: 'Caja y Recaudación' },
-  { id: 'cobros.anular', etiqueta: 'Cancelar o anular recibos emitidos', categoria: 'Caja y Recaudación' },
-  { id: 'tomas.ver', etiqueta: 'Consultar padrón de tomas', categoria: 'Tomas de Agua' },
-  { id: 'tomas.gestionar', etiqueta: 'Crear y modificar tomas de agua', categoria: 'Tomas de Agua' },
-  { id: 'personas.ver', etiqueta: 'Consultar contribuyentes', categoria: 'Contribuyentes' },
-  { id: 'personas.gestionar', etiqueta: 'Registrar y editar contribuyentes', categoria: 'Contribuyentes' },
-  { id: 'tarifas.gestionar', etiqueta: 'Configurar tarifas anuales y cuotas', categoria: 'Administración' },
-  { id: 'reportes.ver', etiqueta: 'Ver reportes financieros y cortes de caja', categoria: 'Administración' },
-];
 
 export function ModalEditarUsuario({
   usuario,
@@ -195,21 +185,21 @@ export function ModalEditarUsuario({
             />
           </div>
 
-          {/* Permisos Granulares */}
+          {/* Permisos */}
           <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 <Key className="w-4 h-4 text-blue-500" />
-                Permisos del Usuario
+                Permisos
               </span>
               {rol === 'administrador' && (
                 <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
-                  Rol administrador cuenta con todos los permisos (*)
+                  Acceso total
                 </span>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2">
               {PERMISOS_DISPONIBLES.map((p) => {
                 const asignado = rol === 'administrador' || permisosSeleccionados.includes(p.id);
                 return (
@@ -218,14 +208,14 @@ export function ModalEditarUsuario({
                     type="button"
                     disabled={rol === 'administrador'}
                     onClick={() => handleTogglePermiso(p.id)}
-                    className={`p-3 rounded-xl border text-left flex items-start gap-3 transition-colors ${
+                    className={`px-3 py-2 rounded-xl border text-left flex items-center gap-2.5 transition-colors ${
                       asignado
-                        ? 'border-blue-600/60 bg-blue-50/50 dark:bg-blue-950/20 text-slate-900 dark:text-white'
+                        ? 'border-blue-600/60 bg-blue-50/60 dark:bg-blue-950/30 text-slate-900 dark:text-white font-semibold'
                         : 'border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300'
                     } ${rol === 'administrador' ? 'opacity-80 cursor-default' : 'cursor-pointer'}`}
                   >
                     <div
-                      className={`w-4 h-4 rounded-md mt-0.5 flex items-center justify-center shrink-0 border ${
+                      className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border ${
                         asignado
                           ? 'bg-blue-600 border-blue-600 text-white'
                           : 'border-slate-300 dark:border-slate-700'
@@ -233,10 +223,7 @@ export function ModalEditarUsuario({
                     >
                       {asignado && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
-                    <div>
-                      <span className="text-xs font-bold block">{p.etiqueta}</span>
-                      <span className="text-[10px] text-slate-400 block">{p.categoria}</span>
-                    </div>
+                    <span className="text-xs truncate">{p.etiqueta}</span>
                   </button>
                 );
               })}

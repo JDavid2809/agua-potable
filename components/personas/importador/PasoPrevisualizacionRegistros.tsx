@@ -10,6 +10,7 @@ import {
   Table2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
 import {
   Table,
@@ -288,14 +289,17 @@ export function PasoPrevisualizacionRegistros({
 
                   <TableCell className="text-center whitespace-nowrap">
                     {reg.yaExisteEnPadron ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                      <StatusMark mode="inline" tone="amber">
                         Ya registrado
-                      </span>
+                      </StatusMark>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                        <Check className="w-3 h-3" />
+                      <StatusMark
+                        mode="inline"
+                        tone="emerald"
+                        icon={<Check className="w-3 h-3" />}
+                      >
                         Nuevo
-                      </span>
+                      </StatusMark>
                     )}
                   </TableCell>
                 </TableRow>

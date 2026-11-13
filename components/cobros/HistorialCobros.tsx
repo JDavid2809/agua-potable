@@ -24,6 +24,7 @@ import {
   TableCell,
 } from '@/components/ui/Table';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { Input } from '@/components/ui/Input';
 import { ReciboTicketModal } from './ReciboTicketModal';
 import { obtenerMensajeError } from '@/lib/utils/errors';
@@ -284,8 +285,13 @@ export function HistorialCobros({
                   minute: '2-digit',
                 });
 
-                const codigoToma =
-                  p.detalles && p.detalles.length > 0 ? p.detalles[0].toma?.codigo_toma : null;
+                const codigosToma = Array.from(
+                  new Set(
+                    (p.detalles || [])
+                      .map((d) => d.toma?.codigo_toma)
+                      .filter((c): c is string => Boolean(c))
+                  )
+                );
 
                 return (
                   <TableRow key={p.id} className={esAnulado ? 'opacity-65' : ''}>
@@ -300,9 +306,11 @@ export function HistorialCobros({
                         <span className="font-semibold text-slate-900 dark:text-white block text-sm">
                           {p.persona?.nombre_completo || 'Titular de padrón'}
                         </span>
-                        {codigoToma && (
+                        {codigosToma.length > 0 && (
                           <span className="text-[11px] text-slate-400 font-mono block">
-                            Toma: {codigoToma}
+                            {codigosToma.length === 1
+                              ? `Toma: ${codigosToma[0]}`
+                              : `Tomas (${codigosToma.length}): ${codigosToma.join(', ')}`}
                           </span>
                         )}
                         {esAnulado && p.motivo_anulacion && (
@@ -313,24 +321,38 @@ export function HistorialCobros({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {p.metodo_pago === 'efectivo' && <Banknote className="w-3.5 h-3.5" />}
-                        {p.metodo_pago === 'transferencia' && <CreditCard className="w-3.5 h-3.5" />}
-                        {p.metodo_pago === 'tarjeta' && <CreditCard className="w-3.5 h-3.5" />}
+                      <StatusMark
+                        mode="rail"
+                        tone="slate"
+                        className="uppercase tracking-wider"
+                        icon={
+                          p.metodo_pago === 'efectivo' ? (
+                            <Banknote className="w-3.5 h-3.5" />
+                          ) : p.metodo_pago === 'transferencia' || p.metodo_pago === 'tarjeta' ? (
+                            <CreditCard className="w-3.5 h-3.5" />
+                          ) : undefined
+                        }
+                      >
                         {p.metodo_pago}
-                      </span>
+                      </StatusMark>
                     </TableCell>
                     <TableCell>
                       {esAnulado ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
-                          <Ban className="w-3 h-3" />
+                        <StatusMark
+                          mode="inline"
+                          tone="rose"
+                          icon={<Ban className="w-3 h-3" />}
+                        >
                           Anulado
-                        </span>
+                        </StatusMark>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                          <CheckCircle2 className="w-3 h-3" />
+                        <StatusMark
+                          mode="inline"
+                          tone="emerald"
+                          icon={<CheckCircle2 className="w-3 h-3" />}
+                        >
                           Vigente
-                        </span>
+                        </StatusMark>
                       )}
                     </TableCell>
                     <TableCell

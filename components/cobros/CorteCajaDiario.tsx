@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import {
   Table,
   TableHeader,
@@ -216,9 +217,13 @@ export function CorteCajaDiario({
                       <TableCell className="capitalize text-xs font-semibold">
                         <span>{p.metodo_pago}</span>
                         {p.estado === 'anulado' && (
-                          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
+                          <StatusMark
+                            mode="inline"
+                            tone="rose"
+                            className="ml-2 uppercase text-[10px]"
+                          >
                             Anulado
-                          </span>
+                          </StatusMark>
                         )}
                       </TableCell>
                       <TableCell

@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { dbLocal } from '@/lib/db/offline-db';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
@@ -45,11 +46,15 @@ export interface TomaDetallada extends Toma {
   manzana?: Manzana;
 }
 
-const ESTADOS: { value: EstadoToma; label: string; color: string }[] = [
-  { value: 'activa', label: 'Activa', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  { value: 'suspendida', label: 'Suspendida', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
-  { value: 'cortada', label: 'Cortada', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
-  { value: 'inactiva', label: 'Inactiva', color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400' },
+const ESTADOS: {
+  value: EstadoToma;
+  label: string;
+  tone: 'emerald' | 'amber' | 'rose' | 'slate';
+}[] = [
+  { value: 'activa', label: 'Activa', tone: 'emerald' },
+  { value: 'suspendida', label: 'Suspendida', tone: 'amber' },
+  { value: 'cortada', label: 'Cortada', tone: 'rose' },
+  { value: 'inactiva', label: 'Inactiva', tone: 'slate' },
 ];
 
 const TIPOS: { value: TipoToma; label: string }[] = [
@@ -795,7 +800,7 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
                       <div className="font-extrabold text-blue-600 dark:text-blue-400">
                         {toma.codigo_toma}
                       </div>
-                      <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      <span className="block mt-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         {toma.tipo_toma}
                       </span>
                     </TableCell>
@@ -852,13 +857,9 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
 
                     {/* Estado */}
                     <TableCell className="text-center">
-                      <span
-                        className={`inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                          est?.color || 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
+                      <StatusMark mode="inline" tone={est?.tone || 'slate'}>
                         {est?.label || toma.estado}
-                      </span>
+                      </StatusMark>
                     </TableCell>
 
                     {/* Acciones */}

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { Input } from '@/components/ui/Input';
 import type { Toma } from '@/types/database';
 import type {
@@ -333,25 +334,26 @@ export function VentanillaCobroAbonos({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span
-                    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${
+                  <StatusMark
+                    mode="inline"
+                    tone={
                       itemSeleccionado.estado === 'liquidado'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        ? 'emerald'
                         : itemSeleccionado.estado === 'exento_faena'
-                        ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                        : itemSeleccionado.estado === 'parcial'
-                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                        : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                    }`}
+                          ? 'violet'
+                          : itemSeleccionado.estado === 'parcial'
+                            ? 'amber'
+                            : 'rose'
+                    }
                   >
                     {itemSeleccionado.estado === 'liquidado'
                       ? 'Liquidado'
                       : itemSeleccionado.estado === 'exento_faena'
-                      ? 'Faena'
-                      : itemSeleccionado.estado === 'parcial'
-                      ? 'En Abonos'
-                      : 'Pendiente'}
-                  </span>
+                        ? 'Faena'
+                        : itemSeleccionado.estado === 'parcial'
+                          ? 'En Abonos'
+                          : 'Pendiente'}
+                  </StatusMark>
 
                   <button
                     type="button"

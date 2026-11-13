@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 
 export interface ModalActividadCajeroProps {
@@ -213,17 +214,15 @@ export function ModalActividadCajero({
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                   {cajero?.nombre_completo || cajeroNombre || 'Auditoría de Cajero'}
                 </h2>
-                {/* Badge En línea / Desconectado */}
+                {/* Estado En línea / Desconectado */}
                 {isOnline ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <StatusMark mode="inline" tone="emerald" pulse>
                     En línea
-                  </span>
+                  </StatusMark>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20">
-                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                  <StatusMark mode="inline" tone="slate">
                     Desconectado
-                  </span>
+                  </StatusMark>
                 )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
@@ -413,12 +412,22 @@ export function ModalActividadCajero({
                       </tr>
                     ) : tabActiva === 'agua' ? (
                       (itemsPaginados as ReciboAguaItem[]).map((r) => {
-                        const primerDetalle = r.detalles?.[0];
-                        const codigoToma = primerDetalle?.toma?.codigo_toma;
+                        const codigosToma = Array.from(
+                          new Set(
+                            (r.detalles || [])
+                              .map((d) => d.toma?.codigo_toma)
+                              .filter((c): c is string => Boolean(c))
+                          )
+                        );
+                        const codigoToma = codigosToma.join(', ');
                         const periodosTexto =
                           r.detalles && r.detalles.length > 0
                             ? r.detalles
-                                .map((d) => `${MESES[(d.mes || 1) - 1]} ${d.anio}`)
+                                .map((d) =>
+                                  codigosToma.length > 1 && d.toma?.codigo_toma
+                                    ? `${d.toma.codigo_toma}: ${MESES[(d.mes || 1) - 1]} ${d.anio}`
+                                    : `${MESES[(d.mes || 1) - 1]} ${d.anio}`
+                                )
                                 .join(', ')
                             : 'Cuota de agua';
 
@@ -460,15 +469,23 @@ export function ModalActividadCajero({
                             </td>
                             <td className="px-4 py-3 text-center">
                               {r.estado === 'anulado' ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400">
-                                  <Ban className="w-3 h-3" />
+                                <StatusMark
+                                  mode="inline"
+                                  tone="rose"
+                                  className="text-[11px]"
+                                  icon={<Ban className="w-3 h-3" />}
+                                >
                                   Anulado
-                                </span>
+                                </StatusMark>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
-                                  <CheckCircle2 className="w-3 h-3" />
+                                <StatusMark
+                                  mode="inline"
+                                  tone="emerald"
+                                  className="text-[11px]"
+                                  icon={<CheckCircle2 className="w-3 h-3" />}
+                                >
                                   Cobrado
-                                </span>
+                                </StatusMark>
                               )}
                             </td>
                           </tr>
@@ -512,10 +529,14 @@ export function ModalActividadCajero({
                             ${Number(c.monto).toFixed(2)}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
-                              <CheckCircle2 className="w-3 h-3" />
+                            <StatusMark
+                              mode="inline"
+                              tone="emerald"
+                              className="text-[11px]"
+                              icon={<CheckCircle2 className="w-3 h-3" />}
+                            >
                               Abonado
-                            </span>
+                            </StatusMark>
                           </td>
                         </tr>
                       ))

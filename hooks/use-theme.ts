@@ -15,8 +15,13 @@ function resolverTemaGuardado(): boolean {
 
 function aplicarTema(dark: boolean) {
   const root = document.documentElement;
-  root.classList.toggle('dark', dark);
-  root.style.colorScheme = dark ? 'dark' : 'light';
+  if (root.classList.contains('dark') !== dark) {
+    root.classList.toggle('dark', dark);
+  }
+  const scheme = dark ? 'dark' : 'light';
+  if (root.style.colorScheme !== scheme) {
+    root.style.colorScheme = scheme;
+  }
   syncBrowserThemeColor(dark);
 }
 

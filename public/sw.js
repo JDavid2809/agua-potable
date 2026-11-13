@@ -1,7 +1,9 @@
-const STATIC_CACHE = 'fluvib-static-v2';
-const PAGES_CACHE = 'fluvib-pages-v2';
-const RSC_CACHE = 'fluvib-rsc-v2';
+const STATIC_CACHE = 'fluvib-static-v4';
+const PAGES_CACHE = 'fluvib-pages-v4';
+const RSC_CACHE = 'fluvib-rsc-v4';
 const ALL_CACHES = [STATIC_CACHE, PAGES_CACHE, RSC_CACHE];
+const IS_LOCALHOST =
+  self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
 
 const PRECACHE_ASSETS = [
   '/offline',
@@ -119,10 +121,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Recursos estáticos versionados de Next.js -> Cache-First
+  // 1. Recursos estáticos de Next.js: Network-First en localhost (evita JS/CSS viejo en dev) y Cache-First en producción
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(async (cache) => {
+        if (IS_LOCALHOST) {
+          try {
+            const networkRes = await fetch(request);
+            if (networkRes && networkRes.ok && networkRes.status === 200) {
+              cache.put(request, networkRes.clone());
+            }
+            return networkRes;
+          } catch {
+            const cached = await cache.match(request);
+            if (cached) return cached;
+            return Response.error();
+          }
+        }
+
         const cached = await cache.match(request);
         if (cached) return cached;
 

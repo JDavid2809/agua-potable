@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -35,8 +36,13 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/Table';
-import type { PermisoSistema, RolUsuario } from '@/types/database';
+import type { RolUsuario } from '@/types/database';
 import { obtenerMensajeError } from '@/lib/utils/errors';
+import {
+  PERMISOS_DISPONIBLES,
+  etiquetaPermiso,
+  resumirPermisosParaTabla,
+} from '@/lib/auth/permisos';
 import { useOnlineUsers, useLastSeenMap } from '@/hooks/use-presence-tracker';
 import { ModalActividadCajero } from '@/components/usuarios/ModalActividadCajero';
 import { ModalEditarUsuario } from '@/components/usuarios/ModalEditarUsuario';
@@ -84,17 +90,6 @@ function formatearUltimaConexion(fechaIso?: string | null, isOnline?: boolean): 
     minute: '2-digit',
   });
 }
-
-const PERMISOS_DISPONIBLES: { id: PermisoSistema; etiqueta: string; categoria: string }[] = [
-  { id: 'cobros.crear', etiqueta: 'Registrar cobros y emitir recibos', categoria: 'Caja y Recaudación' },
-  { id: 'cobros.anular', etiqueta: 'Cancelar o anular recibos emitidos', categoria: 'Caja y Recaudación' },
-  { id: 'tomas.ver', etiqueta: 'Consultar padrón de tomas', categoria: 'Tomas de Agua' },
-  { id: 'tomas.gestionar', etiqueta: 'Crear y modificar tomas de agua', categoria: 'Tomas de Agua' },
-  { id: 'personas.ver', etiqueta: 'Consultar contribuyentes', categoria: 'Contribuyentes' },
-  { id: 'personas.gestionar', etiqueta: 'Registrar y editar contribuyentes', categoria: 'Contribuyentes' },
-  { id: 'tarifas.gestionar', etiqueta: 'Configurar tarifas anuales y cuotas', categoria: 'Administración' },
-  { id: 'reportes.ver', etiqueta: 'Ver reportes financieros y cortes de caja', categoria: 'Administración' },
-];
 
 export default function UsuariosPage() {
   const router = useRouter();
@@ -435,26 +430,26 @@ export default function UsuariosPage() {
             </div>
           </div>
 
-          {/* Bloque 2: Permisos de Acceso */}
-          <div className="space-y-4 pt-2">
+          {/* Bloque 2: Permisos */}
+          <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-blue-500" />
-                <span>Permisos de Acceso</span>
+                <span>Permisos</span>
               </h3>
               {rol === 'administrador' && (
                 <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
-                  Acceso total concedido automáticamente
+                  Acceso total
                 </span>
               )}
             </div>
 
             {rol === 'administrador' ? (
-              <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 text-xs font-medium text-purple-700 dark:text-purple-300">
-                Los administradores tienen todos los permisos del sistema (*). No es necesario configurar permisos individuales.
+              <div className="px-3.5 py-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 text-xs font-medium text-purple-700 dark:text-purple-300">
+                El administrador tiene acceso completo a todo el sistema.
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {PERMISOS_DISPONIBLES.map((p) => {
                   const activo = permisosSeleccionados.includes(p.id);
                   return (
@@ -462,14 +457,14 @@ export default function UsuariosPage() {
                       key={p.id}
                       type="button"
                       onClick={() => togglePermiso(p.id)}
-                      className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all text-xs ${
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-all text-xs ${
                         activo
-                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-semibold'
+                          ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 text-blue-950 dark:text-blue-100 font-semibold'
                           : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
                       }`}
                     >
                       <div
-                        className={`w-4 h-4 rounded mt-0.5 flex items-center justify-center shrink-0 border ${
+                        className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
                           activo
                             ? 'bg-blue-600 border-blue-600 text-white'
                             : 'border-slate-300 dark:border-slate-600'
@@ -477,12 +472,7 @@ export default function UsuariosPage() {
                       >
                         {activo && <Check className="w-3 h-3" />}
                       </div>
-                      <div className="leading-tight">
-                        <span className="block">{p.etiqueta}</span>
-                        <span className="text-[10px] opacity-60 font-normal">
-                          {p.categoria}
-                        </span>
-                      </div>
+                      <span className="truncate">{p.etiqueta}</span>
                     </button>
                   );
                 })}
@@ -560,7 +550,7 @@ export default function UsuariosPage() {
           <tr>
             <TableHead>Usuario</TableHead>
             <TableHead>Rol</TableHead>
-            <TableHead>Permisos Asignados</TableHead>
+            <TableHead>Permisos</TableHead>
             <TableHead>Conexión</TableHead>
             <TableHead>Última Conexión</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
@@ -625,9 +615,9 @@ export default function UsuariosPage() {
                             {u.nombre_completo}
                           </p>
                           {!u.activo && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            <StatusMark mode="inline" tone="amber" className="text-[11px]">
                               Suspendido
-                            </span>
+                            </StatusMark>
                           )}
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
@@ -640,53 +630,65 @@ export default function UsuariosPage() {
 
                   {/* Rol */}
                   <TableCell>
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                        esAdmin
-                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                      }`}
+                    <StatusMark
+                      mode="rail"
+                      tone={esAdmin ? 'violet' : 'emerald'}
+                      icon={<Shield className="w-3 h-3" />}
                     >
-                      <Shield className="w-3 h-3" />
                       <span className="capitalize">{u.rol}</span>
-                    </span>
+                    </StatusMark>
                   </TableCell>
 
                   {/* Permisos */}
-                  <TableCell className="max-w-xs">
+                  <TableCell>
                     {esAdmin || u.permisos?.includes('*') ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 dark:text-purple-400">
-                        <Key className="w-3 h-3" />
-                        Acceso Total (*)
-                      </span>
+                      <StatusMark
+                        mode="rail"
+                        tone="violet"
+                        icon={<Key className="w-3 h-3" />}
+                      >
+                        Acceso total
+                      </StatusMark>
                     ) : !u.permisos || u.permisos.length === 0 ? (
-                      <span className="text-xs text-slate-400 italic">Sin permisos</span>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {u.permisos.map((p) => (
-                          <span
-                            key={p}
-                            className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-medium"
-                          >
-                            {p.replace('.', ': ')}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                      <StatusMark
+                        mode="rail"
+                        tone="slate"
+                        onClick={() => setUsuarioAEditar(u)}
+                      >
+                        Sin asignar
+                      </StatusMark>
+                    ) : (() => {
+                      const resumen = resumirPermisosParaTabla(u.permisos);
+                      const textoCorto =
+                        u.permisos.length === 1 && resumen[0]
+                          ? resumen[0].label
+                          : `${u.permisos.length} permisos`;
+                      const detalle = u.permisos.map(etiquetaPermiso).join(' · ');
+
+                      return (
+                        <StatusMark
+                          mode="rail"
+                          tone="brand"
+                          icon={<Key className="w-3 h-3" />}
+                          onClick={() => setUsuarioAEditar(u)}
+                          title={detalle}
+                        >
+                          {textoCorto}
+                        </StatusMark>
+                      );
+                    })()}
                   </TableCell>
 
                   {/* Conexión en vivo */}
                   <TableCell>
                     {isOnline ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <StatusMark mode="inline" tone="emerald" pulse>
                         En línea
-                      </span>
+                      </StatusMark>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20">
-                        <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      <StatusMark mode="inline" tone="slate">
                         Desconectado
-                      </span>
+                      </StatusMark>
                     )}
                   </TableCell>
 

@@ -59,6 +59,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
           updateViaCache: 'none',
         })
         .then((registration) => {
+          registration.update().catch(() => {});
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             if (!newWorker) return;
@@ -231,7 +232,7 @@ export function PwaInstallButton() {
       onClick={canInstallNative ? promptInstall : openIosGuide}
       title="Instalar Fluvib como aplicación en este dispositivo"
       aria-label="Instalar aplicación"
-      className="inline-flex h-10 items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-800/80 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60 shrink-0"
+      className="inline-flex h-9 items-center gap-1.5 px-2 text-xs font-semibold text-[#2F6BFF] dark:text-[#6C97FF] transition-opacity hover:opacity-75 shrink-0 cursor-pointer"
     >
       <Download className="h-3.5 w-3.5 shrink-0" />
       <span className="hidden sm:inline">Instalar App</span>

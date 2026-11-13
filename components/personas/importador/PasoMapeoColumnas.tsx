@@ -10,6 +10,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import {
   DEFINICION_CAMPOS,
   MAPA_DEFINICION_CAMPO,
@@ -61,10 +62,13 @@ export function PasoMapeoColumnas({
             <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
               Asignación de Columnas de tu Archivo Excel
             </h3>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
-              <Wand2 className="w-3 h-3" />
+            <StatusMark
+              mode="rail"
+              tone="brand"
+              icon={<Wand2 className="w-3 h-3" />}
+            >
               Auto-detectadas
-            </span>
+            </StatusMark>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Usa el selector superior de cada columna (<strong>A</strong>, <strong>B</strong>, <strong>C</strong>...) para indicar qué dato representa o ignorarla.
@@ -168,21 +172,27 @@ export function PasoMapeoColumnas({
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1.5 mb-2">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 font-mono">
                           Columna {col.letraExcel}
                         </span>
                         {def ? (
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${def.colorBadge}`}
+                          <StatusMark
+                            mode="inline"
+                            tone="emerald"
+                            className="text-[11px]"
+                            icon={<Check className="w-3 h-3" />}
                           >
-                            <Check className="w-3 h-3" />
                             Activa
-                          </span>
+                          </StatusMark>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200/70 dark:bg-slate-800 text-slate-500">
-                            <Ban className="w-2.5 h-2.5" />
+                          <StatusMark
+                            mode="inline"
+                            tone="slate"
+                            className="text-[11px]"
+                            icon={<Ban className="w-2.5 h-2.5" />}
+                          >
                             Ignorada
-                          </span>
+                          </StatusMark>
                         )}
                       </div>
 
@@ -291,7 +301,7 @@ export function PasoMapeoColumnas({
 
         {/* Barra inferior compacta de estado y avance */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
             <span className="text-xs font-bold text-slate-500">Columnas activas:</span>
             {DEFINICION_CAMPOS.map((campo) => {
               const cols = infoColumnas.filter(
@@ -301,9 +311,12 @@ export function PasoMapeoColumnas({
               return (
                 <span
                   key={campo.key}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${campo.colorBorder} ${campo.colorBg} ${campo.colorText}`}
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold ${campo.colorText}`}
                 >
-                  {campo.shortLabel}: Col {cols.map((c) => c.letraExcel).join('+')}
+                  <span className="font-bold">{campo.shortLabel}</span>
+                  <span className="font-mono text-[11px] opacity-75">
+                    Col {cols.map((c) => c.letraExcel).join('+')}
+                  </span>
                 </span>
               );
             })}

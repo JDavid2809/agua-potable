@@ -32,6 +32,7 @@ import { supabase } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { dbLocal } from '@/lib/db/offline-db';
 import { Button } from '@/components/ui/Button';
+import { StatusMark } from '@/components/ui/StatusMark';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
@@ -1282,8 +1283,8 @@ export function PersonasManager() {
                   <TableCell>
                     <div className="space-y-1">
                       {persona.documento_identidad ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          <FileText className="w-3 h-3 text-slate-400" />
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                          <FileText className="w-3.5 h-3.5 text-slate-400" />
                           {persona.documento_identidad}
                         </span>
                       ) : (
@@ -1291,8 +1292,8 @@ export function PersonasManager() {
                       )}
 
                       {persona.telefono && (
-                        <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
-                          <Phone className="w-3 h-3 text-slate-400" />
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
                           <span>{persona.telefono}</span>
                         </div>
                       )}
@@ -1306,7 +1307,7 @@ export function PersonasManager() {
                         {ubicacionesUnicas.slice(0, 2).map((ub, idx) => (
                           <div
                             key={idx}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg mr-1 mb-1"
+                            className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300"
                           >
                             <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                             <span>{ub}</span>
@@ -1330,26 +1331,26 @@ export function PersonasManager() {
                   <TableCell className="text-center">
                     {tomasCount > 0 ? (
                       <div className="inline-flex flex-col items-center gap-1">
-                        <button
-                          type="button"
+                        <StatusMark
+                          mode="rail"
+                          tone="brand"
                           onClick={() => handleVerTomas(persona)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-colors"
                           title="Ver tomas asignadas"
+                          icon={<Droplets className="w-3.5 h-3.5" />}
                         >
-                          <Droplets className="w-3.5 h-3.5 text-blue-500" />
                           <span>
                             {tomasCount} {tomasCount === 1 ? 'toma' : 'tomas'}
                           </span>
-                          <Eye className="w-3 h-3 ml-0.5 text-blue-400" />
-                        </button>
+                          <Eye className="w-3 h-3 ml-0.5 opacity-60" />
+                        </StatusMark>
                         <span className="text-[10px] text-slate-400">
                           {persona.tomas?.map((t) => t.codigo_toma).join(', ')}
                         </span>
                       </div>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                      <StatusMark mode="rail" tone="slate">
                         0 tomas
-                      </span>
+                      </StatusMark>
                     )}
                   </TableCell>
 
