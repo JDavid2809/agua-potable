@@ -24,6 +24,7 @@ import {
   Eye,
   ArrowLeft,
   FileSpreadsheet,
+  Receipt,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -33,6 +34,9 @@ import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { dbLocal } from '@/lib/db/offline-db';
 import { Button } from '@/components/ui/Button';
 import { StatusMark } from '@/components/ui/StatusMark';
+import { usePermisosUsuario } from '@/hooks/use-permisos-usuario';
+import { ModalEstadoCuenta } from '@/components/cobros/ModalEstadoCuenta';
+import { exportarAExcel } from '@/lib/utils/export-excel';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
@@ -73,6 +77,9 @@ const ESTADOS_TOMA: { value: EstadoToma; label: string; color: string }[] = [
 ];
 
 export function PersonasManager() {
+  const { puede, esAdmin } = usePermisosUsuario();
+  const puedeGestionarPersonas = puede('personas.gestionar');
+  const puedeGestionarTomas = puede('tomas.gestionar');
   const itemsPorPagina = useRegistrosPorPagina();
   const [personas, setPersonas] = useState<PersonaConTomas[]>([]);
   const [manzanas, setManzanas] = useState<Manzana[]>([]);
@@ -94,6 +101,7 @@ export function PersonasManager() {
 
   const [modalVerTomasAbierto, setModalVerTomasAbierto] = useState(false);
   const [personaSeleccionadaTomas, setPersonaSeleccionadaTomas] = useState<PersonaConTomas | null>(null);
+  const [personaEstadoCuenta, setPersonaEstadoCuenta] = useState<PersonaConTomas | null>(null);
 
   // Formulario de Persona
   const [nombreCompleto, setNombreCompleto] = useState('');
@@ -1152,21 +1160,57 @@ export function PersonasManager() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button
+              type="button"
               variant="outline"
               size="md"
               icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-              onClick={() => setVista('importar')}
+              onClick={() => {
+                const filas = personasFiltradas.map((p) => ({
+                  'Nombre Completo': p.nombre_completo,
+                  'Documento (INE / CURP)': p.documento_identidad || '—',
+                  Teléfono: p.telefono || '—',
+                  Dirección: p.direccion || '—',
+                  'Cantidad de Tomas': p.tomas?.length || 0,
+                  'Códigos de Toma': p.tomas?.map((t) => t.codigo_toma).join(', ') || 'Sin tomas',
+                  'Saldo Pendiente Total ($ MXN)': (p.tomas || []).reduce(
+                    (acc, t) => acc + Number(t.saldo_pendiente || 0),
+                    0
+                  ),
+                  Estado: p.activo ? 'Activo' : 'Inactivo',
+                }));
+                exportarAExcel(
+                  filas.length > 0 ? filas : [{ Mensaje: 'Sin contribuyentes para exportar' }],
+                  'Padrón de Personas',
+                  `padron_personas_${new Date().toISOString().slice(0, 10)}.xlsx`
+                );
+                sileo.success({
+                  title: 'Padrón exportado',
+                  description: `Se descargó el archivo Excel con ${personasFiltradas.length} contribuyente(s).`,
+                });
+              }}
             >
-              Importar Excel
+              Exportar Excel
             </Button>
-            <Button
-              variant="primary"
-              size="md"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={handleAbrirCrear}
-            >
-              Nuevo Contribuyente
-            </Button>
+            {puedeGestionarPersonas && (
+              <>
+                <Button
+                  variant="outline"
+                  size="md"
+                  icon={<FileSpreadsheet className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+                  onClick={() => setVista('importar')}
+                >
+                  Importar Excel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<Plus className="w-4 h-4" />}
+                  onClick={handleAbrirCrear}
+                >
+                  Nuevo Contribuyente
+                </Button>
+              </>
+            )}
           </div>
         }
       >
@@ -1372,35 +1416,51 @@ export function PersonasManager() {
                   {/* Acciones */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      {/* Botón Asignar Nueva Toma */}
+                      {/* Botón Ver Estado de Cuenta */}
                       <button
                         type="button"
-                        onClick={() => handleAbrirNuevaToma(persona)}
-                        className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
-                        title="Asignar nueva toma de agua"
+                        onClick={() => setPersonaEstadoCuenta(persona)}
+                        className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                        title="Ver estado de cuenta e historial de pagos"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Receipt className="w-4 h-4" />
                       </button>
+
+                      {/* Botón Asignar Nueva Toma */}
+                      {puedeGestionarTomas && (
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirNuevaToma(persona)}
+                          className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                          title="Asignar nueva toma de agua"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
 
                       {/* Botón Editar Persona */}
-                      <button
-                        type="button"
-                        onClick={() => handleAbrirEditar(persona)}
-                        className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        title="Editar datos del titular"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
+                      {puedeGestionarPersonas && (
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirEditar(persona)}
+                          className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title="Editar datos del titular"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
 
                       {/* Botón Eliminar Persona */}
-                      <button
-                        type="button"
-                        onClick={() => handleEliminarPersona(persona)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                        title="Eliminar titular"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {esAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleEliminarPersona(persona)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                          title="Eliminar titular"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1538,20 +1598,27 @@ export function PersonasManager() {
                         className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-blue-600 dark:text-blue-400 text-sm">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="font-extrabold text-blue-600 dark:text-blue-400 text-sm font-mono">
                               {toma.codigo_toma}
                             </span>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                estadoObj?.color || 'bg-slate-100 text-slate-600'
-                              }`}
-                            >
-                              {estadoObj?.label || toma.estado}
-                            </span>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300 uppercase">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                               {toma.tipo_toma}
                             </span>
+                            <StatusMark
+                              mode="inline"
+                              tone={
+                                toma.estado === 'activa'
+                                  ? 'emerald'
+                                  : toma.estado === 'suspendida'
+                                    ? 'amber'
+                                    : toma.estado === 'cortada'
+                                      ? 'rose'
+                                      : 'slate'
+                              }
+                            >
+                              {estadoObj?.label || toma.estado}
+                            </StatusMark>
                           </div>
 
                           {/* Manzana y Barrio */}
@@ -1588,18 +1655,35 @@ export function PersonasManager() {
             </div>
 
             <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                icon={<Plus className="w-3.5 h-3.5" />}
-                onClick={() => {
-                  setModalVerTomasAbierto(false);
-                  handleAbrirNuevaToma(personaSeleccionadaTomas);
-                }}
-              >
-                Agregar otra toma a esta persona
-              </Button>
+              <div className="flex items-center gap-2">
+                {puedeGestionarTomas && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    icon={<Plus className="w-3.5 h-3.5" />}
+                    onClick={() => {
+                      setModalVerTomasAbierto(false);
+                      handleAbrirNuevaToma(personaSeleccionadaTomas);
+                    }}
+                  >
+                    Agregar otra toma
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  icon={<Receipt className="w-3.5 h-3.5" />}
+                  onClick={() => {
+                    const p = personaSeleccionadaTomas;
+                    setModalVerTomasAbierto(false);
+                    setPersonaEstadoCuenta(p);
+                  }}
+                >
+                  Estado de cuenta
+                </Button>
+              </div>
 
               <Button
                 type="button"
@@ -1612,6 +1696,18 @@ export function PersonasManager() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 7. Modal: Estado de Cuenta e Historial del Contribuyente */}
+      {personaEstadoCuenta && (
+        <ModalEstadoCuenta
+          personaId={personaEstadoCuenta.id}
+          personaNombre={personaEstadoCuenta.nombre_completo}
+          personaDocumento={personaEstadoCuenta.documento_identidad}
+          personaTelefono={personaEstadoCuenta.telefono}
+          tomasIniciales={personaEstadoCuenta.tomas}
+          onClose={() => setPersonaEstadoCuenta(null)}
+        />
       )}
     </div>
   );

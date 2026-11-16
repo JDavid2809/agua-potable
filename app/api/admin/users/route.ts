@@ -15,9 +15,25 @@ const PERMISOS_PERMITIDOS: PermisoSistema[] = [
   'tomas.gestionar',
   'personas.ver',
   'personas.gestionar',
+  'cooperaciones.ver',
+  'cooperaciones.cobrar',
+  'cooperaciones.gestionar',
   'tarifas.gestionar',
   'reportes.ver',
 ];
+
+function puedeGestionarUsuarios(perfil?: {
+  rol?: string;
+  activo?: boolean;
+  permisos?: unknown;
+} | null): boolean {
+  if (!perfil?.activo) return false;
+  if (perfil.rol === 'administrador') return true;
+  if (Array.isArray(perfil.permisos)) {
+    return perfil.permisos.includes('*') || perfil.permisos.includes('usuarios.gestionar');
+  }
+  return false;
+}
 
 /**
  * GET /api/admin/users
@@ -38,16 +54,16 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 2. Obtener perfil y verificar rol administrador activo
+    // 2. Obtener perfil y verificar permiso de gestión de usuarios
     const { data: perfilAdmin, error: perfilError } = await supabase
       .from('perfiles')
-      .select('rol, organizacion_id, activo')
+      .select('rol, permisos, organizacion_id, activo')
       .eq('id', user.id)
       .single();
 
-    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
+    if (perfilError || !puedeGestionarUsuarios(perfilAdmin)) {
       return NextResponse.json(
-        { error: 'Se requieren permisos de administrador activo' },
+        { error: 'Se requieren permisos para gestionar usuarios' },
         { status: 403 }
       );
     }
@@ -94,16 +110,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 2. Verificar que el usuario sea administrador activo y obtener su organizacion_id
+    // 2. Verificar permiso para gestionar usuarios y obtener su organizacion_id
     const { data: perfilAdmin, error: perfilError } = await supabase
       .from('perfiles')
-      .select('rol, organizacion_id, activo')
+      .select('rol, permisos, organizacion_id, activo')
       .eq('id', user.id)
       .single();
 
-    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
+    if (perfilError || !puedeGestionarUsuarios(perfilAdmin)) {
       return NextResponse.json(
-        { error: 'Solo los administradores activos pueden crear nuevos usuarios.' },
+        { error: 'No cuentas con permisos para dar de alta usuarios.' },
         { status: 403 }
       );
     }
@@ -228,13 +244,13 @@ export async function PATCH(request: Request) {
 
     const { data: perfilAdmin, error: perfilError } = await supabase
       .from('perfiles')
-      .select('rol, organizacion_id, activo')
+      .select('rol, permisos, organizacion_id, activo')
       .eq('id', user.id)
       .single();
 
-    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
+    if (perfilError || !puedeGestionarUsuarios(perfilAdmin)) {
       return NextResponse.json(
-        { error: 'Solo los administradores activos pueden modificar usuarios.' },
+        { error: 'No cuentas con permisos para modificar usuarios.' },
         { status: 403 }
       );
     }
@@ -260,7 +276,7 @@ export async function PATCH(request: Request) {
     // Verificar que el usuario objetivo pertenezca a la misma organización
     const { data: usuarioObjetivo, error: errTarget } = await supabase
       .from('perfiles')
-      .select('id, organizacion_id, nombre_completo')
+      .select('id, organizacion_id, nombre_completo, rol')
       .eq('id', userId)
       .eq('organizacion_id', perfilAdmin.organizacion_id)
       .single();
@@ -269,6 +285,13 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         { error: 'El usuario no existe o no pertenece a tu organización.' },
         { status: 404 }
+      );
+    }
+
+    if (usuarioObjetivo.rol === 'administrador' && perfilAdmin?.rol !== 'administrador') {
+      return NextResponse.json(
+        { error: 'Solo un administrador puede suspender a otro administrador.' },
+        { status: 403 }
       );
     }
 
@@ -316,13 +339,13 @@ export async function PUT(request: Request) {
 
     const { data: perfilAdmin, error: perfilError } = await supabase
       .from('perfiles')
-      .select('rol, organizacion_id, activo')
+      .select('rol, permisos, organizacion_id, activo')
       .eq('id', user.id)
       .single();
 
-    if (perfilError || !perfilAdmin?.activo || perfilAdmin?.rol !== 'administrador') {
+    if (perfilError || !puedeGestionarUsuarios(perfilAdmin)) {
       return NextResponse.json(
-        { error: 'Solo los administradores activos pueden modificar usuarios.' },
+        { error: 'No cuentas con permisos para modificar usuarios.' },
         { status: 403 }
       );
     }

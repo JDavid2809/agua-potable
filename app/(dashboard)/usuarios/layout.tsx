@@ -19,8 +19,12 @@ export default async function UsuariosLayout({
     redirect('/login');
   }
 
-  // Si el usuario no existe, está inactivo o NO es administrador, expulsar al dashboard con parámetro de error
-  if (!perfil || !perfil.activo || !esAdmin) {
+  const tienePermisoUsuarios =
+    esAdmin ||
+    perfil?.permisos?.includes('*') ||
+    perfil?.permisos?.includes('usuarios.gestionar');
+
+  if (!perfil || !perfil.activo || !tienePermisoUsuarios) {
     redirect('/dashboard?denegado=usuarios');
   }
 

@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
@@ -26,6 +27,8 @@ import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { dbLocal } from '@/lib/db/offline-db';
 import { Button } from '@/components/ui/Button';
 import { StatusMark } from '@/components/ui/StatusMark';
+import { usePermisosUsuario } from '@/hooks/use-permisos-usuario';
+import { exportarAExcel } from '@/lib/utils/export-excel';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
@@ -69,6 +72,8 @@ interface TomasManagerProps {
 }
 
 export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
+  const { puede, esAdmin } = usePermisosUsuario();
+  const puedeGestionarTomas = puede('tomas.gestionar');
   const itemsPorPagina = useRegistrosPorPagina();
   const [tomas, setTomas] = useState<TomaDetallada[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -707,14 +712,50 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
         onRefresh={cargarDatos}
         isRefreshing={cargando}
         action={
-          <Button
-            variant="primary"
-            size="md"
-            icon={<Plus className="w-4 h-4" />}
-            onClick={handleAbrirCrear}
-          >
-            Nueva Toma
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+              onClick={() => {
+                const filas = tomasFiltradas.map((t) => ({
+                  'Código de Toma': t.codigo_toma,
+                  'Tipo de Toma': t.tipo_toma,
+                  Estado: t.estado,
+                  Titular: t.persona?.nombre_completo || 'Sin asignar',
+                  Documento: t.persona?.documento_identidad || '—',
+                  Teléfono: t.persona?.telefono || '—',
+                  Barrio: t.manzana?.barrio || 'Sin barrio',
+                  Manzana: t.manzana?.numero_manzana || '—',
+                  'Dirección / Referencia': t.direccion_referencia || '—',
+                  Medidor: t.numero_medidor || 'Sin medidor',
+                  'Saldo Pendiente ($ MXN)': Number(t.saldo_pendiente || 0),
+                }));
+                exportarAExcel(
+                  filas.length > 0 ? filas : [{ Mensaje: 'Sin tomas para exportar' }],
+                  'Padrón de Tomas',
+                  `padron_tomas_${new Date().toISOString().slice(0, 10)}.xlsx`
+                );
+                sileo.success({
+                  title: 'Padrón exportado',
+                  description: `Se descargó el archivo Excel con ${tomasFiltradas.length} toma(s).`,
+                });
+              }}
+            >
+              Exportar Excel
+            </Button>
+            {puedeGestionarTomas && (
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Plus className="w-4 h-4" />}
+                onClick={handleAbrirCrear}
+              >
+                Nueva Toma
+              </Button>
+            )}
+          </div>
         }
       >
         <FilterSelect
@@ -865,22 +906,26 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
                     {/* Acciones */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleAbrirEditar(toma)}
-                          className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-                          title="Editar toma"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleEliminar(toma)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
-                          title="Dar de baja toma"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {puedeGestionarTomas && (
+                          <button
+                            type="button"
+                            onClick={() => handleAbrirEditar(toma)}
+                            className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                            title="Editar toma"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        {esAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => handleEliminar(toma)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40"
+                            title="Dar de baja toma"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -20,6 +20,8 @@ import {
   HeartHandshake,
 } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
+import { tieneAlgunPermisoUsuario } from '@/lib/auth/permisos';
+import type { PermisoSistema } from '@/types/database';
 
 /**
  * Sidebar
@@ -46,6 +48,7 @@ export interface SidebarProps {
   userName?: string;
   userRole?: string;
   esAdmin: boolean;
+  permisos?: string[];
 }
 
 interface NavItem {
@@ -54,15 +57,51 @@ interface NavItem {
   /** Etiqueta corta para la barra de tabs móvil */
   short: string;
   icon: React.ElementType;
-  adminOnly?: boolean;
+  permisosRequeridos?: PermisoSistema[];
 }
 
 const operacionItems: NavItem[] = [
   { href: '/dashboard', label: 'Panel Principal', short: 'Panel', icon: LayoutDashboard },
-  { href: '/tomas', label: 'Padrón de Tomas', short: 'Tomas', icon: Droplets },
-  { href: '/personas', label: 'Contratos y Personas', short: 'Personas', icon: Users },
-  { href: '/cobros', label: 'Caja y Cobros', short: 'Cobros', icon: CreditCard },
-  { href: '/cooperaciones', label: 'Cooperaciones y Obras', short: 'Obras', icon: HeartHandshake },
+  {
+    href: '/tomas',
+    label: 'Padrón de Tomas',
+    short: 'Tomas',
+    icon: Droplets,
+    permisosRequeridos: ['tomas.ver', 'tomas.gestionar'],
+  },
+  {
+    href: '/personas',
+    label: 'Contratos y Personas',
+    short: 'Personas',
+    icon: Users,
+    permisosRequeridos: ['personas.ver', 'personas.gestionar'],
+  },
+  {
+    href: '/cobros',
+    label: 'Caja y Cobros',
+    short: 'Cobros',
+    icon: CreditCard,
+    permisosRequeridos: ['cobros.crear', 'cobros.anular', 'reportes.ver'],
+  },
+  {
+    href: '/cooperaciones',
+    label: 'Cooperaciones y Obras',
+    short: 'Obras',
+    icon: HeartHandshake,
+    permisosRequeridos: [
+      'cooperaciones.ver',
+      'cooperaciones.cobrar',
+      'cooperaciones.gestionar',
+      'cobros.crear',
+    ],
+  },
+  {
+    href: '/reportes',
+    label: 'Reportes e Ingresos',
+    short: 'Reportes',
+    icon: BarChart3,
+    permisosRequeridos: ['reportes.ver', 'cobros.crear'],
+  },
 ];
 
 // Igual que en la versión original, este grupo no se muestra en el menú
@@ -73,8 +112,20 @@ const medicionItems: NavItem[] = [
 void medicionItems;
 
 const adminItems: NavItem[] = [
-  { href: '/usuarios', label: 'Usuarios y Roles', short: 'Usuarios', icon: ShieldCheck, adminOnly: true },
-  { href: '/configuracion', label: 'Tarifas y Ajustes', short: 'Tarifas', icon: SlidersHorizontal, adminOnly: true },
+  {
+    href: '/usuarios',
+    label: 'Usuarios y Roles',
+    short: 'Usuarios',
+    icon: ShieldCheck,
+    permisosRequeridos: ['usuarios.gestionar'],
+  },
+  {
+    href: '/configuracion',
+    label: 'Tarifas y Ajustes',
+    short: 'Tarifas',
+    icon: SlidersHorizontal,
+    permisosRequeridos: ['tarifas.gestionar', 'organizacion.editar'],
+  },
 ];
 
 // Misma lógica de detección de ruta activa que la versión original
@@ -83,12 +134,17 @@ const isActive = (pathname: string | null, href: string) => {
   return pathname === href || (href !== '/' && !!pathname?.startsWith(href));
 };
 
-function getGroups(esAdmin: boolean) {
+function getGroups(esAdmin: boolean, permisos: string[] = []) {
   return [
     { title: 'Operación', items: operacionItems },
     { title: 'Administración', items: adminItems },
   ]
-    .map((g) => ({ ...g, items: g.items.filter((item) => !item.adminOnly || esAdmin) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) =>
+        tieneAlgunPermisoUsuario(esAdmin, permisos, item.permisosRequeridos || [])
+      ),
+    }))
     .filter((g) => g.items.length > 0);
 }
 
@@ -129,16 +185,17 @@ interface BodyProps {
   collapsed: boolean;
   organizacionNombre: string;
   esAdmin: boolean;
+  permisos?: string[];
 }
 
-function SidebarBody({ collapsed, organizacionNombre, esAdmin }: BodyProps) {
+function SidebarBody({ collapsed, organizacionNombre, esAdmin, permisos = [] }: BodyProps) {
   const pathname = usePathname();
   const navRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const [pos, setPos] = useState<{ top: number; height: number } | null>(null);
   const [ready, setReady] = useState(false);
 
-  const groups = getGroups(esAdmin);
+  const groups = getGroups(esAdmin, permisos);
 
   const activeHref =
     groups.flatMap((g) => g.items).find((item) => isActive(pathname, item.href))?.href ?? null;
@@ -658,11 +715,12 @@ export function Sidebar({
   userName,
   userRole,
   esAdmin,
+  permisos = [],
 }: SidebarProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const groups = getGroups(esAdmin);
+  const groups = getGroups(esAdmin, permisos);
   const items = groups.flatMap((g) => g.items);
   const activeHref = items.find((item) => isActive(pathname, item.href))?.href ?? null;
 
@@ -686,6 +744,7 @@ export function Sidebar({
           collapsed={collapsed}
           organizacionNombre={organizacionNombre}
           esAdmin={esAdmin}
+          permisos={permisos}
         />
 
         {/* Botón de colapsar: flota sobre el borde y aparece al pasar el cursor */}

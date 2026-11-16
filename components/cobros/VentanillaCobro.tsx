@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  Eye,
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { Button } from '@/components/ui/Button';
@@ -33,6 +34,7 @@ import { registrarPagoLocal } from '@/lib/sync/sync-engine';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 import { useRegistrosPorPagina } from '@/hooks/use-registros-por-pagina';
 import { ReciboTicketModal } from './ReciboTicketModal';
+import { ModalEstadoCuenta } from './ModalEstadoCuenta';
 import type {
   Persona,
   Toma,
@@ -99,9 +101,18 @@ export function VentanillaCobro({
   const [configPorToma, setConfigPorToma] = useState<Record<string, ConfigTomaPago>>({});
   const codigoPreseleccionadoRef = useRef<string | null>(null);
 
-  // Configuración de cuotas
+  // Configuración de cuotas (soporta tarifas diferenciadas por tipo de toma)
   const cuotaBase = Number(organizacion?.config?.cuota_base || 50);
   const recargoMora = Number(organizacion?.config?.recargo_mora || 0);
+  const cuotasPorTipo = organizacion?.config?.cuotas_por_tipo;
+
+  const obtenerCuotaToma = (toma: Toma): number => {
+    const especifica = cuotasPorTipo?.[toma.tipo_toma];
+    if (typeof especifica === 'number' && !Number.isNaN(especifica) && especifica >= 0) {
+      return especifica;
+    }
+    return cuotaBase;
+  };
 
   // Opciones de cobro
   const [modoCobro, setModoCobro] = useState<'meses' | 'saldo' | 'personalizado'>('meses');
@@ -116,6 +127,7 @@ export function VentanillaCobro({
 
   // Modales
   const [modalReciboOpen, setModalReciboOpen] = useState(false);
+  const [estadoCuentaAbierto, setEstadoCuentaAbierto] = useState(false);
   const [ultimoPagoRegistrado, setUltimoPagoRegistrado] = useState<Pago | null>(null);
   const [ultimoCambio, setUltimoCambio] = useState<number | null>(null);
   const [ultimoEfectivoRecibido, setUltimoEfectivoRecibido] = useState<number | null>(null);
@@ -391,20 +403,29 @@ export function VentanillaCobro({
   const calculos = useMemo(() => {
     const tomasLista = contribuyenteSeleccionado?.tomas || [];
     const desglose = tomasLista.map((t) => {
+      const cuotaToma = obtenerCuotaToma(t);
       const cfg = configPorToma[t.id] || {
         seleccionada: false,
         meses: 1,
-        montoLibre: cuotaBase.toString(),
+        montoLibre: cuotaToma.toString(),
       };
       if (!cfg.seleccionada) {
-        return { toma: t, seleccionada: false, meses: cfg.meses, subtotal: 0, recargos: 0, total: 0 };
+        return {
+          toma: t,
+          cuotaToma,
+          seleccionada: false,
+          meses: cfg.meses,
+          subtotal: 0,
+          recargos: 0,
+          total: 0,
+        };
       }
 
       let subtotalToma = 0;
       let recargosToma = 0;
 
       if (modoCobro === 'meses') {
-        subtotalToma = cuotaBase * cfg.meses;
+        subtotalToma = cuotaToma * cfg.meses;
         if (aplicarRecargo && recargoMora > 0) {
           recargosToma = recargoMora * cfg.meses;
         }
@@ -416,6 +437,7 @@ export function VentanillaCobro({
 
       return {
         toma: t,
+        cuotaToma,
         seleccionada: true,
         meses: cfg.meses,
         subtotal: subtotalToma,
@@ -453,11 +475,13 @@ export function VentanillaCobro({
       cambio,
       esEfectivoSuficiente: metodoPago !== 'efectivo' || efectivoNum >= total,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     contribuyenteSeleccionado,
     configPorToma,
     modoCobro,
     cuotaBase,
+    cuotasPorTipo,
     aplicarRecargo,
     recargoMora,
     metodoPago,
@@ -547,7 +571,7 @@ export function VentanillaCobro({
               toma_id: item.toma.id,
               anio: anioCalculado,
               mes: mesCalculado,
-              monto: cuotaBase,
+              monto: item.cuotaToma,
               recargo: recargoPorMes,
               created_at: timestamp,
               updated_at: timestamp,
@@ -670,17 +694,29 @@ export function VentanillaCobro({
             </div>
           </div>
 
-          <div className="text-xs self-start sm:self-auto shrink-0 flex items-center gap-2">
-            <span className="text-slate-500 dark:text-slate-400">Adeudo total:</span>
-            <span
-              className={`font-black text-sm tabular-nums ${
-                hayTomasConAdeudo
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-emerald-600 dark:text-emerald-400'
-              }`}
-            >
-              ${contribuyenteSeleccionado.adeudoTotal.toFixed(2)} MXN
-            </span>
+          <div className="text-xs self-start sm:self-auto shrink-0 flex flex-wrap items-center gap-3">
+            {contribuyenteSeleccionado.persona?.id && (
+              <button
+                type="button"
+                onClick={() => setEstadoCuentaAbierto(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline underline-offset-4 cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Ver estado de cuenta</span>
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400">Adeudo total:</span>
+              <span
+                className={`font-black text-sm tabular-nums ${
+                  hayTomasConAdeudo
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                }`}
+              >
+                ${contribuyenteSeleccionado.adeudoTotal.toFixed(2)} MXN
+              </span>
+            </div>
           </div>
         </div>
 
@@ -807,16 +843,17 @@ export function VentanillaCobro({
               {/* Lista de tomas del contribuyente */}
               <div className="divide-y divide-slate-200/80 dark:divide-slate-800 border-t border-b border-slate-200/80 dark:border-slate-800">
                 {contribuyenteSeleccionado.tomas.map((t) => {
+                  const cuotaToma = obtenerCuotaToma(t);
                   const cfg = configPorToma[t.id] || {
                     seleccionada: false,
                     meses: 1,
-                    montoLibre: cuotaBase.toString(),
+                    montoLibre: cuotaToma.toString(),
                   };
                   const adeudoToma = Number(t.saldo_pendiente || 0);
                   const subtotalToma = !cfg.seleccionada
                     ? 0
                     : modoCobro === 'meses'
-                      ? (cuotaBase + (aplicarRecargo ? recargoMora : 0)) * cfg.meses
+                      ? (cuotaToma + (aplicarRecargo ? recargoMora : 0)) * cfg.meses
                       : modoCobro === 'saldo'
                         ? adeudoToma
                         : Math.max(0, Number.parseFloat(cfg.montoLibre) || 0);
@@ -848,6 +885,11 @@ export function VentanillaCobro({
                             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                               {t.tipo_toma}
                             </span>
+                            {cuotaToma !== cuotaBase && (
+                              <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 tabular-nums">
+                                (${cuotaToma.toFixed(2)}/mes)
+                              </span>
+                            )}
                             {t.estado !== 'activa' && (
                               <StatusMark mode="inline" tone="rose" className="text-[11px]">
                                 Toma {t.estado}
@@ -1173,6 +1215,18 @@ export function VentanillaCobro({
             cambioEntregado={ultimoCambio}
             efectivoRecibido={ultimoEfectivoRecibido}
             onClose={() => setModalReciboOpen(false)}
+          />
+        )}
+
+        {/* Modal de Estado de Cuenta del Contribuyente */}
+        {estadoCuentaAbierto && contribuyenteSeleccionado.persona?.id && (
+          <ModalEstadoCuenta
+            personaId={contribuyenteSeleccionado.persona.id}
+            personaNombre={contribuyenteSeleccionado.persona.nombre_completo}
+            personaDocumento={contribuyenteSeleccionado.persona.documento_identidad}
+            personaTelefono={contribuyenteSeleccionado.persona.telefono}
+            tomasIniciales={contribuyenteSeleccionado.tomas}
+            onClose={() => setEstadoCuentaAbierto(false)}
           />
         )}
       </div>

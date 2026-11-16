@@ -19,6 +19,7 @@ import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { StatusMark } from '@/components/ui/StatusMark';
+import { usePermisosUsuario } from '@/hooks/use-permisos-usuario';
 import { Input } from '@/components/ui/Input';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar';
@@ -42,6 +43,8 @@ interface ManzanasManagerProps {
 }
 
 export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
+  const { puede } = usePermisosUsuario();
+  const puedeGestionarManzanas = puede('tomas.gestionar');
   const [manzanas, setManzanas] = useState<ManzanaConConteo[]>([]);
   const [cargando, setCargando] = useState(true);
   const [vista, setVistaState] = useState<'lista' | 'formulario'>('lista');
@@ -518,14 +521,16 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
         onRefresh={cargarManzanas}
         isRefreshing={cargando}
         action={
-          <Button
-            variant="primary"
-            size="md"
-            icon={<Plus className="w-4 h-4" />}
-            onClick={handleAbrirCrear}
-          >
-            Nueva Manzana
-          </Button>
+          puedeGestionarManzanas ? (
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={handleAbrirCrear}
+            >
+              Nueva Manzana
+            </Button>
+          ) : undefined
         }
       >
         {barriosUnicos.length > 0 && (
@@ -558,7 +563,7 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
             {busqueda
               ? 'No hay registros que coincidan con los filtros de búsqueda.'
-              : 'Aún no has registrado manzanas en este comité. Haz clic en "Nueva Manzana" para comenzar.'}
+              : 'Aún no se han registrado manzanas en este comité.'}
           </p>
         </div>
       ) : (
@@ -571,7 +576,7 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
               <TableHead>Cuadra / Detalle</TableHead>
               <TableHead className="text-center">Tomas</TableHead>
               <TableHead className="text-center">Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              {puedeGestionarManzanas && <TableHead className="text-right">Acciones</TableHead>}
             </tr>
           </TableHeader>
           <TableBody>
@@ -613,26 +618,28 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
                     </StatusMark>
                   )}
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleAbrirEditar(m)}
-                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      title="Editar manzana"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleEliminar(m)}
-                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                      title="Eliminar manzana"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </TableCell>
+                {puedeGestionarManzanas && (
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleAbrirEditar(m)}
+                        className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title="Editar manzana"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleEliminar(m)}
+                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                        title="Eliminar manzana"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

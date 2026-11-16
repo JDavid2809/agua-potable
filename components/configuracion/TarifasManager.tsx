@@ -68,13 +68,25 @@ const MESES = [
 ];
 
 export function TarifasManager() {
-  const [tabActiva, setTabActiva] = useState<'tarifas' | 'vistas' | 'cargos' | 'mantenimiento'>('tarifas');
+  const [tabActiva, setTabActiva] = useState<'tarifas' | 'comite' | 'vistas' | 'cargos' | 'mantenimiento'>('tarifas');
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
+  // Formulario de Datos Oficiales del Comité / Organización
+  const [orgNombre, setOrgNombre] = useState('');
+  const [orgEstado, setOrgEstado] = useState('');
+  const [orgMunicipio, setOrgMunicipio] = useState('');
+  const [orgLocalidad, setOrgLocalidad] = useState('');
+  const [orgTelefono, setOrgTelefono] = useState('');
+  const [orgRfc, setOrgRfc] = useState('');
+
   // Formulario de Tarifas y Preferencias de Vista
   const [cuotaBase, setCuotaBase] = useState('50.00');
+  const [cuotaDomestica, setCuotaDomestica] = useState('');
+  const [cuotaComercial, setCuotaComercial] = useState('');
+  const [cuotaComunal, setCuotaComunal] = useState('');
+  const [cuotaLoteBaldio, setCuotaLoteBaldio] = useState('');
   const [recargoMora, setRecargoMora] = useState('0.00');
   const [moneda, setMoneda] = useState('MXN');
   const [permitirOffline, setPermitirOffline] = useState(true);
@@ -136,6 +148,13 @@ export function TarifasManager() {
           : perfilData.organizacion) as unknown as Organizacion;
 
         setOrganizacion(org);
+        setOrgNombre(org.nombre || '');
+        setOrgEstado(org.estado || '');
+        setOrgMunicipio(org.municipio || '');
+        setOrgLocalidad(org.localidad || '');
+        setOrgTelefono(org.telefono || '');
+        setOrgRfc(org.rfc_registro || '');
+
         if (org.config) {
           cuotaConfig = Number(org.config.cuota_base || 50);
           setCuotaBase(cuotaConfig.toFixed(2));
@@ -143,6 +162,20 @@ export function TarifasManager() {
           setMoneda(org.config.moneda || 'MXN');
           setPermitirOffline(org.config.permitir_cobro_offline ?? true);
           setMontoCargo(cuotaConfig.toFixed(2));
+
+          const porTipo = org.config.cuotas_por_tipo || {};
+          setCuotaDomestica(
+            porTipo.domestica !== undefined ? Number(porTipo.domestica).toFixed(2) : ''
+          );
+          setCuotaComercial(
+            porTipo.comercial !== undefined ? Number(porTipo.comercial).toFixed(2) : ''
+          );
+          setCuotaComunal(
+            porTipo.comunal !== undefined ? Number(porTipo.comunal).toFixed(2) : ''
+          );
+          setCuotaLoteBaldio(
+            porTipo.lote_baldio !== undefined ? Number(porTipo.lote_baldio).toFixed(2) : ''
+          );
 
           if (org.config.registros_por_pagina) {
             const normalizado = guardarRegistrosPorPagina(org.config.registros_por_pagina);
@@ -292,6 +325,23 @@ export function TarifasManager() {
     try {
       setGuardando(true);
 
+      const parseOptionalRate = (val: string): number | undefined => {
+        if (!val.trim()) return undefined;
+        const n = Number.parseFloat(val);
+        return !Number.isNaN(n) && n >= 0 ? n : undefined;
+      };
+
+      const cuotasPorTipo: Record<string, number> = {};
+      const domNum = parseOptionalRate(cuotaDomestica);
+      const comNum = parseOptionalRate(cuotaComercial);
+      const pubNum = parseOptionalRate(cuotaComunal);
+      const balNum = parseOptionalRate(cuotaLoteBaldio);
+
+      if (domNum !== undefined) cuotasPorTipo.domestica = domNum;
+      if (comNum !== undefined) cuotasPorTipo.comercial = comNum;
+      if (pubNum !== undefined) cuotasPorTipo.comunal = pubNum;
+      if (balNum !== undefined) cuotasPorTipo.lote_baldio = balNum;
+
       const nuevoConfig = {
         ...(organizacion.config || {}),
         cuota_base: cuotaNum,
@@ -299,6 +349,7 @@ export function TarifasManager() {
         moneda: moneda.trim() || 'MXN',
         permitir_cobro_offline: permitirOffline,
         registros_por_pagina: registrosNum,
+        cuotas_por_tipo: cuotasPorTipo,
       };
 
       // 1. Actualizar configuración en la organización (verificando que RLS permita actualizar la fila)
@@ -315,7 +366,7 @@ export function TarifasManager() {
       if (errOrg || !orgActualizada) {
         throw (
           errOrg ||
-          new Error('No tienes permisos de administrador para modificar los ajustes de la organización.')
+          new Error('No cuentas con permisos para modificar los ajustes de la organización.')
         );
       }
 
@@ -342,7 +393,7 @@ export function TarifasManager() {
 
       sileo.success({
         title: '¡Ajustes actualizados!',
-        description: `Cuota base en $${cuotaNum.toFixed(2)} ${moneda} y vista de ${registrosNum} usuarios por página.`,
+        description: `Cuota base en $${cuotaNum.toFixed(2)} ${moneda} y tarifas guardadas.`,
       });
 
       setOrganizacion({
@@ -359,6 +410,64 @@ export function TarifasManager() {
       sileo.error({
         title: 'Error al guardar',
         description: obtenerMensajeError(err, 'No se pudo guardar la tarifa.'),
+      });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  // Guardar datos institucionales del Comité / Organización
+  const handleGuardarDatosComite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!organizacion?.id) return;
+
+    if (!orgNombre.trim()) {
+      sileo.warning({
+        title: 'Nombre requerido',
+        description: 'Ingresa el nombre oficial del comité u organización.',
+      });
+      return;
+    }
+
+    try {
+      setGuardando(true);
+
+      const { data: orgUpd, error } = await supabase
+        .from('organizaciones')
+        .update({
+          nombre: orgNombre.trim(),
+          estado: orgEstado.trim(),
+          municipio: orgMunicipio.trim(),
+          localidad: orgLocalidad.trim(),
+          telefono: orgTelefono.trim() || null,
+          rfc_registro: orgRfc.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', organizacion.id)
+        .select('*')
+        .single();
+
+      if (error || !orgUpd) {
+        throw (
+          error ||
+          new Error('No cuentas con permisos para actualizar los datos del comité.')
+        );
+      }
+
+      const orgActualizada = orgUpd as unknown as Organizacion;
+      setOrganizacion(orgActualizada);
+      dbLocal.config_sync
+        .put({ clave: 'organizacion_cache', valor: JSON.stringify(orgActualizada) })
+        .catch(() => {});
+
+      sileo.success({
+        title: 'Datos del comité guardados',
+        description: 'La información institucional ya se actualizó para el sistema y recibos.',
+      });
+    } catch (err: unknown) {
+      sileo.error({
+        title: 'Error al guardar datos del comité',
+        description: obtenerMensajeError(err, 'No se pudieron guardar los datos del comité.'),
       });
     } finally {
       setGuardando(false);
@@ -668,13 +777,20 @@ export function TarifasManager() {
           <PageTabs
             value={tabActiva}
             onChange={(val) =>
-              setTabActiva(val as 'tarifas' | 'vistas' | 'cargos' | 'mantenimiento')
+              setTabActiva(
+                val as 'tarifas' | 'comite' | 'vistas' | 'cargos' | 'mantenimiento'
+              )
             }
             items={[
               {
                 value: 'tarifas',
                 label: 'Tarifas y Cuotas',
                 icon: <Banknote />,
+              },
+              {
+                value: 'comite',
+                label: 'Datos del Comité',
+                icon: <MapPin />,
               },
               {
                 value: 'vistas',
@@ -784,7 +900,7 @@ export function TarifasManager() {
                     placeholder="Ej: 50.00"
                     required
                   />
-                  <p className="text-[11px] text-slate-400">Monto base por toma al mes.</p>
+                  <p className="text-[11px] text-slate-400">Monto general por toma al mes.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -841,6 +957,93 @@ export function TarifasManager() {
                     required
                   />
                   <p className="text-[11px] text-slate-400">Código de divisa local.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bloque 1B: Tarifas Diferenciadas por Tipo de Toma (Opcional) */}
+            <div className="space-y-4">
+              <div className="border-b border-dashed border-slate-300 dark:border-[#26345C] pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                  <Droplets className="w-4 h-4 text-cyan-500" />
+                  <span>Tarifas por Tipo de Toma (Opcional)</span>
+                </h4>
+                <span className="text-[11px] text-slate-400">
+                  Si dejas un campo vacío, usará automáticamente la Cuota Base (${cuotaBase || '50.00'})
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="tarifa-tipo-domestica"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
+                    Toma Doméstica ($/mes)
+                  </label>
+                  <Input
+                    id="tarifa-tipo-domestica"
+                    type="number"
+                    step="0.50"
+                    min="0"
+                    value={cuotaDomestica}
+                    onChange={(e) => setCuotaDomestica(e.target.value)}
+                    placeholder={`Base ($${cuotaBase || '50.00'})`}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="tarifa-tipo-comercial"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
+                    Toma Comercial ($/mes)
+                  </label>
+                  <Input
+                    id="tarifa-tipo-comercial"
+                    type="number"
+                    step="0.50"
+                    min="0"
+                    value={cuotaComercial}
+                    onChange={(e) => setCuotaComercial(e.target.value)}
+                    placeholder={`Base ($${cuotaBase || '50.00'})`}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="tarifa-tipo-comunal"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
+                    Toma Comunal ($/mes)
+                  </label>
+                  <Input
+                    id="tarifa-tipo-comunal"
+                    type="number"
+                    step="0.50"
+                    min="0"
+                    value={cuotaComunal}
+                    onChange={(e) => setCuotaComunal(e.target.value)}
+                    placeholder={`Base ($${cuotaBase || '50.00'})`}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="tarifa-tipo-baldio"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
+                    Lote Baldío ($/mes)
+                  </label>
+                  <Input
+                    id="tarifa-tipo-baldio"
+                    type="number"
+                    step="0.50"
+                    min="0"
+                    value={cuotaLoteBaldio}
+                    onChange={(e) => setCuotaLoteBaldio(e.target.value)}
+                    placeholder={`Base ($${cuotaBase || '50.00'})`}
+                  />
                 </div>
               </div>
             </div>
@@ -911,6 +1114,132 @@ export function TarifasManager() {
             </div>
           </form>
         </div>
+      )}
+
+      {tabActiva === 'comite' && (
+        <form onSubmit={handleGuardarDatosComite} className="w-full space-y-8 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-dashed border-slate-300 dark:border-[#26345C] pb-3">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                Información Institucional del Comité de Agua Potable
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Estos datos aparecen en el encabezado del sistema y en todos los recibos oficiales impresos.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="sm:col-span-2 lg:col-span-2 space-y-1.5">
+              <label
+                htmlFor="comite-nombre"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
+                Nombre del Comité u Organización *
+              </label>
+              <Input
+                id="comite-nombre"
+                type="text"
+                value={orgNombre}
+                onChange={(e) => setOrgNombre(e.target.value)}
+                placeholder="Ej: Comité de Agua Potable San Pedro"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="comite-telefono"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
+                Teléfono de Atención (Opcional)
+              </label>
+              <Input
+                id="comite-telefono"
+                type="tel"
+                value={orgTelefono}
+                onChange={(e) => setOrgTelefono(e.target.value)}
+                placeholder="Ej: 249 123 4567"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="comite-localidad"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
+                Localidad o Comunidad
+              </label>
+              <Input
+                id="comite-localidad"
+                type="text"
+                value={orgLocalidad}
+                onChange={(e) => setOrgLocalidad(e.target.value)}
+                placeholder="Ej: San Pedro"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="comite-municipio"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
+                Municipio
+              </label>
+              <Input
+                id="comite-municipio"
+                type="text"
+                value={orgMunicipio}
+                onChange={(e) => setOrgMunicipio(e.target.value)}
+                placeholder="Ej: Tepeaca"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="comite-estado"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
+                Estado
+              </label>
+              <Input
+                id="comite-estado"
+                type="text"
+                value={orgEstado}
+                onChange={(e) => setOrgEstado(e.target.value)}
+                placeholder="Ej: Puebla"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="comite-rfc"
+                className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+              >
+                RFC o Registro Oficial (Opcional)
+              </label>
+              <Input
+                id="comite-rfc"
+                type="text"
+                value={orgRfc}
+                onChange={(e) => setOrgRfc(e.target.value)}
+                placeholder="Ej: CAP200101AAA"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-dashed border-slate-300 dark:border-[#26345C] flex justify-end">
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              isLoading={guardando}
+              icon={<Save className="w-4 h-4" />}
+            >
+              Guardar Datos del Comité
+            </Button>
+          </div>
+        </form>
       )}
 
       {tabActiva === 'vistas' && (

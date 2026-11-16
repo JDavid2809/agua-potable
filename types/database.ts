@@ -7,17 +7,20 @@ export type TipoCargoCiclo = 'mensual' | 'extraordinario';
 
 /** Permisos del sistema para control de acceso granular (RBAC) */
 export type PermisoSistema =
-  | '*'                     // Superacceso / Administrador total
-  | 'usuarios.gestionar'    // Crear, editar y suspender usuarios
-  | 'organizacion.editar'   // Modificar datos del comité / organización
-  | 'cobros.crear'          // Registrar pagos y emitir recibos
-  | 'cobros.anular'         // Cancelar o anular recibos emitidos
-  | 'tomas.ver'             // Consultar padrón de tomas
-  | 'tomas.gestionar'       // Crear, editar o suspender tomas
-  | 'personas.ver'          // Consultar contribuyentes
-  | 'personas.gestionar'    // Crear y actualizar datos de contribuyentes
-  | 'tarifas.gestionar'     // Modificar cuotas anuales y recargos
-  | 'reportes.ver';         // Visualizar cortes de caja y balance financiero
+  | '*'                        // Superacceso / Administrador total
+  | 'usuarios.gestionar'       // Crear, editar y suspender usuarios
+  | 'organizacion.editar'      // Modificar datos del comité / organización
+  | 'cobros.crear'             // Registrar pagos y emitir recibos
+  | 'cobros.anular'            // Cancelar o anular recibos emitidos
+  | 'tomas.ver'                // Consultar padrón de tomas
+  | 'tomas.gestionar'          // Crear, editar o suspender tomas
+  | 'personas.ver'             // Consultar contribuyentes
+  | 'personas.gestionar'       // Crear y actualizar datos de contribuyentes
+  | 'cooperaciones.ver'        // Consultar campañas de cooperación y obras
+  | 'cooperaciones.cobrar'     // Registrar abonos y faenas de cooperación
+  | 'cooperaciones.gestionar'  // Crear campañas y otorgar prórrogas de cooperación
+  | 'tarifas.gestionar'        // Modificar cuotas anuales y recargos
+  | 'reportes.ver';            // Visualizar cortes de caja y balance financiero
 
 export interface OrganizacionConfig {
   cuota_base: number;
@@ -25,6 +28,7 @@ export interface OrganizacionConfig {
   moneda: string;
   permitir_cobro_offline: boolean;
   registros_por_pagina?: number;
+  cuotas_por_tipo?: Partial<Record<TipoToma, number>>;
 }
 
 export interface Organizacion {

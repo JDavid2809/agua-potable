@@ -34,6 +34,10 @@ export default async function DashboardLayout({
       ? 'Lector'
       : 'Usuario';
 
+  const permisosLista = Array.isArray(perfil.permisos)
+    ? (perfil.permisos as string[])
+    : [];
+
   return (
     <DashboardShell
       organizacionId={perfil.organizacion_id}
@@ -42,6 +46,7 @@ export default async function DashboardLayout({
       userName={perfil.nombre_completo || user.email || 'Usuario'}
       userRole={rolLabel}
       esAdmin={esAdmin}
+      permisos={permisosLista}
       initialCollapsed={sidebarColapsado}
     >
       {children}

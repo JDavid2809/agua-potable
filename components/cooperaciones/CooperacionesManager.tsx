@@ -31,6 +31,7 @@ import { PageHeader, PageTabs } from '@/components/ui/PageHeader';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusMark } from '@/components/ui/StatusMark';
+import { usePermisosUsuario } from '@/hooks/use-permisos-usuario';
 import { Input } from '@/components/ui/Input';
 import {
   Table,
@@ -55,6 +56,9 @@ import type {
 import { obtenerMensajeError } from '@/lib/utils/errors';
 
 export function CooperacionesManager() {
+  const { puede } = usePermisosUsuario();
+  const puedeGestionarCoop = puede('cooperaciones.gestionar');
+  void puedeGestionarCoop;
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
