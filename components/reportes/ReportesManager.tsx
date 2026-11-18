@@ -463,15 +463,28 @@ export function ReportesManager() {
         title="Reportes, Ingresos y Morosidad"
         subtitle="Consulta financiera por periodo, padrón de deudores para asamblea y exportación contable a Excel."
         action={
-          <PageTabs
-            value={tabActiva}
-            onChange={(v) => setTabActiva(v as 'ingresos' | 'deudores' | 'obras')}
-            items={[
-              { value: 'ingresos', label: 'Ingresos por Periodo', icon: <Banknote /> },
-              { value: 'deudores', label: 'Padrón de Deudores', icon: <AlertTriangle /> },
-              { value: 'obras', label: 'Cooperaciones y Obras', icon: <HeartHandshake /> },
-            ]}
-          />
+          <>
+            <PageTabs
+              value={tabActiva}
+              onChange={(v) => setTabActiva(v as 'ingresos' | 'deudores' | 'obras')}
+              items={[
+                { value: 'ingresos', label: 'Ingresos por Periodo', icon: <Banknote /> },
+                { value: 'deudores', label: 'Padrón de Deudores', icon: <AlertTriangle /> },
+                { value: 'obras', label: 'Cooperaciones y Obras', icon: <HeartHandshake /> },
+              ]}
+            />
+            {tabActiva === 'obras' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+                onClick={handleExportarObrasExcel}
+              >
+                Exportar Excel
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -582,7 +595,7 @@ export function ReportesManager() {
                 icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
                 onClick={handleExportarIngresosExcel}
               >
-                Exportar Ingresos a Excel
+                Exportar Excel
               </Button>
             }
           >
@@ -788,7 +801,7 @@ export function ReportesManager() {
                 icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
                 onClick={handleExportarDeudoresExcel}
               >
-                Exportar Deudores a Excel
+                Exportar Excel
               </Button>
             }
           >
@@ -875,18 +888,6 @@ export function ReportesManager() {
       {/* PESTAÑA 3: COOPERACIONES Y OBRAS */}
       {tabActiva === 'obras' && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-              onClick={handleExportarObrasExcel}
-            >
-              Exportar Resumen de Obras a Excel
-            </Button>
-          </div>
-
           {cooperaciones.length === 0 ? (
             <div className="p-12 text-center text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
               <p className="text-sm font-semibold">

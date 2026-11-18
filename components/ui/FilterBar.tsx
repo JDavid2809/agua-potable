@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, RefreshCw, ChevronDown, Check } from 'lucide-react';
+import { usePageHeaderSlot } from '@/components/ui/PageHeader';
 
 const LINE = 'border-slate-300 dark:border-[#26345C]';
 const ACCENT_BG = 'bg-[#2F6BFF] dark:bg-[#6C97FF]';
@@ -309,6 +311,7 @@ export function FilterBar({
   action,
   className = '',
 }: FilterBarProps) {
+  const pageHeaderCtx = usePageHeaderSlot();
   const hasSearch = searchValue !== undefined && onSearchChange !== undefined;
 
   const controls: React.ReactNode[] = [];
@@ -370,7 +373,12 @@ export function FilterBar({
         ))}
       </div>
 
-      {action && <div className="shrink-0">{action}</div>}
+      {action &&
+        (pageHeaderCtx?.actionNode ? (
+          createPortal(action, pageHeaderCtx.actionNode)
+        ) : (
+          <div className="shrink-0">{action}</div>
+        ))}
     </div>
   );
 }

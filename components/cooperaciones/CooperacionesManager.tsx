@@ -1122,28 +1122,6 @@ export function CooperacionesManager() {
           <ArrowLeft className="w-4 h-4" />
           <span>Volver al Catálogo de Cooperaciones</span>
         </button>
-
-        <div className="flex items-center gap-2.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            icon={<Clock className="w-3.5 h-3.5 text-purple-500" />}
-            onClick={() => setModalProrrogaOpen(true)}
-          >
-            Aplazar Fecha / Prórroga
-          </Button>
-
-          <Button
-            type="button"
-            variant={coopActiva.estado === 'concluida' ? 'outline' : 'secondary'}
-            size="sm"
-            onClick={handleAlternarEstadoConcluida}
-            disabled={guardando}
-          >
-            {coopActiva.estado === 'concluida' ? 'Reabrir Obra' : 'Concluir Obra'}
-          </Button>
-        </div>
       </div>
 
       {/* Cabecera del Proyecto Seleccionado */}
@@ -1167,15 +1145,36 @@ export function CooperacionesManager() {
             : 'green'
         }
         action={
-          <PageTabs
-            value={tabDetalle}
-            onChange={(val) => setTabDetalle(val as 'abonos' | 'padron' | 'asamblea')}
-            items={[
-              { value: 'abonos', label: 'Ventanilla de Cobro', icon: <Receipt className="w-4 h-4" /> },
-              { value: 'padron', label: 'Padrón de Contribuyentes', icon: <Users className="w-4 h-4" /> },
-              { value: 'asamblea', label: 'Corte y Asamblea', icon: <FileText className="w-4 h-4" /> },
-            ]}
-          />
+          <>
+            <PageTabs
+              value={tabDetalle}
+              onChange={(val) => setTabDetalle(val as 'abonos' | 'padron' | 'asamblea')}
+              items={[
+                { value: 'abonos', label: 'Ventanilla de Cobro', icon: <Receipt className="w-4 h-4" /> },
+                { value: 'padron', label: 'Padrón de Contribuyentes', icon: <Users className="w-4 h-4" /> },
+                { value: 'asamblea', label: 'Corte y Asamblea', icon: <FileText className="w-4 h-4" /> },
+              ]}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              icon={<Clock className="w-4 h-4 text-purple-500" />}
+              onClick={() => setModalProrrogaOpen(true)}
+            >
+              Aplazar / Prórroga
+            </Button>
+
+            <Button
+              type="button"
+              variant={coopActiva.estado === 'concluida' ? 'outline' : 'secondary'}
+              size="md"
+              onClick={handleAlternarEstadoConcluida}
+              disabled={guardando}
+            >
+              {coopActiva.estado === 'concluida' ? 'Reabrir Obra' : 'Concluir Obra'}
+            </Button>
+          </>
         }
       />
 

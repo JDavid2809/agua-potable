@@ -9,6 +9,7 @@ import React, {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
  * PageHeader — cabecera de sección integrada con DashboardHeader.
@@ -337,7 +338,7 @@ export function PageTabs({
   className?: string;
 }) {
   const ctx = usePageHeaderSlot();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const [pillRect, setPillRect] = useState<{
@@ -348,11 +349,36 @@ export function PageTabs({
   } | null>(null);
   const [hoveredVal, setHoveredVal] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [threeTabsMaxW, setThreeTabsMaxW] = useState<number | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   // El indicador principal sigue al tab en hover; al hacer clic se actualiza `value` y se mantiene ahí
   const targetValue = hoveredVal ?? value;
 
+  const updateScrollArrows = useCallback(() => {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    const { scrollLeft, scrollWidth, clientWidth } = sc;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  }, []);
+
   const measureTarget = useCallback(() => {
+    // Si hay más de 3 pestañas, calcular el ancho exacto de las primeras 3 para mostrar máximo 3 a la vez
+    if (items.length > 3) {
+      const b0 = btnRefs.current[items[0].value];
+      const b1 = btnRefs.current[items[1].value];
+      const b2 = btnRefs.current[items[2].value];
+      if (b0 && b1 && b2) {
+        // 3 botones + 2 gaps (6px c/u) + padding horizontal (12px)
+        const w = b0.offsetWidth + b1.offsetWidth + b2.offsetWidth + 24;
+        setThreeTabsMaxW((prev) => (prev === w ? prev : w));
+      }
+    } else {
+      setThreeTabsMaxW(null);
+    }
+
     const el = btnRefs.current[targetValue];
     if (!el) {
       setPillRect(null);
@@ -373,21 +399,27 @@ export function PageTabs({
         ? prev
         : next
     );
-  }, [targetValue]);
+
+    updateScrollArrows();
+  }, [items, targetValue, updateScrollArrows]);
 
   useEffect(() => {
     measureTarget();
     const id = requestAnimationFrame(() => {
       measureTarget();
+      updateScrollArrows();
       setReady(true);
     });
 
-    if (typeof ResizeObserver === 'undefined' || !containerRef.current) {
+    if (typeof ResizeObserver === 'undefined' || !scrollRef.current) {
       return () => cancelAnimationFrame(id);
     }
 
-    const ro = new ResizeObserver(measureTarget);
-    ro.observe(containerRef.current);
+    const ro = new ResizeObserver(() => {
+      measureTarget();
+      updateScrollArrows();
+    });
+    ro.observe(scrollRef.current);
     Object.values(btnRefs.current).forEach((btn) => {
       if (btn) ro.observe(btn);
     });
@@ -396,81 +428,154 @@ export function PageTabs({
       cancelAnimationFrame(id);
       ro.disconnect();
     };
-  }, [measureTarget, items]);
+  }, [measureTarget, updateScrollArrows, items]);
+
+  // Asegurar que la pestaña activa quede visible dentro de la ventana de 3 opciones al seleccionarla
+  useEffect(() => {
+    const el = btnRefs.current[value];
+    if (!el || !scrollRef.current) return;
+    el.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  }, [value]);
+
+  const scrollByStep = useCallback((dir: -1 | 1) => {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    const step = Math.max(160, Math.round(sc.clientWidth * 0.55));
+    sc.scrollBy({ left: dir * step, behavior: 'smooth' });
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    if (sc.scrollWidth <= sc.clientWidth) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      sc.scrollLeft += e.deltaY;
+    }
+  }, []);
+
+  const showArrows = items.length > 3 || canScrollLeft || canScrollRight;
 
   const content = (
-    <div
-      ref={containerRef}
-      role="tablist"
-      onMouseLeave={() => setHoveredVal(null)}
-      className={`relative inline-flex w-full min-w-0 max-w-full flex-wrap items-center justify-center gap-1.5 sm:w-auto sm:flex-nowrap ${className}`}
-    >
-      {/* Píldora principal deslizante: se recorre al hacer hover y se queda fija en la opción al hacer clic */}
-      <span
-        aria-hidden="true"
-        style={{
-          width: pillRect ? pillRect.width + 6 : 0,
-          height: pillRect ? pillRect.height + 4 : 0,
-          transform: `translate3d(${(pillRect?.left ?? 0) - 3}px, ${(pillRect?.top ?? 0) - 2}px, 0)`,
-          transition: ready
-            ? 'transform 360ms cubic-bezier(.22,1,.36,1), width 340ms cubic-bezier(.22,1,.36,1), height 340ms cubic-bezier(.22,1,.36,1), opacity 200ms ease'
-            : 'none',
-        }}
-        className={`pointer-events-none absolute top-0 left-0 z-0 rounded-full bg-black shadow-[0_6px_18px_-4px_rgba(0,0,0,0.28)] dark:bg-[#2F6BFF] dark:shadow-[0_6px_18px_-4px_rgba(47,107,255,0.45)] ${
-          pillRect ? 'opacity-100' : 'opacity-0'
-        }`}
-      />
+    <div className={`inline-flex max-w-full items-center gap-1.5 ${className}`}>
+      {/* Flecha lateral izquierda sin contenedor ni sombra */}
+      {showArrows && (
+        <button
+          type="button"
+          onClick={() => scrollByStep(-1)}
+          disabled={!canScrollLeft}
+          aria-label="Ver opciones anteriores"
+          title="Desplazar a la izquierda"
+          className={`flex shrink-0 items-center justify-center p-1 transition-all duration-200 focus-visible:outline-none ${
+            canScrollLeft
+              ? 'cursor-pointer text-slate-600 hover:-translate-x-0.5 hover:text-slate-950 active:scale-95 dark:text-slate-300 dark:hover:text-white'
+              : 'pointer-events-none opacity-20 text-slate-400 dark:text-slate-600'
+          }`}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      )}
 
-      {items.map((item) => {
-        const active = item.value === value;
-        const highlighted = item.value === targetValue;
-        return (
-          <button
-            key={item.value}
-            ref={(el) => {
-              btnRefs.current[item.value] = el;
-            }}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onMouseEnter={() => setHoveredVal(item.value)}
-            onFocus={() => setHoveredVal(item.value)}
-            onBlur={() => setHoveredVal(null)}
-            onClick={() => {
-              setHoveredVal(item.value);
-              onChange(item.value);
-            }}
-            className={`relative z-10 flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] transition-[color,transform] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 sm:flex-initial sm:px-4 ${
-              highlighted
-                ? 'scale-[1.02] font-semibold text-white'
-                : 'font-medium text-slate-500 dark:text-slate-400'
-            }`}
-          >
-            {item.icon && (
-              <span
-                aria-hidden="true"
-                className={`shrink-0 transition-colors duration-300 [&>svg]:h-[14px] [&>svg]:w-[14px] sm:[&>svg]:h-[15px] sm:[&>svg]:w-[15px] ${
-                  highlighted ? 'text-white' : 'text-slate-400 dark:text-slate-500'
-                }`}
-              >
-                {item.icon}
-              </span>
-            )}
-            <span className="truncate">{item.label}</span>
-            {item.badge !== undefined && (
-              <span
-                className={`ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none transition-colors duration-300 ${
-                  highlighted
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-200/80 text-slate-700 dark:bg-white/10 dark:text-slate-300'
-                }`}
-              >
-                {item.badge}
-              </span>
-            )}
-          </button>
-        );
-      })}
+      {/* Ventana deslizable horizontal (máximo 3 opciones visibles a la vez) */}
+      <div
+        ref={scrollRef}
+        role="tablist"
+        onScroll={updateScrollArrows}
+        onWheel={handleWheel}
+        onMouseLeave={() => setHoveredVal(null)}
+        style={{
+          maxWidth: threeTabsMaxW ? `${threeTabsMaxW}px` : undefined,
+        }}
+        className="relative inline-flex max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto scroll-smooth px-1.5 py-1 touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {/* Píldora principal deslizante sin sombra */}
+        <span
+          aria-hidden="true"
+          style={{
+            width: pillRect ? pillRect.width + 6 : 0,
+            height: pillRect ? pillRect.height + 4 : 0,
+            transform: `translate3d(${(pillRect?.left ?? 0) - 3}px, ${(pillRect?.top ?? 0) - 2}px, 0)`,
+            transition: ready
+              ? 'transform 360ms cubic-bezier(.22,1,.36,1), width 340ms cubic-bezier(.22,1,.36,1), height 340ms cubic-bezier(.22,1,.36,1), opacity 200ms ease'
+              : 'none',
+          }}
+          className={`pointer-events-none absolute top-0 left-0 z-0 rounded-full bg-black dark:bg-[#2F6BFF] ${
+            pillRect ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+
+        {items.map((item) => {
+          const active = item.value === value;
+          const highlighted = item.value === targetValue;
+          return (
+            <button
+              key={item.value}
+              ref={(el) => {
+                btnRefs.current[item.value] = el;
+              }}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onMouseEnter={() => setHoveredVal(item.value)}
+              onFocus={() => setHoveredVal(item.value)}
+              onBlur={() => setHoveredVal(null)}
+              onClick={() => {
+                setHoveredVal(item.value);
+                onChange(item.value);
+              }}
+              className={`relative z-10 flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] transition-[color,transform] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 sm:px-4 ${
+                highlighted
+                  ? 'scale-[1.02] font-semibold text-white'
+                  : 'font-medium text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              {item.icon && (
+                <span
+                  aria-hidden="true"
+                  className={`shrink-0 transition-colors duration-300 [&>svg]:h-[14px] [&>svg]:w-[14px] sm:[&>svg]:h-[15px] sm:[&>svg]:w-[15px] ${
+                    highlighted ? 'text-white' : 'text-slate-400 dark:text-slate-500'
+                  }`}
+                >
+                  {item.icon}
+                </span>
+              )}
+              <span className="truncate">{item.label}</span>
+              {item.badge !== undefined && (
+                <span
+                  className={`ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none transition-colors duration-300 ${
+                    highlighted
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-200/80 text-slate-700 dark:bg-white/10 dark:text-slate-300'
+                  }`}
+                >
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Flecha lateral derecha sin contenedor ni sombra */}
+      {showArrows && (
+        <button
+          type="button"
+          onClick={() => scrollByStep(1)}
+          disabled={!canScrollRight}
+          aria-label="Ver más opciones"
+          title="Desplazar a la derecha"
+          className={`flex shrink-0 items-center justify-center p-1 transition-all duration-200 focus-visible:outline-none ${
+            canScrollRight
+              ? 'cursor-pointer text-slate-600 hover:translate-x-0.5 hover:text-slate-950 active:scale-95 dark:text-slate-300 dark:hover:text-white'
+              : 'pointer-events-none opacity-20 text-slate-400 dark:text-slate-600'
+          }`}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 

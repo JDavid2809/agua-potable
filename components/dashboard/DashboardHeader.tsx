@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -109,23 +109,6 @@ export function DashboardHeader({
   const pathname = usePathname();
   const { isDark, toggleTheme } = useTheme();
   const pageHeaderCtx = usePageHeaderSlot();
-  const slotState = pageHeaderCtx?.slotState;
-
-  const [clock, setClock] = useState<string>('');
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const time = now.toLocaleTimeString('es-MX', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
-      setClock(time);
-    };
-    tick();
-    const id = setInterval(tick, 15000);
-    return () => clearInterval(id);
-  }, []);
 
   const matchedIndex = SECTIONS.findIndex(
     (s) => pathname === s.href || pathname.startsWith(`${s.href}/`)
@@ -134,20 +117,11 @@ export function DashboardHeader({
     matchedIndex >= 0 ? SECTIONS[matchedIndex] : SECTIONS[0];
 
   const displayTitle = activeSection.label;
-  const statusLabel =
-    slotState?.status ||
-    (!enLinea ? 'Modo sin conexión' : activeSection.defaultStatus);
-
   const statusTone = !enLinea
     ? 'amber'
     : isSyncing && pendientesSync > 0
       ? 'blue'
-      : slotState?.statusTone || 'green';
-
-  const progressPct = Math.max(
-    18,
-    Math.min(100, slotState?.progress ?? (enLinea ? 78 : 45))
-  );
+      : 'green';
 
   const iniciales = obtenerIniciales(userName);
 
@@ -156,27 +130,7 @@ export function DashboardHeader({
       ? 'bg-amber-500'
       : statusTone === 'blue'
         ? 'bg-[#2F6BFF]'
-        : statusTone === 'red'
-          ? 'bg-red-500'
-          : 'bg-emerald-500';
-
-  const haloColor =
-    statusTone === 'amber'
-      ? 'bg-amber-500/15'
-      : statusTone === 'blue'
-        ? 'bg-[#2F6BFF]/15'
-        : statusTone === 'red'
-          ? 'bg-red-500/15'
-          : 'bg-emerald-500/15';
-
-  const barColor =
-    statusTone === 'amber'
-      ? 'bg-amber-500'
-      : statusTone === 'red'
-        ? 'bg-red-500'
-        : statusTone === 'green'
-          ? 'bg-emerald-500'
-          : 'bg-[#2F6BFF]';
+        : 'bg-emerald-500';
 
   return (
     <header className="mx-auto w-full max-w-7xl px-4 pt-5 pb-5 sm:px-6 sm:pb-6 lg:px-8">
@@ -197,11 +151,11 @@ export function DashboardHeader({
       {/* ═══════════════════════════════════════════════════════════════════
           FILA 1: Identidad de Marca + Opciones de la Sección Activa + Controles
           ═══════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap lg:gap-4">
         {/* Izquierda: Identidad Fluvib + Comité */}
         <Link
           href="/dashboard"
-          className="group flex min-w-0 items-center gap-3 focus:outline-none"
+          className="group flex shrink-0 items-center gap-3 focus:outline-none"
         >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-black text-white shadow-sm transition-transform duration-200 group-hover:scale-105 dark:bg-[#0B1224] dark:shadow-black/40">
             <Droplets className="h-5 w-5 text-white" strokeWidth={2.1} />
@@ -210,7 +164,7 @@ export function DashboardHeader({
             <span className="block text-[18px] font-extrabold leading-none tracking-tight text-slate-900 dark:text-white">
               Fluvib
             </span>
-            <span className="mt-1 block max-w-[180px] truncate text-[11.5px] font-medium leading-none text-slate-400 dark:text-slate-500 sm:max-w-[260px]">
+            <span className="mt-1 block max-w-[160px] truncate text-[11.5px] font-medium leading-none text-slate-400 dark:text-slate-500 sm:max-w-[210px]">
               {organizacionNombre}
             </span>
           </div>
@@ -219,7 +173,7 @@ export function DashboardHeader({
         {/* Centro: Slot de sub-opciones (PageTabs) de la sección actual; vacío si la sección no tiene opciones */}
         <div
           ref={pageHeaderCtx?.setTabsNode ?? undefined}
-          className="order-3 flex w-full items-center justify-center empty:hidden lg:order-none lg:w-auto lg:flex-1"
+          className="order-3 flex w-full min-w-0 items-center justify-center empty:hidden lg:order-none lg:w-auto lg:flex-1"
         />
 
         {/* Derecha: Botones circulares flotantes (Sync solo cuando hay pendientes o sin red, PWA, Tema, Iniciales Usuario, Salir) */}
@@ -287,11 +241,11 @@ export function DashboardHeader({
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          FILA 2: Breadcrumb + Título con Transición + Sub-pestañas + Reloj/Estado
+          FILA 2: Breadcrumb + Título con Transición (Izquierda) y Botones de la Sección con Tamaño Uniforme (Derecha)
           ═══════════════════════════════════════════════════════════════════ */}
       <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        {/* Izquierda y Centro-Izquierda: Breadcrumb + Nombre de Sección + Slot de Pestañas/Acciones */}
-        <div className="min-w-0 flex-1">
+        {/* Izquierda: Breadcrumb + Nombre de Sección */}
+        <div className="min-w-0">
           {/* Breadcrumb (Fluvib › Categoría › Sección Activa) */}
           <div className="flex items-center gap-1.5 text-xs font-medium">
             <span className="text-slate-400 dark:text-slate-500">Fluvib</span>
@@ -305,8 +259,8 @@ export function DashboardHeader({
             </span>
           </div>
 
-          {/* Fila del Título Grande (Warehouses) + Cápsula de Pestañas/Acciones de la Sección */}
-          <div className="mt-1.5 flex flex-wrap items-center gap-4 sm:gap-6">
+          {/* Título Grande de la Sección */}
+          <div className="mt-1.5 flex items-center">
             <h1
               key={activeSection.href}
               aria-label={displayTitle}
@@ -323,58 +277,14 @@ export function DashboardHeader({
                 </span>
               ))}
             </h1>
-
-            {/* Slot donde PageHeader proyecta las PageTabs o botones de la sección */}
-            <div
-              ref={pageHeaderCtx?.setActionNode ?? undefined}
-              className="flex flex-wrap items-center gap-2.5 empty:hidden"
-            />
           </div>
         </div>
 
-        {/* Derecha: Cápsula de Reloj en Vivo + Estado de la Sección + Barra de Progreso */}
-        <div className="flex shrink-0 items-center justify-between gap-3.5 rounded-full bg-white px-4 py-2.5 shadow-[0_2px_14px_-4px_rgba(15,23,42,0.08)] dark:bg-[#0B1224] dark:shadow-black/35 sm:justify-start">
-          {/* Punto con halo + Reloj */}
-          <div className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className={`flex h-5 w-5 items-center justify-center rounded-full ${haloColor}`}
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${dotColor} ${
-                  isSyncing && pendientesSync > 0 ? 'animate-ping' : ''
-                }`}
-              />
-            </span>
-            <span className="font-mono text-xs font-bold tabular-nums tracking-tight text-slate-800 dark:text-slate-100">
-              {clock || '--:--'}
-            </span>
-          </div>
-
-          {/* Divisor vertical */}
-          <div className="h-6 w-px bg-slate-200/80 dark:bg-slate-800" />
-
-          {/* Estado contextual de la sección + Usuario/Rol */}
-          <div className="min-w-0">
-            <p className="truncate text-xs font-bold leading-tight text-slate-900 dark:text-white">
-              {statusLabel}
-            </p>
-            <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-slate-400 dark:text-slate-500">
-              {userName} · <span className="capitalize">{userRole}</span>
-            </p>
-          </div>
-
-          {/* Barra de progreso / acento lateral derecho */}
-          <div
-            aria-hidden="true"
-            className="hidden h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800 sm:block"
-          >
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        </div>
+        {/* Derecha: Todos los botones de acción de la sección activa, todos con el mismo tamaño */}
+        <div
+          ref={pageHeaderCtx?.setActionNode ?? undefined}
+          className="flex flex-wrap items-center gap-2.5 empty:hidden lg:justify-end [&_.flex]:gap-2.5 [&_button]:h-10 [&_button]:w-[192px] [&_button]:px-4 [&_button]:py-0 [&_button]:text-[13px] [&_button]:whitespace-nowrap"
+        />
       </div>
     </header>
   );
