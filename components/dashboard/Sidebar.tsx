@@ -188,6 +188,8 @@ function DesktopVerticalPill({
     label: string;
     top: number;
     width: number;
+    topFillet: number;
+    botFillet: number;
     isActive: boolean;
   } | null>(null);
   const [isHovering, setIsHovering] = useState(false);
@@ -202,17 +204,34 @@ function DesktopVerticalPill({
 
       const navRect = navEl.getBoundingClientRect();
       const rowRect = rowEl.getBoundingClientRect();
-      // Centrar la cápsula de 52px exactamente en el centro vertical de la opción
-      const top = Math.round(
-        rowRect.top - navRect.top + rowRect.height / 2 - 26
+      const centerY = rowRect.top - navRect.top + rowRect.height / 2;
+      // Cápsula de 46px de alto centrada exactamente en la opción (radio 23px)
+      const pillH = 46;
+      const top = Math.round(centerY - pillH / 2);
+      const bottom = top + pillH;
+
+      // Curvas cóncavas (14px) en la unión con la pared derecha del sidebar (x=64),
+      // recortadas suavemente si la opción está cerca del borde curvo superior/inferior
+      const topFillet = Math.max(0, Math.min(14, Math.floor(top - 20)));
+      const botFillet = Math.max(
+        0,
+        Math.min(14, Math.floor(navRect.height - 18 - bottom))
       );
 
       const measureEl = measureRefs.current[key];
       const textWidth = measureEl ? measureEl.offsetWidth : label.length * 8;
-      // 64px de base del sidebar + ancho del texto + padding derecho
-      const width = 64 + textWidth + (active ? 34 : 24);
+      // Desde left=10px: 54px llegan a la pared del sidebar (64px) + 16px margen + texto + padding derecho
+      const width = Math.max(110, 54 + 16 + textWidth + (active ? 32 : 22));
 
-      setHoverData({ key, label, top, width, isActive: active });
+      setHoverData({
+        key,
+        label,
+        top,
+        width,
+        topFillet,
+        botFillet,
+        isActive: active,
+      });
 
       if (!isHovering) {
         setGlideVertical(false);
@@ -283,7 +302,7 @@ function DesktopVerticalPill({
           ref={navRef}
           onMouseLeave={handleNavLeave}
           aria-label="Navegación principal"
-          className={`pointer-events-auto relative rounded-[32px] bg-black px-2.5 py-4 shadow-2xl shadow-black/30 transition-[width,box-shadow] ${PILL_MS} dark:bg-[#0B1224] dark:shadow-black/60 ${
+          className={`pointer-events-auto relative rounded-[28px] bg-black px-2.5 pt-4 pb-6 shadow-lg shadow-black/15 transition-[width,box-shadow] ${PILL_MS} dark:bg-[#0B1224] dark:shadow-black/50 ${
             expanded ? 'w-[256px]' : 'w-[64px]'
           }`}
         >
@@ -313,33 +332,95 @@ function DesktopVerticalPill({
             ))}
           </div>
 
-          {/* Extensión líquida compartida: sale del propio sidebar y se desliza entre opciones */}
+          {/* Extensión unida al sidebar con curvas cóncavas suaves en la unión (sin cuello delgado) */}
           {!expanded && (
             <div
               aria-hidden
               style={{
-                width: isHovering && hoverData ? hoverData.width : 64,
                 transform: `translateY(${hoverData?.top ?? 0}px)`,
-                transitionProperty: glideVertical
-                  ? 'transform, width, opacity'
-                  : 'width, opacity',
-                transitionDuration: glideVertical ? '320ms, 280ms, 180ms' : '260ms, 180ms',
+                transitionProperty: glideVertical ? 'transform, opacity' : 'opacity',
+                transitionDuration: glideVertical ? '320ms, 160ms' : '160ms',
                 transitionTimingFunction: 'cubic-bezier(.22,1,.36,1)',
               }}
-              className={`pointer-events-none absolute top-0 left-0 z-0 flex h-[52px] items-center overflow-hidden rounded-full bg-black shadow-[14px_10px_28px_-8px_rgba(0,0,0,0.38)] dark:bg-[#0B1224] dark:shadow-[14px_10px_28px_-8px_rgba(0,0,0,0.7)] ${
+              className={`pointer-events-none absolute top-0 left-[10px] z-0 h-[46px] ${
                 isHovering && hoverData ? 'opacity-100' : 'opacity-0'
               }`}
             >
-              <div className="flex min-w-0 items-center gap-2 pl-[60px] pr-5">
-                <span
-                  key={hoverData?.key}
-                  className="fv-rise whitespace-nowrap text-[13px] font-semibold tracking-tight text-white"
+              {/* Curva cóncava superior en la pared derecha del sidebar (x=64 -> x_svg=1, borde cápsula -> y_svg=R) */}
+              {(hoverData?.topFillet ?? 0) > 0 && (
+                <svg
+                  width={(hoverData?.topFillet ?? 14) + 1}
+                  height={(hoverData?.topFillet ?? 14) + 1}
+                  viewBox={`0 0 ${(hoverData?.topFillet ?? 14) + 1} ${
+                    (hoverData?.topFillet ?? 14) + 1
+                  }`}
+                  style={{
+                    bottom: 45,
+                    left: 53,
+                  }}
+                  className="
+                    absolute fill-black transition-opacity duration-200 dark:fill-[#0B1224]
+                  "
                 >
-                  {hoverData?.label}
-                </span>
-                {hoverData?.isActive && (
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#2F6BFF]" />
-                )}
+                  <path
+                    d={`M 1 0 A ${hoverData?.topFillet ?? 14} ${
+                      hoverData?.topFillet ?? 14
+                    } 0 0 0 ${(hoverData?.topFillet ?? 14) + 1} ${
+                      hoverData?.topFillet ?? 14
+                    } L ${(hoverData?.topFillet ?? 14) + 1} ${
+                      (hoverData?.topFillet ?? 14) + 1
+                    } L 0 ${(hoverData?.topFillet ?? 14) + 1} L 0 0 Z`}
+                  />
+                </svg>
+              )}
+
+              {/* Curva cóncava inferior en la pared derecha del sidebar (x=64 -> x_svg=1, borde cápsula -> y_svg=1) */}
+              {(hoverData?.botFillet ?? 0) > 0 && (
+                <svg
+                  width={(hoverData?.botFillet ?? 14) + 1}
+                  height={(hoverData?.botFillet ?? 14) + 1}
+                  viewBox={`0 0 ${(hoverData?.botFillet ?? 14) + 1} ${
+                    (hoverData?.botFillet ?? 14) + 1
+                  }`}
+                  style={{
+                    top: 45,
+                    left: 53,
+                  }}
+                  className="
+                    absolute fill-black transition-opacity duration-200 dark:fill-[#0B1224]
+                  "
+                >
+                  <path
+                    d={`M 1 ${(hoverData?.botFillet ?? 14) + 1} A ${
+                      hoverData?.botFillet ?? 14
+                    } ${hoverData?.botFillet ?? 14} 0 0 1 ${
+                      (hoverData?.botFillet ?? 14) + 1
+                    } 1 L ${(hoverData?.botFillet ?? 14) + 1} 0 L 0 0 L 0 ${
+                      (hoverData?.botFillet ?? 14) + 1
+                    } Z`}
+                  />
+                </svg>
+              )}
+
+              {/* Cuerpo continuo de la cápsula unido directamente al sidebar */}
+              <div
+                style={{
+                  width: isHovering && hoverData ? hoverData.width : 44,
+                  transition: 'width 280ms cubic-bezier(.22,1,.36,1)',
+                }}
+                className="flex h-[46px] items-center overflow-hidden rounded-full bg-black dark:bg-[#0B1224]"
+              >
+                <div className="flex min-w-0 items-center gap-2 pl-[68px] pr-5">
+                  <span
+                    key={hoverData?.key}
+                    className="fv-rise whitespace-nowrap text-[13px] font-semibold tracking-tight text-white"
+                  >
+                    {hoverData?.label}
+                  </span>
+                  {hoverData?.isActive && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#2F6BFF]" />
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -1,6 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 /**
@@ -330,32 +337,120 @@ export function PageTabs({
   className?: string;
 }) {
   const ctx = usePageHeaderSlot();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const [pillRect, setPillRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [hoveredVal, setHoveredVal] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  // El indicador principal sigue al tab en hover; al hacer clic se actualiza `value` y se mantiene ahí
+  const targetValue = hoveredVal ?? value;
+
+  const measureTarget = useCallback(() => {
+    const el = btnRefs.current[targetValue];
+    if (!el) {
+      setPillRect(null);
+      return;
+    }
+    const next = {
+      left: el.offsetLeft,
+      top: el.offsetTop,
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+    };
+    setPillRect((prev) =>
+      prev &&
+      prev.left === next.left &&
+      prev.top === next.top &&
+      prev.width === next.width &&
+      prev.height === next.height
+        ? prev
+        : next
+    );
+  }, [targetValue]);
+
+  useEffect(() => {
+    measureTarget();
+    const id = requestAnimationFrame(() => {
+      measureTarget();
+      setReady(true);
+    });
+
+    if (typeof ResizeObserver === 'undefined' || !containerRef.current) {
+      return () => cancelAnimationFrame(id);
+    }
+
+    const ro = new ResizeObserver(measureTarget);
+    ro.observe(containerRef.current);
+    Object.values(btnRefs.current).forEach((btn) => {
+      if (btn) ro.observe(btn);
+    });
+
+    return () => {
+      cancelAnimationFrame(id);
+      ro.disconnect();
+    };
+  }, [measureTarget, items]);
 
   const content = (
     <div
+      ref={containerRef}
       role="tablist"
-      className={`inline-flex w-full min-w-0 max-w-full flex-wrap items-center justify-center gap-2 sm:w-auto sm:flex-nowrap ${className}`}
+      onMouseLeave={() => setHoveredVal(null)}
+      className={`relative inline-flex w-full min-w-0 max-w-full flex-wrap items-center justify-center gap-1.5 sm:w-auto sm:flex-nowrap ${className}`}
     >
+      {/* Píldora principal deslizante: se recorre al hacer hover y se queda fija en la opción al hacer clic */}
+      <span
+        aria-hidden="true"
+        style={{
+          width: pillRect ? pillRect.width + 6 : 0,
+          height: pillRect ? pillRect.height + 4 : 0,
+          transform: `translate3d(${(pillRect?.left ?? 0) - 3}px, ${(pillRect?.top ?? 0) - 2}px, 0)`,
+          transition: ready
+            ? 'transform 360ms cubic-bezier(.22,1,.36,1), width 340ms cubic-bezier(.22,1,.36,1), height 340ms cubic-bezier(.22,1,.36,1), opacity 200ms ease'
+            : 'none',
+        }}
+        className={`pointer-events-none absolute top-0 left-0 z-0 rounded-full bg-black shadow-[0_6px_18px_-4px_rgba(0,0,0,0.28)] dark:bg-[#2F6BFF] dark:shadow-[0_6px_18px_-4px_rgba(47,107,255,0.45)] ${
+          pillRect ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
+
       {items.map((item) => {
         const active = item.value === value;
+        const highlighted = item.value === targetValue;
         return (
           <button
             key={item.value}
+            ref={(el) => {
+              btnRefs.current[item.value] = el;
+            }}
             type="button"
             role="tab"
             aria-selected={active}
-            onClick={() => onChange(item.value)}
-            className={`flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 sm:flex-initial ${
-              active
-                ? 'bg-black px-4 py-2 text-[13.5px] font-semibold text-white shadow-sm dark:bg-[#2F6BFF] dark:text-white'
-                : 'px-3 py-1.5 text-[13px] font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+            onMouseEnter={() => setHoveredVal(item.value)}
+            onFocus={() => setHoveredVal(item.value)}
+            onBlur={() => setHoveredVal(null)}
+            onClick={() => {
+              setHoveredVal(item.value);
+              onChange(item.value);
+            }}
+            className={`relative z-10 flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] transition-[color,transform] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 sm:flex-initial sm:px-4 ${
+              highlighted
+                ? 'scale-[1.02] font-semibold text-white'
+                : 'font-medium text-slate-500 dark:text-slate-400'
             }`}
           >
             {item.icon && (
               <span
                 aria-hidden="true"
-                className={`shrink-0 [&>svg]:h-[14px] [&>svg]:w-[14px] sm:[&>svg]:h-[15px] sm:[&>svg]:w-[15px] ${
-                  active ? 'text-white' : 'text-slate-400 dark:text-slate-500'
+                className={`shrink-0 transition-colors duration-300 [&>svg]:h-[14px] [&>svg]:w-[14px] sm:[&>svg]:h-[15px] sm:[&>svg]:w-[15px] ${
+                  highlighted ? 'text-white' : 'text-slate-400 dark:text-slate-500'
                 }`}
               >
                 {item.icon}
@@ -364,8 +459,8 @@ export function PageTabs({
             <span className="truncate">{item.label}</span>
             {item.badge !== undefined && (
               <span
-                className={`ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none ${
-                  active
+                className={`ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none transition-colors duration-300 ${
+                  highlighted
                     ? 'bg-white/20 text-white'
                     : 'bg-slate-200/80 text-slate-700 dark:bg-white/10 dark:text-slate-300'
                 }`}

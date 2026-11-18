@@ -140,7 +140,7 @@ export function DashboardHeader({
 
   const statusTone = !enLinea
     ? 'amber'
-    : isSyncing
+    : isSyncing && pendientesSync > 0
       ? 'blue'
       : slotState?.statusTone || 'green';
 
@@ -222,9 +222,9 @@ export function DashboardHeader({
           className="order-3 flex w-full items-center justify-center empty:hidden lg:order-none lg:w-auto lg:flex-1"
         />
 
-        {/* Derecha: Botones circulares flotantes (Sync, PWA, Tema, Iniciales Usuario, Salir) */}
+        {/* Derecha: Botones circulares flotantes (Sync solo cuando hay pendientes o sin red, PWA, Tema, Iniciales Usuario, Salir) */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-          {(!enLinea || isSyncing || pendientesSync > 0) && (
+          {(!enLinea || pendientesSync > 0) && (
             <button
               type="button"
               onClick={enLinea && !isSyncing ? onSyncNow : undefined}
@@ -233,7 +233,7 @@ export function DashboardHeader({
                 !enLinea
                   ? `Modo sin conexión (${pendientesSync} pendientes)`
                   : isSyncing
-                    ? 'Sincronizando operaciones...'
+                    ? `Sincronizando ${pendientesSync} pendiente(s)...`
                     : `Sincronizar ahora (${pendientesSync} pendientes)`
               }
               className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-slate-700 shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)] transition-colors hover:text-slate-950 disabled:cursor-default dark:bg-[#0B1224] dark:text-slate-200 dark:shadow-black/35"
@@ -342,7 +342,7 @@ export function DashboardHeader({
             >
               <span
                 className={`h-2 w-2 rounded-full ${dotColor} ${
-                  isSyncing ? 'animate-ping' : ''
+                  isSyncing && pendientesSync > 0 ? 'animate-ping' : ''
                 }`}
               />
             </span>

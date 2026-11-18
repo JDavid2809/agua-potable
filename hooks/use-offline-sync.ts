@@ -77,8 +77,13 @@ export function useOfflineSync() {
     const conectado = await verificarYActualizarConectividad();
     if (!conectado) return;
 
+    const estadoPrevio = await obtenerEstadoSincronizacion();
+    const hayPendientesReales = estadoPrevio.pendientes > 0;
+
     isSyncingRef.current = true;
-    setIsSyncing(true);
+    if (hayPendientesReales) {
+      setIsSyncing(true);
+    }
     try {
       const res = await sincronizarConNube();
       if (!res.exito && res.mensaje?.toLowerCase().includes('conexi')) {
@@ -138,24 +143,21 @@ export function useOfflineSync() {
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
-    // 3. Verificación periódica cada 10 segundos
+    // 3. Verificación periódica cada 15 segundos: solo sincroniza si existen datos pendientes por subir
     const interval = setInterval(async () => {
       if (document.hidden) return;
-      const online = await probarConexionReal();
+      const [res, online] = await Promise.all([
+        obtenerEstadoSincronizacion(),
+        probarConexionReal(),
+      ]);
       if (!ignore) {
-        setEstado((prev) => {
-          if (prev.enLinea !== online) {
-            return { ...prev, enLinea: online };
-          }
-          return prev;
-        });
-        if (online) {
-          sincronizar();
-        } else {
-          actualizarEstado();
+        setEstado({ ...res, enLinea: online });
+        const pendientesActivos = Math.max(0, res.pendientes - res.conError);
+        if (online && pendientesActivos > 0) {
+          void sincronizar();
         }
       }
-    }, 10000);
+    }, 15000);
 
     return () => {
       ignore = true;
