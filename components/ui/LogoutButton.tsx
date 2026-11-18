@@ -109,7 +109,7 @@ export function LogoutButton() {
         type="button"
         title="Cerrar sesión"
         aria-label="Cerrar sesión"
-        className="flex items-center justify-center h-10 w-10 rounded-full transition-colors text-slate-400 hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/15 disabled:opacity-50"
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)] transition-all duration-200 hover:scale-105 hover:bg-red-50 hover:text-red-600 active:scale-95 disabled:opacity-50 dark:bg-[#0B1224] dark:text-slate-400 dark:shadow-black/35 dark:hover:bg-red-500/15 dark:hover:text-red-400"
       >
         {cargando ? (
           <RefreshCw className="h-[18px] w-[18px] animate-spin text-slate-400" />

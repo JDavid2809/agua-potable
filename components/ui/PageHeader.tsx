@@ -1,131 +1,176 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
- * PageHeader — identidad en anillo
+ * PageHeader — cabecera de sección integrada con DashboardHeader.
  *
- * Mismo lenguaje que Card y FilterBar: sin cajas, línea punteada inferior,
- * azul de acento y el círculo como forma. El icono de la página vive dentro
- * de un anillo que se dibuja una vez al montar (respeta prefers-reduced-motion).
- *
- * Uso:
- *   <PageHeader
- *     icon={<Droplet />}
- *     title="Padrón de tomas y ubicaciones"
- *     subtitle="Administración de conexiones, contratos, barrios y manzanas."
- *     status="2 manzanas activas"
- *     action={
- *       <PageTabs
- *         value={tab}
- *         onChange={setTab}
- *         items={[
- *           { value: 'tomas',   label: 'Tomas de agua',      icon: <Droplet /> },
- *           { value: 'barrios', label: 'Barrios y manzanas', icon: <MapPin /> },
- *         ]}
- *       />
- *     }
- *   />
- *
- * Sin `icon` no se dibuja el anillo y el encabezado funciona como antes.
+ * Cuando se renderiza dentro del DashboardShell (envuelto en PageHeaderProvider),
+ * sincroniza el estado/progreso con la cápsula derecha del header superior y
+ * proyecta (portal) sus pestañas (`PageTabs`) o botones (`action`) justo al lado
+ * del título animado de la sección, logrando la estructura unificada de dos niveles.
  */
 
 export type PageHeaderTone = 'blue' | 'green' | 'amber' | 'red' | 'neutral';
 
 const TONES: Record<
   PageHeaderTone,
-  { ring: string; icon: string; dot: string; text: string }
+  {
+    stroke: string;
+    track: string;
+    icon: string;
+    dot: string;
+    text: string;
+  }
 > = {
   blue: {
-    ring: 'stroke-[#2F6BFF] dark:stroke-[#6C97FF]',
+    stroke: 'text-[#2F6BFF] dark:text-[#4F82FF]',
+    track: 'text-slate-200/80 dark:text-[#1D2B4F]',
     icon: 'text-[#2F6BFF] dark:text-[#6C97FF]',
-    dot: 'bg-[#2F6BFF] dark:bg-[#6C97FF]',
+    dot: 'bg-[#2F6BFF]',
     text: 'text-[#2F6BFF] dark:text-[#6C97FF]',
   },
   green: {
-    ring: 'stroke-[#12935D] dark:stroke-[#3DDC97]',
-    icon: 'text-[#12935D] dark:text-[#3DDC97]',
-    dot: 'bg-[#12935D] dark:bg-[#3DDC97]',
-    text: 'text-[#12935D] dark:text-[#3DDC97]',
+    stroke: 'text-emerald-500 dark:text-emerald-400',
+    track: 'text-slate-200/80 dark:text-[#1D2B4F]',
+    icon: 'text-emerald-600 dark:text-emerald-400',
+    dot: 'bg-emerald-500',
+    text: 'text-emerald-600 dark:text-emerald-400',
   },
   amber: {
-    ring: 'stroke-[#D98A06] dark:stroke-[#FBB43A]',
-    icon: 'text-[#C77C02] dark:text-[#FBB43A]',
-    dot: 'bg-[#D98A06] dark:bg-[#FBB43A]',
-    text: 'text-[#C77C02] dark:text-[#FBB43A]',
+    stroke: 'text-amber-500 dark:text-amber-400',
+    track: 'text-slate-200/80 dark:text-[#1D2B4F]',
+    icon: 'text-amber-600 dark:text-amber-400',
+    dot: 'bg-amber-500',
+    text: 'text-amber-600 dark:text-amber-400',
   },
   red: {
-    ring: 'stroke-[#E11D48] dark:stroke-[#FB7185]',
-    icon: 'text-[#E11D48] dark:text-[#FB7185]',
-    dot: 'bg-[#E11D48] dark:bg-[#FB7185]',
-    text: 'text-[#E11D48] dark:text-[#FB7185]',
+    stroke: 'text-red-500 dark:text-red-400',
+    track: 'text-slate-200/80 dark:text-[#1D2B4F]',
+    icon: 'text-red-600 dark:text-red-400',
+    dot: 'bg-red-500',
+    text: 'text-red-600 dark:text-red-400',
   },
   neutral: {
-    ring: 'stroke-slate-500 dark:stroke-slate-400',
-    icon: 'text-slate-500 dark:text-slate-400',
-    dot: 'bg-slate-500 dark:bg-slate-400',
-    text: 'text-slate-500 dark:text-slate-400',
+    stroke: 'text-slate-400 dark:text-slate-500',
+    track: 'text-slate-200/80 dark:text-[#1D2B4F]',
+    icon: 'text-slate-600 dark:text-slate-300',
+    dot: 'bg-slate-400',
+    text: 'text-slate-600 dark:text-slate-400',
   },
 };
 
 const LINE = 'border-slate-300 dark:border-[#26345C]';
 
-/* ───────────────────────────── Ring ───────────────────────────── */
+/* ─────────────────── Contexto de Header Unificado ─────────────────── */
 
-const PX = 64;
-const STROKE = 4;
-const R = (PX - STROKE) / 2 - 2;
-const C = 2 * Math.PI * R;
+export interface PageHeaderSlotState {
+  title?: string;
+  status?: string;
+  statusTone?: PageHeaderTone;
+  tone?: PageHeaderTone;
+  progress?: number;
+}
+
+interface PageHeaderContextValue {
+  slotState: PageHeaderSlotState | null;
+  setSlotState: React.Dispatch<React.SetStateAction<PageHeaderSlotState | null>>;
+  tabsNode: HTMLDivElement | null;
+  setTabsNode: (node: HTMLDivElement | null) => void;
+  actionNode: HTMLDivElement | null;
+  setActionNode: (node: HTMLDivElement | null) => void;
+}
+
+const PageHeaderContext = createContext<PageHeaderContextValue | null>(null);
+
+export function PageHeaderProvider({ children }: { children: React.ReactNode }) {
+  const [slotState, setSlotState] = useState<PageHeaderSlotState | null>(null);
+  const [tabsNode, setTabsNode] = useState<HTMLDivElement | null>(null);
+  const [actionNode, setActionNode] = useState<HTMLDivElement | null>(null);
+
+  return (
+    <PageHeaderContext.Provider
+      value={{
+        slotState,
+        setSlotState,
+        tabsNode,
+        setTabsNode,
+        actionNode,
+        setActionNode,
+      }}
+    >
+      {children}
+    </PageHeaderContext.Provider>
+  );
+}
+
+export function usePageHeaderSlot() {
+  return useContext(PageHeaderContext);
+}
+
+/* ─────────────────────────── Anillo SVG (Fallback) ─────────────────────────── */
 
 function HeaderRing({
   icon,
   tone,
-  progress,
+  progress = 78,
 }: {
   icon: React.ReactNode;
   tone: PageHeaderTone;
-  progress: number;
+  progress?: number;
 }) {
-  const ratio = Math.min(1, Math.max(0, progress));
+  const t = TONES[tone];
+  const size = 64;
+  const stroke = 4;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = Math.max(6, Math.min(100, progress));
 
-  // Se dibuja una sola vez al montar
-  const [drawn, setDrawn] = useState(false);
+  const [drawn, setDrawn] = useState(0);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setDrawn(true));
+    const id = requestAnimationFrame(() => setDrawn(pct));
     return () => cancelAnimationFrame(id);
-  }, []);
+  }, [pct]);
+
+  const offset = c - (drawn / 100) * c;
 
   return (
-    <div
-      className="relative hidden shrink-0 sm:block"
-      style={{ width: PX, height: PX }}
-    >
-      <svg width={PX} height={PX} viewBox={`0 0 ${PX} ${PX}`} aria-hidden="true">
+    <div className="group relative flex h-16 w-16 shrink-0 items-center justify-center">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90 overflow-visible"
+        aria-hidden="true"
+      >
         <circle
-          cx={PX / 2}
-          cy={PX / 2}
-          r={R}
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
           fill="none"
-          strokeWidth={STROKE}
-          className="stroke-slate-200 dark:stroke-[#1F2B4D]"
+          stroke="currentColor"
+          strokeWidth={stroke}
+          className={t.track}
         />
         <circle
-          cx={PX / 2}
-          cy={PX / 2}
-          r={R}
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
           fill="none"
-          strokeWidth={STROKE}
+          stroke="currentColor"
+          strokeWidth={stroke}
           strokeLinecap="round"
-          strokeDasharray={C}
-          strokeDashoffset={C * (1 - (drawn ? ratio : 0))}
-          strokeOpacity={ratio === 0 ? 0 : 1}
-          transform={`rotate(-90 ${PX / 2} ${PX / 2})`}
-          className={`transition-[stroke-dashoffset] duration-[900ms] ease-out motion-reduce:transition-none ${TONES[tone].ring}`}
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          style={{
+            transition: 'stroke-dashoffset 900ms cubic-bezier(.22,1,.36,1)',
+          }}
+          className={t.stroke}
         />
       </svg>
       <span
-        aria-hidden="true"
-        className={`absolute inset-0 flex items-center justify-center [&>svg]:h-6 [&>svg]:w-6 ${TONES[tone].icon}`}
+        className={`relative flex items-center justify-center transition-transform duration-300 ease-out group-hover:rotate-6 group-hover:scale-110 [&>svg]:h-6 [&>svg]:w-6 [&>svg]:stroke-[1.9] ${t.icon}`}
       >
         {icon}
       </span>
@@ -136,46 +181,76 @@ function HeaderRing({
 /* ─────────────────────────── PageHeader ─────────────────────────── */
 
 export interface PageHeaderProps {
-  /** Título principal de la página (h1) */
-  title: React.ReactNode;
-  /** Subtítulo o descripción explicativa */
+  /** Título principal de la página */
+  title: string;
+  /** Descripción corta bajo el título */
   subtitle?: React.ReactNode;
-  /** Elemento opcional junto al título (badge, etiqueta, status) */
-  badge?: React.ReactNode;
-  /** Elemento o acciones a la derecha (botones, PageTabs, etc.) */
-  action?: React.ReactNode;
-  /** Icono de la página; se dibuja dentro de un anillo a la izquierda */
+  /** Icono dentro del anillo */
   icon?: React.ReactNode;
-  /** Proporción de 0 a 1 que llena el anillo. Por defecto, completo */
-  progress?: number;
-  /** Color del anillo y del icono */
+  /** Tono del anillo e icono */
   tone?: PageHeaderTone;
-  /** Línea de estado bajo el subtítulo, con un punto de color */
+  /** Porcentaje de cierre del anillo (0–100). Default 78. */
+  progress?: number;
+  /** Línea de estado con punto de color */
   status?: React.ReactNode;
-  /** Color del punto y del texto de `status` */
   statusTone?: PageHeaderTone;
-  /** Línea inferior: 'dashed' por defecto; false para quitarla */
+  /** Elemento compacto junto al título */
+  badge?: React.ReactNode;
+  /** Controles a la derecha (botones, PageTabs, etc.) */
+  action?: React.ReactNode;
+  /** Línea divisoria inferior */
   divider?: boolean | 'dashed' | 'solid';
-  /** Clases adicionales para el contenedor principal */
   className?: string;
-  /** Contenido libre adicional bajo el encabezado */
   children?: React.ReactNode;
 }
 
 export function PageHeader({
   title,
   subtitle,
-  badge,
-  action,
   icon,
-  progress = 1,
   tone = 'blue',
+  progress,
   status,
   statusTone = 'green',
+  badge,
+  action,
   divider = 'dashed',
   className = '',
   children,
 }: PageHeaderProps) {
+  const ctx = usePageHeaderSlot();
+  const statusText = typeof status === 'string' ? status : undefined;
+  const setSlotState = ctx?.setSlotState;
+
+  useEffect(() => {
+    if (!setSlotState) return;
+    setSlotState({
+      title,
+      status: statusText,
+      statusTone,
+      tone,
+      progress,
+    });
+  }, [setSlotState, title, statusText, statusTone, tone, progress]);
+
+  useEffect(() => {
+    if (!setSlotState) return;
+    return () => {
+      setSlotState(null);
+    };
+  }, [setSlotState]);
+
+  // Si estamos dentro del DashboardShell unificado, proyectamos `action` al header superior
+  if (ctx) {
+    return (
+      <>
+        {action && ctx.actionNode ? createPortal(action, ctx.actionNode) : null}
+        {children ? <div className="mb-4">{children}</div> : null}
+      </>
+    );
+  }
+
+  // Fallback standalone (fuera del DashboardShell)
   const dividerClass =
     divider === true || divider === 'dashed'
       ? `border-b border-dashed pb-5 ${LINE}`
@@ -237,9 +312,12 @@ export interface PageTabItem {
   value: string;
   label: string;
   icon?: React.ReactNode;
+  badge?: string | number;
 }
 
-/** Selector de secciones: texto con icono, separado por líneas punteadas verticales. */
+/**
+ * Selector de sub-secciones en cápsula flotante (estilo `[📦 Inventory | 🛒 Purchasing | 🚚 Logistics]`).
+ */
 export function PageTabs({
   items,
   value,
@@ -251,45 +329,59 @@ export function PageTabs({
   onChange: (value: string) => void;
   className?: string;
 }) {
-  return (
+  const ctx = usePageHeaderSlot();
+
+  const content = (
     <div
       role="tablist"
-      className={`flex w-full min-w-0 max-w-full items-center justify-between sm:w-auto sm:justify-start ${className}`}
+      className={`inline-flex w-full min-w-0 max-w-full flex-wrap items-center justify-center gap-2 sm:w-auto sm:flex-nowrap ${className}`}
     >
-      {items.map((item, i) => {
+      {items.map((item) => {
         const active = item.value === value;
         return (
-          <React.Fragment key={item.value}>
-            {i > 0 && (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(item.value)}
+            className={`flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 sm:flex-initial ${
+              active
+                ? 'bg-black px-4 py-2 text-[13.5px] font-semibold text-white shadow-sm dark:bg-[#2F6BFF] dark:text-white'
+                : 'px-3 py-1.5 text-[13px] font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+            }`}
+          >
+            {item.icon && (
               <span
                 aria-hidden="true"
-                className={`h-4 shrink-0 border-l border-dashed sm:h-5 ${LINE}`}
-              />
+                className={`shrink-0 [&>svg]:h-[14px] [&>svg]:w-[14px] sm:[&>svg]:h-[15px] sm:[&>svg]:w-[15px] ${
+                  active ? 'text-white' : 'text-slate-400 dark:text-slate-500'
+                }`}
+              >
+                {item.icon}
+              </span>
             )}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onChange(item.value)}
-              className={`flex min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-1.5 py-1.5 text-[11.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 sm:flex-initial sm:gap-1.5 sm:px-4 sm:text-[13px] ${
-                active
-                  ? 'font-semibold text-[#2F6BFF] dark:text-[#6C97FF]'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              {item.icon && (
-                <span
-                  aria-hidden="true"
-                  className="shrink-0 [&>svg]:h-[13px] [&>svg]:w-[13px] sm:[&>svg]:h-[15px] sm:[&>svg]:w-[15px]"
-                >
-                  {item.icon}
-                </span>
-              )}
-              <span className="truncate">{item.label}</span>
-            </button>
-          </React.Fragment>
+            <span className="truncate">{item.label}</span>
+            {item.badge !== undefined && (
+              <span
+                className={`ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none ${
+                  active
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200/80 text-slate-700 dark:bg-white/10 dark:text-slate-300'
+                }`}
+              >
+                {item.badge}
+              </span>
+            )}
+          </button>
         );
       })}
     </div>
   );
+
+  if (ctx?.tabsNode) {
+    return createPortal(content, ctx.tabsNode);
+  }
+
+  return content;
 }

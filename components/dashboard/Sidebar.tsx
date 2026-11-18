@@ -13,11 +13,11 @@ import {
   BarChart3,
   ShieldCheck,
   SlidersHorizontal,
-  ChevronLeft,
   Settings,
   User,
   X,
   HeartHandshake,
+  ChevronRight,
 } from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { tieneAlgunPermisoUsuario } from '@/lib/auth/permisos';
@@ -26,17 +26,10 @@ import type { PermisoSistema } from '@/types/database';
 /**
  * Sidebar
  *
- * - Escritorio (md+): barra lateral con la gota viajera, igual que antes.
- * - Móvil: el menú es una píldora flotante (sin sombra) anclada abajo. La
- *   pestaña activa se expande en una cápsula azul con su etiqueta, rodeada por
- *   un anillo punteado, y las demás quedan como iconos. Si hay más de 5
- *   destinos, la quinta pestaña es "Ajustes" y abre una hoja con el menú
- *   completo (también se abre con `mobileOpen`).
- *
- * Anti-encimado: en móvil se inyecta un espaciador al final de <main> (misma
- * altura que la píldora + su margen + área segura) para que el último
- * contenido nunca quede detrás de ella. Si tu contenido no está dentro de
- * <main>, dale al contenedor `pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0`.
+ * - Escritorio (md+): píldora vertical centrada verticalmente a la izquierda,
+ *   dividida por secciones (Operación / Administración), sin borde azul en el
+ *   indicador activo y con espaciado amplio al expandir en hover.
+ * - Móvil: píldora horizontal flotante anclada abajo + hoja de menú completo.
  */
 
 export interface SidebarProps {
@@ -104,7 +97,6 @@ const operacionItems: NavItem[] = [
   },
 ];
 
-// Igual que en la versión original, este grupo no se muestra en el menú
 const medicionItems: NavItem[] = [
   { href: '/lecturas', label: 'Lecturas de Medidor', short: 'Lecturas', icon: Gauge },
   { href: '/reportes', label: 'Reportes e Ingresos', short: 'Reportes', icon: BarChart3 },
@@ -128,7 +120,6 @@ const adminItems: NavItem[] = [
   },
 ];
 
-// Misma lógica de detección de ruta activa que la versión original
 const isActive = (pathname: string | null, href: string) => {
   if (href === '/dashboard') return pathname === '/dashboard';
   return pathname === href || (href !== '/' && !!pathname?.startsWith(href));
@@ -149,220 +140,353 @@ function getGroups(esAdmin: boolean, permisos: string[] = []) {
 }
 
 const EASE = 'ease-[cubic-bezier(.65,0,.2,1)]';
-const SPRING = 'ease-[cubic-bezier(.34,1.45,.64,1)]';
+const PILL_MS = 'duration-[420ms] ease-[cubic-bezier(.22,1,.36,1)]';
 
 const ACCENT_TEXT = 'text-[#2F6BFF] dark:text-[#6C97FF]';
-const LINE = 'border-slate-300 dark:border-[#26345C]';
-
-// Tamaño de la gota del sidebar de escritorio (px)
-const DROP = 36;
+const LINE = 'border-slate-200/90 dark:border-slate-800';
 
 // Máximo de pestañas en la barra móvil (si hay más, la última es "Ajustes")
 const MAX_TABS = 5;
 
 const css = `
-@keyframes fv-in{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
 @keyframes fv-fade{from{opacity:0}to{opacity:1}}
 @keyframes fv-fade-out{to{opacity:0}}
 @keyframes fv-rise{from{transform:translateY(100%)}to{transform:none}}
 @keyframes fv-sheet{from{transform:translateY(100%)}to{transform:none}}
 @keyframes fv-sheet-out{to{transform:translateY(100%)}}
-@keyframes fv-ripple{from{transform:scale(.8);opacity:.5}to{transform:scale(2.1);opacity:0}}
-.fv-in{animation:fv-in .55s cubic-bezier(.22,1,.36,1) backwards}
 .fv-fade{animation:fv-fade .25s ease-out both}
 .fv-fade-out{animation:fv-fade-out .2s ease-in both}
 .fv-rise{animation:fv-rise .5s cubic-bezier(.22,1,.36,1) both}
 .fv-sheet{animation:fv-sheet .38s cubic-bezier(.22,1,.36,1) both}
 .fv-sheet-out{animation:fv-sheet-out .2s ease-in both}
-.fv-ripple{animation:fv-ripple .9s ease-out both}
 @media (max-width:767px){main::after{content:"";display:block;height:calc(5.5rem + env(safe-area-inset-bottom,0px))}}
-@media (prefers-reduced-motion:reduce){.fv-in,.fv-fade,.fv-fade-out,.fv-rise,.fv-sheet,.fv-sheet-out,.fv-ripple{animation:none}}
+@media (prefers-reduced-motion:reduce){.fv-fade,.fv-fade-out,.fv-rise,.fv-sheet,.fv-sheet-out{animation:none}}
 `;
 
-/* ─────────────────────── Sidebar de escritorio ─────────────────────── */
+/* ─────────────────── Píldora Vertical (Escritorio md+) ─────────────────── */
 
-interface BodyProps {
-  collapsed: boolean;
-  organizacionNombre: string;
-  esAdmin: boolean;
-  permisos?: string[];
-}
-
-function SidebarBody({ collapsed, organizacionNombre, esAdmin, permisos = [] }: BodyProps) {
-  const pathname = usePathname();
-  const navRef = useRef<HTMLDivElement>(null);
+function DesktopVerticalPill({
+  groups,
+  activeHref,
+}: {
+  groups: ReturnType<typeof getGroups>;
+  activeHref: string | null;
+}) {
+  const navRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const rowRefs = useRef<Record<string, HTMLElement | null>>({});
+  const measureRefs = useRef<Record<string, HTMLSpanElement | null>>({});
+
   const [pos, setPos] = useState<{ top: number; height: number } | null>(null);
   const [ready, setReady] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  const groups = getGroups(esAdmin, permisos);
+  // Estado de la extensión líquida que emerge del propio sidebar al pasar el cursor
+  const [hoverData, setHoverData] = useState<{
+    key: string;
+    label: string;
+    top: number;
+    width: number;
+    isActive: boolean;
+  } | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const [glideVertical, setGlideVertical] = useState(false);
 
-  const activeHref =
-    groups.flatMap((g) => g.items).find((item) => isActive(pathname, item.href))?.href ?? null;
+  const handleRowEnter = useCallback(
+    (key: string, label: string, active: boolean) => {
+      if (expanded) return;
+      const navEl = navRef.current;
+      const rowEl = rowRefs.current[key];
+      if (!navEl || !rowEl) return;
 
-  // Mide el tab activo (en coordenadas del contenido) para que la gota viaje hasta él
+      const navRect = navEl.getBoundingClientRect();
+      const rowRect = rowEl.getBoundingClientRect();
+      // Centrar la cápsula de 52px exactamente en el centro vertical de la opción
+      const top = Math.round(
+        rowRect.top - navRect.top + rowRect.height / 2 - 26
+      );
+
+      const measureEl = measureRefs.current[key];
+      const textWidth = measureEl ? measureEl.offsetWidth : label.length * 8;
+      // 64px de base del sidebar + ancho del texto + padding derecho
+      const width = 64 + textWidth + (active ? 34 : 24);
+
+      setHoverData({ key, label, top, width, isActive: active });
+
+      if (!isHovering) {
+        setGlideVertical(false);
+        setIsHovering(true);
+        requestAnimationFrame(() => {
+          setGlideVertical(true);
+        });
+      }
+    },
+    [expanded, isHovering]
+  );
+
+  const handleNavLeave = useCallback(() => {
+    setIsHovering(false);
+    setGlideVertical(false);
+  }, []);
+
+  useEffect(() => {
+    if (expanded) {
+      setIsHovering(false);
+      setGlideVertical(false);
+    }
+  }, [expanded]);
+
   useEffect(() => {
     const updatePos = () => {
-      const nav = navRef.current;
+      const container = containerRef.current;
       const el = activeHref ? itemRefs.current[activeHref] : null;
-      if (!nav || !el) {
+      if (!container || !el) {
         setPos(null);
         return;
       }
       const top = Math.round(
-        el.getBoundingClientRect().top - nav.getBoundingClientRect().top + nav.scrollTop
+        el.getBoundingClientRect().top - container.getBoundingClientRect().top
       );
       const height = el.offsetHeight;
-      setPos((prev) => (prev && prev.top === top && prev.height === height ? prev : { top, height }));
+      setPos((prev) =>
+        prev && prev.top === top && prev.height === height ? prev : { top, height }
+      );
     };
 
     updatePos();
-    // El primer posicionamiento no se anima; los siguientes sí
     const id = requestAnimationFrame(() => setReady(true));
 
-    if (typeof ResizeObserver === 'undefined' || !navRef.current) {
+    if (typeof ResizeObserver === 'undefined' || !containerRef.current) {
       return () => cancelAnimationFrame(id);
     }
 
     const ro = new ResizeObserver(updatePos);
-    ro.observe(navRef.current);
+    ro.observe(containerRef.current);
 
     return () => {
       cancelAnimationFrame(id);
       ro.disconnect();
     };
-  }, [activeHref, collapsed]);
+  }, [activeHref, groups, expanded]);
 
-  let order = 0;
+  const allItems = groups.flatMap((g) => g.items);
 
   return (
-    <div className="flex h-full select-none flex-col overflow-hidden rounded-[inherit]">
-      {/* Header: logo fijo, el nombre se desvanece al colapsar */}
-      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-slate-200/70 px-5 dark:border-slate-800/70">
-        <Image
-          src="/Img/Logo_Fluvib_Face.webp"
-          alt="Fluvib"
-          width={40}
-          height={40}
-          loading="eager"
-          className={`h-10 w-10 shrink-0 object-contain transition-transform duration-500 ${SPRING} hover:rotate-[8deg] hover:scale-110`}
-        />
+    <>
+      {/* Espaciador fijo para reservar el carril izquierdo sin saltos de layout */}
+      <div aria-hidden className="hidden w-[84px] shrink-0 md:block" />
 
-        <div
-          className={`min-w-0 flex-1 leading-tight transition-all duration-300 ${EASE} ${
-            collapsed ? '-translate-x-2 opacity-0 pointer-events-none' : 'translate-x-0 opacity-100'
+      {/* Contenedor flex de alto completo que centra la píldora exactamente a la mitad vertical */}
+      <div className="pointer-events-none fixed inset-y-0 left-4 z-40 hidden items-center md:flex">
+        <nav
+          ref={navRef}
+          onMouseLeave={handleNavLeave}
+          aria-label="Navegación principal"
+          className={`pointer-events-auto relative rounded-[32px] bg-black px-2.5 py-4 shadow-2xl shadow-black/30 transition-[width,box-shadow] ${PILL_MS} dark:bg-[#0B1224] dark:shadow-black/60 ${
+            expanded ? 'w-[256px]' : 'w-[64px]'
           }`}
         >
-          <h2 className="truncate text-sm font-bold tracking-tight text-slate-900 dark:text-white">
-            {organizacionNombre}
-          </h2>
-          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
-            Sistema Fluvib
-          </span>
-        </div>
-      </div>
-
-      {/* Navegación */}
-      <div ref={navRef} className="custom-scrollbar relative flex-1 overflow-y-auto overflow-x-hidden p-3.5">
-        {/* Círculo indicador que viaja hasta el tab activo */}
-        <div
-          aria-hidden
-          className={`pointer-events-none absolute left-[22px] top-0 ${
-            ready ? `transition-transform duration-500 ${SPRING}` : ''
-          }`}
-          style={{
-            width: DROP,
-            height: DROP,
-            transform: `translateY(${(pos?.top ?? 0) + ((pos?.height ?? DROP) - DROP) / 2}px)`,
-            opacity: pos ? 1 : 0,
-          }}
-        >
-          {/* Onda que se emite al llegar a un tab nuevo */}
-          {pos && (
+          {/* Medidores invisibles para calcular el ancho exacto de cada etiqueta al instante */}
+          <div
+            aria-hidden
+            className="pointer-events-none invisible fixed -top-96 -left-96 select-none"
+          >
             <span
-              key={activeHref}
-              className="fv-ripple absolute inset-0 rounded-full border-2 border-blue-500/70 dark:border-blue-400/70"
-            />
-          )}
-          <span className="absolute inset-0 rounded-full bg-blue-600 shadow-lg shadow-blue-600/30 dark:bg-blue-500 dark:shadow-blue-500/20" />
-        </div>
+              ref={(el) => {
+                measureRefs.current['__toggle__'] = el;
+              }}
+              className="whitespace-nowrap text-[13px] font-semibold"
+            >
+              Mostrar menú
+            </span>
+            {allItems.map((it) => (
+              <span
+                key={it.href}
+                ref={(el) => {
+                  measureRefs.current[it.href] = el;
+                }}
+                className="whitespace-nowrap text-[13px] font-semibold"
+              >
+                {it.label}
+              </span>
+            ))}
+          </div>
 
-        <div className="space-y-9">
-          {groups.map((group) => (
-            <div key={group.title} className="space-y-3">
-              {/* Título del grupo ⇄ línea cuando está colapsado (sin saltos de layout) */}
-              <div className="relative flex h-4 items-center px-3">
-                <p
-                  className={`select-none whitespace-nowrap text-[11px] font-medium text-slate-400 transition-all duration-300 ${EASE} dark:text-slate-500 ${
-                    collapsed ? '-translate-x-2 opacity-0' : 'translate-x-0 opacity-100'
-                  }`}
-                >
-                  {group.title}
-                </p>
+          {/* Extensión líquida compartida: sale del propio sidebar y se desliza entre opciones */}
+          {!expanded && (
+            <div
+              aria-hidden
+              style={{
+                width: isHovering && hoverData ? hoverData.width : 64,
+                transform: `translateY(${hoverData?.top ?? 0}px)`,
+                transitionProperty: glideVertical
+                  ? 'transform, width, opacity'
+                  : 'width, opacity',
+                transitionDuration: glideVertical ? '320ms, 280ms, 180ms' : '260ms, 180ms',
+                transitionTimingFunction: 'cubic-bezier(.22,1,.36,1)',
+              }}
+              className={`pointer-events-none absolute top-0 left-0 z-0 flex h-[52px] items-center overflow-hidden rounded-full bg-black shadow-[14px_10px_28px_-8px_rgba(0,0,0,0.38)] dark:bg-[#0B1224] dark:shadow-[14px_10px_28px_-8px_rgba(0,0,0,0.7)] ${
+                isHovering && hoverData ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <div className="flex min-w-0 items-center gap-2 pl-[60px] pr-5">
                 <span
-                  aria-hidden
-                  className={`absolute left-1/2 h-px -translate-x-1/2 bg-slate-200 transition-all duration-300 ${EASE} dark:bg-slate-700 ${
-                    collapsed ? 'w-5 opacity-100' : 'w-0 opacity-0'
-                  }`}
-                />
-              </div>
-
-              <div className="relative space-y-2.5">
-                {group.items.map((item) => {
-                  const active = isActive(pathname, item.href);
-                  const Icon = item.icon;
-                  const delay = 120 + order++ * 55;
-
-                  return (
-                    <Link
-                      key={item.href}
-                      ref={(el) => {
-                        itemRefs.current[item.href] = el;
-                      }}
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      aria-label={item.label}
-                      aria-current={active ? 'page' : undefined}
-                      style={{ animationDelay: `${delay}ms` }}
-                      className="fv-in group relative z-10 flex h-11 items-center rounded-xl pl-2.5 pr-3 text-[13px] outline-none transition-transform duration-200 active:scale-[.97] focus-visible:ring-2 focus-visible:ring-blue-500/60"
-                    >
-                      {/* Nodo: tapa la línea detrás del icono; el activo queda sobre la gota */}
-                      <span
-                        className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-300 ${
-                          active
-                            ? 'bg-transparent'
-                            : 'bg-white group-hover:bg-blue-50 dark:bg-slate-900 dark:group-hover:bg-blue-950/60'
-                        }`}
-                      >
-                        <Icon
-                          className={`h-[18px] w-[18px] transition-all duration-300 ${SPRING} group-hover:scale-110 ${
-                            active
-                              ? 'text-white'
-                              : 'text-slate-400 group-hover:text-blue-600 dark:text-slate-500 dark:group-hover:text-blue-400'
-                          }`}
-                        />
-                      </span>
-
-                      <span
-                        className={`truncate whitespace-nowrap transition-all duration-300 ${EASE} group-hover:translate-x-1 ${
-                          collapsed ? 'ml-0 max-w-0 opacity-0' : 'ml-3.5 max-w-[168px] opacity-100'
-                        } ${
-                          active
-                            ? 'font-semibold text-slate-900 dark:text-white'
-                            : 'font-medium text-slate-500 group-hover:text-slate-900 dark:text-slate-400 dark:group-hover:text-white'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </Link>
-                  );
-                })}
+                  key={hoverData?.key}
+                  className="fv-rise whitespace-nowrap text-[13px] font-semibold tracking-tight text-white"
+                >
+                  {hoverData?.label}
+                </span>
+                {hoverData?.isActive && (
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#2F6BFF]" />
+                )}
               </div>
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Botón superior con flecha indicadora para mostrar u ocultar todas las opciones a detalle */}
+          <div className="relative z-20 mb-3 flex items-center border-b border-white/10 pb-3">
+            <button
+              type="button"
+              ref={(el) => {
+                rowRefs.current['__toggle__'] = el;
+              }}
+              onMouseEnter={() =>
+                handleRowEnter('__toggle__', 'Mostrar menú', false)
+              }
+              onFocus={() =>
+                handleRowEnter('__toggle__', 'Mostrar menú', false)
+              }
+              onClick={() => setExpanded((prev) => !prev)}
+              aria-expanded={expanded}
+              aria-label={
+                expanded
+                  ? 'Ocultar detalle del menú'
+                  : 'Mostrar todas las opciones a detalle'
+              }
+              className="group/toggle relative flex h-10 w-full items-center rounded-full text-slate-400 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50"
+            >
+              <span className="flex h-10 w-[44px] shrink-0 items-center justify-center">
+                <ChevronRight
+                  className={`h-[18px] w-[18px] transition-transform duration-300 ${EASE} ${
+                    expanded ? 'rotate-180 text-white' : 'group-hover/toggle:translate-x-0.5'
+                  }`}
+                />
+              </span>
+
+              <span className="flex-1 overflow-hidden text-left">
+                <span
+                  className={`ml-3 pr-4 block truncate whitespace-nowrap text-xs font-semibold tracking-wide text-slate-300 transition-all duration-300 ${EASE} ${
+                    expanded
+                      ? 'translate-x-0 opacity-100'
+                      : '-translate-x-2 opacity-0 pointer-events-none'
+                  }`}
+                >
+                  Ocultar menú
+                </span>
+              </span>
+            </button>
+          </div>
+
+          <div ref={containerRef} className="relative z-10 flex flex-col">
+            {/* Cápsula activa limpia (sin borde) */}
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute inset-x-0 top-0 z-0 rounded-full bg-[#2F6BFF] ${
+                ready ? `transition-[transform,height] ${PILL_MS} motion-reduce:transition-none` : ''
+              }`}
+              style={{
+                height: pos?.height ?? 44,
+                transform: `translateY(${pos?.top ?? 0}px)`,
+                opacity: pos ? 1 : 0,
+              }}
+            />
+
+            <div className="space-y-6">
+              {groups.map((group, groupIdx) => (
+                <div key={group.title} className="space-y-2.5">
+                  {/* Divisor de sección en modo compacto ⇄ Título de sección cuando está expandido */}
+                  <div className="relative flex h-4 items-center overflow-hidden px-2.5">
+                    <span
+                      className={`select-none whitespace-nowrap text-[11px] font-semibold tracking-wide text-slate-400 transition-all duration-300 ${EASE} ${
+                        expanded
+                          ? 'translate-x-0 opacity-100'
+                          : '-translate-x-2 opacity-0 pointer-events-none'
+                      }`}
+                    >
+                      {group.title}
+                    </span>
+                    {groupIdx > 0 && (
+                      <span
+                        aria-hidden
+                        className={`absolute left-1/2 h-px -translate-x-1/2 bg-white/20 transition-all duration-300 ${EASE} ${
+                          expanded ? 'w-0 opacity-0' : 'w-6 opacity-100'
+                        }`}
+                      />
+                    )}
+                  </div>
+
+                  {/* Opciones de la sección */}
+                  <div className="flex flex-col gap-3.5">
+                    {group.items.map((item) => {
+                      const active = item.href === activeHref;
+                      const Icon = item.icon;
+
+                      return (
+                        <Link
+                          key={item.href}
+                          ref={(el) => {
+                            itemRefs.current[item.href] = el;
+                            rowRefs.current[item.href] = el;
+                          }}
+                          href={item.href}
+                          onMouseEnter={() =>
+                            handleRowEnter(item.href, item.label, active)
+                          }
+                          onFocus={() =>
+                            handleRowEnter(item.href, item.label, active)
+                          }
+                          aria-label={item.label}
+                          aria-current={active ? 'page' : undefined}
+                          className="group/item relative z-10 flex h-11 w-full items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50"
+                        >
+                          <span className="flex h-11 w-[44px] shrink-0 items-center justify-center">
+                            <Icon
+                              className={`h-[20px] w-[20px] shrink-0 transition-transform duration-300 ${
+                                active
+                                  ? 'text-white'
+                                  : 'text-slate-400 group-hover/item:scale-110 group-hover/item:text-[#6C97FF]'
+                              }`}
+                            />
+                          </span>
+
+                          {/* Texto interno solo cuando el sidebar está expandido con la flecha */}
+                          <span className="flex-1 overflow-hidden">
+                            <span
+                              className={`ml-3 pr-4 block truncate whitespace-nowrap text-[13.5px] transition-all duration-300 ${EASE} ${
+                                expanded
+                                  ? 'translate-x-0 opacity-100'
+                                  : '-translate-x-2 opacity-0 pointer-events-none'
+                              } ${
+                                active
+                                  ? 'font-semibold text-white'
+                                  : 'font-medium text-slate-300 group-hover/item:text-white'
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </nav>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -370,7 +494,6 @@ function SidebarBody({ collapsed, organizacionNombre, esAdmin, permisos = [] }: 
 
 // Ancho de una pestaña inactiva (px); la activa ocupa el resto de la píldora
 const TAB_W = 52;
-const PILL_MS = 'duration-[450ms] ease-[cubic-bezier(.22,1,.36,1)]';
 
 function MobileTabBar({
   items,
@@ -400,8 +523,6 @@ function MobileTabBar({
   const widthFor = (i: number) =>
     activeIndex < 0 ? `${100 / count}%` : i === activeIndex ? activeWidth : `${TAB_W}px`;
 
-  // Ancho de cada pestaña y del indicador comparten duración y curva, así que
-  // la cápsula y los iconos se mueven siempre en sincronía.
   const motion = ready ? `transition-[width] ${PILL_MS} motion-reduce:transition-none` : '';
   const tabClass = `group relative z-10 flex h-12 shrink-0 items-center justify-center overflow-hidden rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50 ${motion}`;
 
@@ -429,10 +550,10 @@ function MobileTabBar({
       className={`fv-rise fixed inset-x-3 z-40 mx-auto max-w-md rounded-full border bg-white p-2 dark:bg-[#0B1224] md:hidden ${LINE}`}
     >
       <div className="relative flex items-center">
-        {/* Cápsula activa con anillo punteado; viaja y se ensancha hasta la pestaña */}
+        {/* Cápsula activa sin borde azul punteado */}
         <div
           aria-hidden
-          className={`pointer-events-none absolute left-0 top-0 z-0 h-full ${
+          className={`pointer-events-none absolute left-0 top-0 z-0 h-full rounded-full bg-[#2F6BFF] ${
             ready ? `transition-[transform,width] ${PILL_MS} motion-reduce:transition-none` : ''
           }`}
           style={{
@@ -440,10 +561,7 @@ function MobileTabBar({
             transform: `translateX(${Math.max(activeIndex, 0) * TAB_W}px)`,
             opacity: activeIndex >= 0 ? 1 : 0,
           }}
-        >
-          <span className="absolute -inset-[3px] rounded-full border border-dashed border-[#2F6BFF]/50 dark:border-[#6C97FF]/50" />
-          <span className="absolute inset-0 rounded-full bg-[#2F6BFF]" />
-        </div>
+        />
 
         {tabs.map((item, i) => {
           const active = i === activeIndex;
@@ -485,6 +603,7 @@ const FOCUSABLE =
 
 function MobileSheet({
   groups,
+  visibleTabs,
   activeHref,
   organizacionNombre,
   userName = 'Usuario',
@@ -492,6 +611,7 @@ function MobileSheet({
   onClose,
 }: {
   groups: ReturnType<typeof getGroups>;
+  visibleTabs: NavItem[];
   activeHref: string | null;
   organizacionNombre: string;
   userName?: string;
@@ -566,7 +686,7 @@ function MobileSheet({
     };
   }, []);
 
-  const tabHrefs = new Set(operacionItems.slice(0, MAX_TABS - 1).map((item) => item.href));
+  const tabHrefs = new Set(visibleTabs.map((item) => item.href));
   const mobileGroups = groups
     .map((g) => ({
       ...g,
@@ -647,7 +767,7 @@ function MobileSheet({
           </div>
         </div>
 
-        {/* Grupos restantes (en móvil se excluye Operación) */}
+        {/* Grupos restantes (en móvil se excluyen los tabs visibles abajo) */}
         {mobileGroups.length > 0 && (
           <div className="mt-5 space-y-5">
             {mobileGroups.map((group) => (
@@ -655,7 +775,7 @@ function MobileSheet({
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                   {group.title}
                 </p>
-                <div className={`mt-1 divide-y divide-dashed divide-slate-300 dark:divide-[#26345C]`}>
+                <div className="mt-1 divide-y divide-dashed divide-slate-300 dark:divide-[#26345C]">
                   {group.items.map((item) => {
                     const active = item.href === activeHref;
                     const Icon = item.icon;
@@ -717,12 +837,16 @@ export function Sidebar({
   esAdmin,
   permisos = [],
 }: SidebarProps) {
+  void collapsed;
+  void onToggleCollapse;
+
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const groups = getGroups(esAdmin, permisos);
   const items = groups.flatMap((g) => g.items);
   const activeHref = items.find((item) => isActive(pathname, item.href))?.href ?? null;
+  const visibleMobileTabs = items.slice(0, MAX_TABS - 1);
 
   const sheetOpen = moreOpen || mobileOpen;
   const closeSheet = useCallback(() => {
@@ -734,32 +858,8 @@ export function Sidebar({
     <>
       <style>{css}</style>
 
-      {/* Sidebar para ESCRITORIO */}
-      <aside
-        className={`group/aside sticky top-3 z-30 my-3 ml-3 hidden h-[calc(100vh-1.5rem)] shrink-0 rounded-[26px] border border-slate-200 bg-white shadow-sm transition-[width] duration-300 ${EASE} dark:border-slate-800 dark:bg-slate-900 dark:shadow-2xl dark:shadow-black/50 md:block ${
-          collapsed ? 'w-20' : 'w-64'
-        }`}
-      >
-        <SidebarBody
-          collapsed={collapsed}
-          organizacionNombre={organizacionNombre}
-          esAdmin={esAdmin}
-          permisos={permisos}
-        />
-
-        {/* Botón de colapsar: flota sobre el borde y aparece al pasar el cursor */}
-        <button
-          onClick={onToggleCollapse}
-          type="button"
-          title={collapsed ? 'Expandir barra lateral' : 'Colapsar barra lateral'}
-          aria-label={collapsed ? 'Expandir barra lateral' : 'Colapsar barra lateral'}
-          className="absolute -right-3 top-7 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 opacity-0 shadow-xs transition-all duration-200 hover:scale-110 hover:text-blue-600 focus-visible:opacity-100 group-hover/aside:opacity-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:text-blue-400"
-        >
-          <ChevronLeft
-            className={`h-3.5 w-3.5 transition-transform duration-300 ${EASE} ${collapsed ? 'rotate-180' : ''}`}
-          />
-        </button>
-      </aside>
+      {/* Píldora vertical para ESCRITORIO (md+) */}
+      <DesktopVerticalPill groups={groups} activeHref={activeHref} />
 
       {/* Tabs inferiores para MÓVIL */}
       <MobileTabBar
@@ -772,6 +872,7 @@ export function Sidebar({
       {sheetOpen && (
         <MobileSheet
           groups={groups}
+          visibleTabs={visibleMobileTabs}
           activeHref={activeHref}
           organizacionNombre={organizacionNombre}
           userName={userName}

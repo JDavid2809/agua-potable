@@ -1,13 +1,22 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sun, Moon, User, RefreshCw, WifiOff, CloudUpload } from 'lucide-react';
+import {
+  Sun,
+  Moon,
+  RefreshCw,
+  WifiOff,
+  Droplets,
+  ChevronRight,
+} from 'lucide-react';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { PwaInstallButton } from '@/components/pwa/PwaManager';
 import { useTheme } from '@/hooks/use-theme';
+import { usePageHeaderSlot } from '@/components/ui/PageHeader';
 
-export interface DashboardHeaderProps {
+interface DashboardHeaderProps {
   onToggleMobileMenu: () => void;
   organizacionNombre: string;
   userName: string;
@@ -18,34 +27,73 @@ export interface DashboardHeaderProps {
   onSyncNow?: () => void;
 }
 
-const SECTION_NAMES: Record<string, string> = {
-  '/dashboard': 'Panel Principal',
-  '/cooperaciones': 'Cooperaciones y Obras',
-  '/tomas': 'Padrón de Tomas',
-  '/personas': 'Contratos y Personas',
-  '/cobros': 'Caja y Cobros',
-  '/lecturas': 'Lecturas de Medidor',
-  '/reportes': 'Reportes e Ingresos',
-  '/usuarios': 'Usuarios y Roles',
-  '/configuracion': 'Tarifas y Ajustes',
-};
+interface SectionMeta {
+  href: string;
+  label: string;
+  category: 'Operación' | 'Administración';
+  defaultStatus: string;
+}
 
-const SECTION_KEYS = Object.keys(SECTION_NAMES);
-const pad = (n: number) => String(n).padStart(2, '0');
-const ROW = 28; // alto (px) de cada número del contador
+const SECTIONS: SectionMeta[] = [
+  {
+    href: '/dashboard',
+    label: 'Panel General',
+    category: 'Operación',
+    defaultStatus: 'Sistema Activo',
+  },
+  {
+    href: '/tomas',
+    label: 'Tomas y Ubicaciones',
+    category: 'Operación',
+    defaultStatus: 'Padrón geográfico activo',
+  },
+  {
+    href: '/personas',
+    label: 'Contratos y Personas',
+    category: 'Operación',
+    defaultStatus: 'Padrón de titulares activo',
+  },
+  {
+    href: '/cobros',
+    label: 'Cobros y Caja',
+    category: 'Operación',
+    defaultStatus: 'Caja en operación',
+  },
+  {
+    href: '/cooperaciones',
+    label: 'Cooperaciones',
+    category: 'Operación',
+    defaultStatus: 'Obras comunitarias',
+  },
+  {
+    href: '/reportes',
+    label: 'Reportes e Ingresos',
+    category: 'Operación',
+    defaultStatus: 'Consulta financiera activa',
+  },
+  {
+    href: '/usuarios',
+    label: 'Usuarios y Permisos',
+    category: 'Administración',
+    defaultStatus: 'Control de acceso activo',
+  },
+  {
+    href: '/configuracion',
+    label: 'Configuración',
+    category: 'Administración',
+    defaultStatus: 'Parámetros del comité',
+  },
+];
 
-const EASE = 'ease-[cubic-bezier(.65,0,.2,1)]';
-const SPRING = 'ease-[cubic-bezier(.34,1.45,.64,1)]';
-
-const css = `
-@keyframes fh-rise{from{transform:translateY(115%)}to{transform:none}}
-@keyframes fh-fade{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
-@keyframes fh-flow{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
-.fh-rise{animation:fh-rise .6s cubic-bezier(.22,1,.36,1) both}
-.fh-fade{animation:fh-fade .6s cubic-bezier(.22,1,.36,1) backwards}
-.fh-flow{animation:fh-flow 1.1s cubic-bezier(.65,0,.2,1) both}
-@media (prefers-reduced-motion:reduce){.fh-rise,.fh-fade,.fh-flow{animation:none}}
-`;
+function obtenerIniciales(nombre: string): string {
+  const limpio = (nombre || '').trim();
+  if (!limpio) return 'US';
+  const partes = limpio.split(/\s+/).filter(Boolean);
+  if (partes.length >= 2) {
+    return `${partes[0][0]}${partes[1][0]}`.toUpperCase();
+  }
+  return limpio.slice(0, 2).toUpperCase();
+}
 
 export function DashboardHeader({
   onToggleMobileMenu,
@@ -57,190 +105,277 @@ export function DashboardHeader({
   isSyncing = false,
   onSyncNow,
 }: DashboardHeaderProps) {
+  void onToggleMobileMenu;
   const pathname = usePathname();
   const { isDark, toggleTheme } = useTheme();
-  const [now, setNow] = useState<Date | null>(null);
+  const pageHeaderCtx = usePageHeaderSlot();
+  const slotState = pageHeaderCtx?.slotState;
 
-  const path = pathname ?? '';
-  const currentSection =
-    SECTION_NAMES[path] ||
-    Object.entries(SECTION_NAMES).find(([k]) => path.startsWith(k + '/') || path === k)?.[1] ||
-    'Panel';
-  const sectionIndex = SECTION_KEYS.indexOf(path);
-  void onToggleMobileMenu;
-  void sectionIndex;
-  void ROW;
-  void SPRING;
-
-  // Reloj: se monta en cliente para evitar diferencias de hidratación
+  const [clock, setClock] = useState<string>('');
   useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 15000);
+    const tick = () => {
+      const now = new Date();
+      const time = now.toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+      setClock(time);
+    };
+    tick();
+    const id = setInterval(tick, 15000);
     return () => clearInterval(id);
   }, []);
 
-  const fecha = now
-    ?.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })
-    .replace(/\./g, '');
-  const hh = now ? pad(now.getHours()) : '';
-  const mm = now ? pad(now.getMinutes()) : '';
+  const matchedIndex = SECTIONS.findIndex(
+    (s) => pathname === s.href || pathname.startsWith(`${s.href}/`)
+  );
+  const activeSection =
+    matchedIndex >= 0 ? SECTIONS[matchedIndex] : SECTIONS[0];
+
+  const displayTitle = activeSection.label;
+  const statusLabel =
+    slotState?.status ||
+    (!enLinea ? 'Modo sin conexión' : activeSection.defaultStatus);
+
+  const statusTone = !enLinea
+    ? 'amber'
+    : isSyncing
+      ? 'blue'
+      : slotState?.statusTone || 'green';
+
+  const progressPct = Math.max(
+    18,
+    Math.min(100, slotState?.progress ?? (enLinea ? 78 : 45))
+  );
+
+  const iniciales = obtenerIniciales(userName);
+
+  const dotColor =
+    statusTone === 'amber'
+      ? 'bg-amber-500'
+      : statusTone === 'blue'
+        ? 'bg-[#2F6BFF]'
+        : statusTone === 'red'
+          ? 'bg-red-500'
+          : 'bg-emerald-500';
+
+  const haloColor =
+    statusTone === 'amber'
+      ? 'bg-amber-500/15'
+      : statusTone === 'blue'
+        ? 'bg-[#2F6BFF]/15'
+        : statusTone === 'red'
+          ? 'bg-red-500/15'
+          : 'bg-emerald-500/15';
+
+  const barColor =
+    statusTone === 'amber'
+      ? 'bg-amber-500'
+      : statusTone === 'red'
+        ? 'bg-red-500'
+        : statusTone === 'green'
+          ? 'bg-emerald-500'
+          : 'bg-[#2F6BFF]';
 
   return (
-    <header className="sticky top-3 z-20 mx-3 mt-3 flex h-[72px] items-center justify-between gap-2 rounded-[22px] border border-slate-200 bg-white px-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900 dark:shadow-2xl dark:shadow-black/50 sm:mx-4 sm:gap-6 sm:px-6 lg:mx-6 lg:px-8">
-      <style>{css}</style>
+    <header className="mx-auto w-full max-w-7xl px-4 pt-5 pb-5 sm:px-6 sm:pb-6 lg:px-8">
+      <style>{`
+        @keyframes fh-char {
+          from { transform: translateY(115%); opacity: 0; }
+          to   { transform: none; opacity: 1; }
+        }
+        .fh-rise {
+          display: inline-block;
+          animation: fh-char 560ms cubic-bezier(.22,1,.36,1) both;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .fh-rise { animation: none; }
+        }
+      `}</style>
 
-      {/* 1. Lado Izquierdo: título de sección */}
-      <div className="flex min-w-0 items-center gap-2.5 sm:gap-5">
-        <nav aria-label="Sección actual" className="fh-fade min-w-0 leading-tight">
-          <p className="max-w-[240px] sm:max-w-[280px] truncate text-xs font-medium text-slate-400 dark:text-slate-500">
-            {organizacionNombre}
-          </p>
-          {/* El título entra letra por letra al cambiar de sección */}
-          <span
-            key={currentSection}
-            aria-label={currentSection}
-            aria-current="page"
-            className="mt-0.5 flex max-w-full overflow-hidden text-base font-bold tracking-tight text-slate-900 dark:text-white sm:text-[17px]"
-          >
-            {[...currentSection].map((ch, i) => (
-              <span
-                key={i}
-                aria-hidden
-                className="fh-rise inline-block whitespace-pre py-0.5 leading-6"
-                style={{ animationDelay: `${i * 24}ms` }}
-              >
-                {ch}
-              </span>
-            ))}
-          </span>
-        </nav>
-      </div>
-
-      {/* 2. Lado Derecho: estado offline/sync, instalar PWA, tema, usuario y cerrar sesión */}
-      <div className="flex shrink-0 items-center gap-2 sm:gap-3.5">
-        {fecha && (
-          <div className="fh-fade hidden items-center gap-3 font-mono text-xs text-slate-400 dark:text-slate-500 lg:flex">
-            <span className="capitalize">{fecha}</span>
-            <span className="tabular-nums text-slate-700 dark:text-slate-200">
-              {hh}
-              <span className="animate-pulse">:</span>
-              {mm}
+      {/* ═══════════════════════════════════════════════════════════════════
+          FILA 1: Identidad de Marca + Opciones de la Sección Activa + Controles
+          ═══════════════════════════════════════════════════════════════════ */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Izquierda: Identidad Fluvib + Comité */}
+        <Link
+          href="/dashboard"
+          className="group flex min-w-0 items-center gap-3 focus:outline-none"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-black text-white shadow-sm transition-transform duration-200 group-hover:scale-105 dark:bg-[#0B1224] dark:shadow-black/40">
+            <Droplets className="h-5 w-5 text-white" strokeWidth={2.1} />
+          </div>
+          <div className="min-w-0">
+            <span className="block text-[18px] font-extrabold leading-none tracking-tight text-slate-900 dark:text-white">
+              Fluvib
+            </span>
+            <span className="mt-1 block max-w-[180px] truncate text-[11.5px] font-medium leading-none text-slate-400 dark:text-slate-500 sm:max-w-[260px]">
+              {organizacionNombre}
             </span>
           </div>
-        )}
+        </Link>
 
-        {/* Indicador visible en móvil y escritorio cuando está sin conexión o hay cobros por sincronizar */}
-        {(!enLinea || isSyncing || pendientesSync > 0) && (
-          <button
-            type="button"
-            onClick={onSyncNow}
-            disabled={isSyncing}
-            title={
-              !enLinea
-                ? `Sin conexión (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'})`
-                : isSyncing
-                  ? 'Sincronizando con la nube...'
-                  : `Sincronizar ${pendientesSync} elemento(s) pendiente(s)`
-            }
-            className="inline-flex h-9 items-center gap-1.5 px-1.5 text-xs font-semibold transition-opacity hover:opacity-80 shrink-0 cursor-pointer"
-          >
-            {isSyncing ? (
-              <>
-                <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600 dark:text-blue-400" />
-                <span className="hidden sm:inline text-blue-600 dark:text-blue-400">Guardando</span>
-              </>
-            ) : !enLinea ? (
-              <>
-                <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                <span className="text-amber-700 dark:text-amber-400">Sin red</span>
-                {pendientesSync > 0 && (
-                  <span className="font-mono text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                    ({pendientesSync})
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                <CloudUpload className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="font-mono text-emerald-700 dark:text-emerald-400">
-                  {pendientesSync} pend.
-                </span>
-              </>
-            )}
-          </button>
-        )}
+        {/* Centro: Slot de sub-opciones (PageTabs) de la sección actual; vacío si la sección no tiene opciones */}
+        <div
+          ref={pageHeaderCtx?.setTabsNode ?? undefined}
+          className="order-3 flex w-full items-center justify-center empty:hidden lg:order-none lg:w-auto lg:flex-1"
+        />
 
-        {/* Botón para instalar la PWA en móvil o escritorio */}
-        <PwaInstallButton />
-
-        {/* Botón de alternar tema (modo claro / oscuro) — visible en móvil y web */}
-        <button
-          onClick={toggleTheme}
-          type="button"
-          title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-          className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition-all duration-300 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-slate-800 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
-        >
-          {isDark ? (
-            <Sun className="h-4.5 w-4.5 text-amber-500 transition-transform duration-300 group-hover:rotate-45" />
-          ) : (
-            <Moon className="h-4.5 w-4.5 text-slate-700 transition-transform duration-300 group-hover:-rotate-12 dark:text-slate-300" />
-          )}
-        </button>
-
-        <div aria-hidden className="hidden h-8 w-px bg-slate-200 dark:bg-slate-800 md:block" />
-
-        {/* Usuario: icono en un círculo con punto de estado online/offline encima (solo web md+) */}
-        <div className="group hidden items-center gap-3 md:flex">
-          <div
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-700 shadow-xs transition-all duration-300 group-hover:border-blue-500/50 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:border-blue-400/50 dark:group-hover:bg-blue-950/40 dark:group-hover:text-blue-400"
-          >
-            <User className="h-5 w-5" />
-
-            {/* Punto indicador de estado: verde (en línea) o amarillo (offline) en esquina superior izquierda */}
-            <span
-              onClick={onSyncNow}
-              role="status"
+        {/* Derecha: Botones circulares flotantes (Sync, PWA, Tema, Iniciales Usuario, Salir) */}
+        <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+          {(!enLinea || isSyncing || pendientesSync > 0) && (
+            <button
+              type="button"
+              onClick={enLinea && !isSyncing ? onSyncNow : undefined}
+              disabled={!enLinea || isSyncing}
               title={
                 !enLinea
-                  ? `Sin conexión (${pendientesSync} pendiente${pendientesSync === 1 ? '' : 's'})`
+                  ? `Modo sin conexión (${pendientesSync} pendientes)`
                   : isSyncing
-                    ? 'Sincronizando...'
-                    : pendientesSync > 0
-                      ? `Sincronizar ahora (${pendientesSync} pendientes)`
-                      : 'En línea'
+                    ? 'Sincronizando operaciones...'
+                    : `Sincronizar ahora (${pendientesSync} pendientes)`
               }
-              className={`absolute top-0 left-0 flex h-2.5 w-2.5 items-center justify-center rounded-full ring-2 ring-white transition-colors duration-300 dark:ring-slate-900 ${
-                isSyncing
-                  ? 'bg-blue-500'
-                  : enLinea
-                    ? 'bg-emerald-500'
-                    : 'bg-amber-400'
-              }`}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-slate-700 shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)] transition-colors hover:text-slate-950 disabled:cursor-default dark:bg-[#0B1224] dark:text-slate-200 dark:shadow-black/35"
             >
-              {isSyncing && (
-                <RefreshCw className="h-1.5 w-1.5 animate-spin text-white" />
+              {!enLinea ? (
+                <WifiOff className="h-3.5 w-3.5 text-amber-500" />
+              ) : (
+                <RefreshCw
+                  className={`h-3.5 w-3.5 text-[#2F6BFF] ${isSyncing ? 'animate-spin' : ''}`}
+                />
               )}
+              {pendientesSync > 0 && (
+                <span className="tabular-nums font-bold text-[#2F6BFF] dark:text-[#6C97FF]">
+                  {pendientesSync}
+                </span>
+              )}
+            </button>
+          )}
+
+          <PwaInstallButton />
+
+          {/* Botón circular de Tema */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
+            title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            className="group relative flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)] transition-transform duration-200 hover:scale-105 active:scale-95 dark:bg-[#0B1224] dark:text-slate-200 dark:shadow-black/35"
+          >
+            {isDark ? (
+              <Sun className="h-[18px] w-[18px] text-amber-400 transition-transform duration-500 ease-out group-hover:rotate-45" />
+            ) : (
+              <Moon className="h-[18px] w-[18px] text-slate-700 transition-transform duration-500 ease-out group-hover:-rotate-12" />
+            )}
+          </button>
+
+          {/* Círculo de Iniciales del Usuario (estilo NH en la referencia) */}
+          <div
+            title={`${userName} · ${userRole}`}
+            className="relative flex h-10 w-10 select-none items-center justify-center rounded-full bg-emerald-100/90 text-xs font-extrabold tracking-tight text-emerald-800 shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)] dark:bg-emerald-500/20 dark:text-emerald-300 dark:shadow-black/35"
+          >
+            <span>{iniciales}</span>
+            <span
+              aria-hidden="true"
+              className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-slate-50 dark:ring-slate-950 ${dotColor}`}
+            />
+          </div>
+
+          <LogoutButton />
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          FILA 2: Breadcrumb + Título con Transición + Sub-pestañas + Reloj/Estado
+          ═══════════════════════════════════════════════════════════════════ */}
+      <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        {/* Izquierda y Centro-Izquierda: Breadcrumb + Nombre de Sección + Slot de Pestañas/Acciones */}
+        <div className="min-w-0 flex-1">
+          {/* Breadcrumb (Fluvib › Categoría › Sección Activa) */}
+          <div className="flex items-center gap-1.5 text-xs font-medium">
+            <span className="text-slate-400 dark:text-slate-500">Fluvib</span>
+            <ChevronRight className="h-3 w-3 shrink-0 text-slate-300 dark:text-slate-600" />
+            <span className="text-slate-400 dark:text-slate-500">
+              {activeSection.category}
+            </span>
+            <ChevronRight className="h-3 w-3 shrink-0 text-slate-300 dark:text-slate-600" />
+            <span className="truncate font-semibold text-[#2F6BFF] dark:text-[#6C97FF]">
+              {displayTitle}
             </span>
           </div>
 
-          <div className="hidden flex-col text-left leading-tight md:flex">
-            <span className="max-w-[150px] truncate text-[13px] font-semibold text-slate-900 dark:text-slate-100">
-              {userName}
-            </span>
-            <span
-              className={`text-[11px] text-slate-400 transition-all duration-300 ${EASE} group-hover:translate-x-0.5 group-hover:text-blue-600 dark:text-slate-500 dark:group-hover:text-blue-400`}
+          {/* Fila del Título Grande (Warehouses) + Cápsula de Pestañas/Acciones de la Sección */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-4 sm:gap-6">
+            <h1
+              key={activeSection.href}
+              aria-label={displayTitle}
+              className="inline-flex overflow-hidden text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-[32px] sm:leading-none"
             >
-              {userRole}
-            </span>
+              {[...displayTitle].map((ch, i) => (
+                <span
+                  key={i}
+                  aria-hidden="true"
+                  className="fh-rise"
+                  style={{ animationDelay: `${i * 22}ms` }}
+                >
+                  {ch === ' ' ? '\u00A0' : ch}
+                </span>
+              ))}
+            </h1>
+
+            {/* Slot donde PageHeader proyecta las PageTabs o botones de la sección */}
+            <div
+              ref={pageHeaderCtx?.setActionNode ?? undefined}
+              className="flex flex-wrap items-center gap-2.5 empty:hidden"
+            />
           </div>
         </div>
 
-        {/* Botón de Cerrar Sesión (en web md+; en móvil vive dentro de Ajustes) */}
-        <div className="hidden md:block">
-          <LogoutButton />
+        {/* Derecha: Cápsula de Reloj en Vivo + Estado de la Sección + Barra de Progreso */}
+        <div className="flex shrink-0 items-center justify-between gap-3.5 rounded-full bg-white px-4 py-2.5 shadow-[0_2px_14px_-4px_rgba(15,23,42,0.08)] dark:bg-[#0B1224] dark:shadow-black/35 sm:justify-start">
+          {/* Punto con halo + Reloj */}
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className={`flex h-5 w-5 items-center justify-center rounded-full ${haloColor}`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${dotColor} ${
+                  isSyncing ? 'animate-ping' : ''
+                }`}
+              />
+            </span>
+            <span className="font-mono text-xs font-bold tabular-nums tracking-tight text-slate-800 dark:text-slate-100">
+              {clock || '--:--'}
+            </span>
+          </div>
+
+          {/* Divisor vertical */}
+          <div className="h-6 w-px bg-slate-200/80 dark:bg-slate-800" />
+
+          {/* Estado contextual de la sección + Usuario/Rol */}
+          <div className="min-w-0">
+            <p className="truncate text-xs font-bold leading-tight text-slate-900 dark:text-white">
+              {statusLabel}
+            </p>
+            <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-slate-400 dark:text-slate-500">
+              {userName} · <span className="capitalize">{userRole}</span>
+            </p>
+          </div>
+
+          {/* Barra de progreso / acento lateral derecho */}
+          <div
+            aria-hidden="true"
+            className="hidden h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800 sm:block"
+          >
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
         </div>
       </div>
     </header>
   );
-};
+}

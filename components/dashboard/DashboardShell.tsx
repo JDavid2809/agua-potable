@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { DashboardHeader } from './DashboardHeader';
+import { PageHeaderProvider } from '@/components/ui/PageHeader';
 import { sileo } from 'sileo';
 import { SIDEBAR_COOKIE } from '@/lib/theme';
 import { useOfflineSync } from '@/hooks/use-offline-sync';
@@ -116,23 +117,25 @@ export function DashboardShell({
             permisos={permisos}
           />
 
-          {/* 2. ÁREA PRINCIPAL: HEADER SUPERIOR + CONTENIDO */}
-          <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
-            <DashboardHeader
-              onToggleMobileMenu={() => setMobileOpen(true)}
-              organizacionNombre={organizacionNombre}
-              userName={userName}
-              userRole={userRole}
-              enLinea={syncState.enLinea}
-              pendientesSync={syncState.pendientes}
-              isSyncing={syncState.isSyncing}
-              onSyncNow={syncState.sincronizar}
-            />
+          {/* 2. ÁREA PRINCIPAL: HEADER UNIFICADO + CONTENIDO */}
+          <PageHeaderProvider>
+            <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
+              <DashboardHeader
+                onToggleMobileMenu={() => setMobileOpen(true)}
+                organizacionNombre={organizacionNombre}
+                userName={userName}
+                userRole={userRole}
+                enLinea={syncState.enLinea}
+                pendientesSync={syncState.pendientes}
+                isSyncing={syncState.isSyncing}
+                onSyncNow={syncState.sincronizar}
+              />
 
-            <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-              {children}
-            </main>
-          </div>
+              <main className="flex-1 px-4 pb-10 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-10 max-w-7xl w-full mx-auto">
+                {children}
+              </main>
+            </div>
+          </PageHeaderProvider>
         </div>
       </PresenceProvider>
     </PermisosProvider>
