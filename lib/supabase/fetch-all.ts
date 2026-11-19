@@ -14,7 +14,13 @@
 export type QueryRangeFn<T> = (
   from: number,
   to: number
-) => PromiseLike<{ data: T[] | null; error: any }>;
+) => PromiseLike<{ data: T[] | null; error: unknown }>;
+
+export interface SupabaseBatchClient {
+  from: (table: string) => {
+    insert: (rows: unknown[]) => PromiseLike<{ error: unknown }>;
+  };
+}
 
 /**
  * Consulta y concatena TODOS los registros de una consulta Supabase
@@ -24,7 +30,7 @@ export type QueryRangeFn<T> = (
  * @param queryFn Función constructora que recibe (from, to) y devuelve la promesa de Supabase
  * @param chunkSize Tamaño de cada bloque HTTP (por defecto 500 para mantenerse por debajo del límite de PostgREST)
  */
-export async function fetchAllRows<T = any>(
+export async function fetchAllRows<T = Record<string, unknown>>(
   queryFn: QueryRangeFn<T>,
   chunkSize = 500
 ): Promise<T[]> {
@@ -62,8 +68,8 @@ export async function fetchAllRows<T = any>(
  * Inserta un arreglo de registros en una tabla de Supabase dividiéndolo en lotes
  * seguros (por defecto 150) para prevenir desbordamiento de payload HTTP o límites de PostgreSQL.
  */
-export async function insertInBatches<T = any>(
-  client: any,
+export async function insertInBatches<T = Record<string, unknown>>(
+  client: SupabaseBatchClient,
   tableName: string,
   rows: T[],
   batchSize = 150

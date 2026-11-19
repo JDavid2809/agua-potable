@@ -129,6 +129,8 @@ export function DashboardShell({
                 pendientesSync={syncState.pendientes}
                 isSyncing={syncState.isSyncing}
                 onSyncNow={syncState.sincronizar}
+                conErrores={syncState.conError}
+                onRetryErrors={syncState.reintentarErrores}
               />
 
               <main className="flex-1 px-4 pb-10 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-10 max-w-7xl w-full mx-auto">

@@ -75,6 +75,7 @@ const LINE = 'border-slate-300 dark:border-[#26345C]';
 
 export interface PageHeaderSlotState {
   title?: string;
+  subtitle?: string;
   status?: string;
   statusTone?: PageHeaderTone;
   tone?: PageHeaderTone;
@@ -228,18 +229,20 @@ export function PageHeader({
 }: PageHeaderProps) {
   const ctx = usePageHeaderSlot();
   const statusText = typeof status === 'string' ? status : undefined;
+  const subtitleText = typeof subtitle === 'string' ? subtitle : undefined;
   const setSlotState = ctx?.setSlotState;
 
   useEffect(() => {
     if (!setSlotState) return;
     setSlotState({
       title,
+      subtitle: subtitleText,
       status: statusText,
       statusTone,
       tone,
       progress,
     });
-  }, [setSlotState, title, statusText, statusTone, tone, progress]);
+  }, [setSlotState, title, subtitleText, statusText, statusTone, tone, progress]);
 
   useEffect(() => {
     if (!setSlotState) return;

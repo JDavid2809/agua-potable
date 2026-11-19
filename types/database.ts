@@ -186,7 +186,14 @@ export interface ElementoColaSync {
   tabla: 'transaccion_pago' | 'pagos' | 'pago_detalles' | 'personas' | 'tomas' | 'manzanas';
   accion: 'INSERT' | 'UPDATE' | 'DELETE';
   registro_id: string;
-  datos: any;
+  datos:
+    | TransaccionPagoData
+    | Pago
+    | PagoDetalle
+    | Persona
+    | Toma
+    | Manzana
+    | Record<string, unknown>;
   creado_en: string;
   intentos: number;
   ultimo_error?: string;

@@ -30,11 +30,17 @@ export interface PresenceProviderProps {
   userRole?: string;
 }
 
+interface RawPresenceEntry {
+  userId?: string;
+  onlineAt?: string;
+}
+
 function extraerUserIds(state: Record<string, unknown[]>): Set<string> {
   const ids = new Set<string>();
   Object.values(state).forEach((presencias) => {
     if (Array.isArray(presencias)) {
-      presencias.forEach((p: any) => {
+      presencias.forEach((raw) => {
+        const p = raw as RawPresenceEntry;
         if (p?.userId) ids.add(p.userId);
       });
     }
@@ -125,7 +131,8 @@ export function PresenceProvider({
         const ahoraIso = new Date().toISOString();
         setLastSeenMap((prev) => {
           const next = { ...prev };
-          newPresences.forEach((p: any) => {
+          newPresences.forEach((raw) => {
+            const p = raw as RawPresenceEntry;
             if (p?.userId) {
               next[p.userId] = p.onlineAt || ahoraIso;
             }
@@ -143,7 +150,8 @@ export function PresenceProvider({
         const ahoraIso = new Date().toISOString();
         setLastSeenMap((prev) => {
           const next = { ...prev };
-          leftPresences.forEach((p: any) => {
+          leftPresences.forEach((raw) => {
+            const p = raw as RawPresenceEntry;
             // Actualizar hora exacta de salida si ya no tiene otra pestaña activa
             if (p?.userId && !idsRestantes.has(p.userId)) {
               next[p.userId] = ahoraIso;

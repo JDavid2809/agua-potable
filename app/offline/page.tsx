@@ -6,11 +6,11 @@ import { WifiOff, RefreshCw, CreditCard, LayoutDashboard, Droplets, Users } from
 import { Button } from '@/components/ui/Button';
 
 export default function OfflinePage() {
-  const [enLinea, setEnLinea] = useState(false);
+  const [enLinea, setEnLinea] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : false
+  );
 
   useEffect(() => {
-    setEnLinea(typeof navigator !== 'undefined' ? navigator.onLine : false);
-
     const handleOnline = () => {
       setEnLinea(true);
       window.location.replace('/dashboard');

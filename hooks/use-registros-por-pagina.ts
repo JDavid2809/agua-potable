@@ -32,11 +32,11 @@ export function guardarRegistrosPorPagina(valor: number): number {
 }
 
 export function useRegistrosPorPagina(): number {
-  const [cantidad, setCantidad] = useState<number>(DEFAULT_REGISTROS_POR_PAGINA);
+  const [cantidad, setCantidad] = useState<number>(() =>
+    obtenerRegistrosPorPaginaActual()
+  );
 
   useEffect(() => {
-    setCantidad(obtenerRegistrosPorPaginaActual());
-
     const handleUpdate = (e: Event) => {
       const custom = e as CustomEvent<number>;
       if (custom.detail) {

@@ -23,7 +23,9 @@ export default async function DashboardLayout({
   }
 
   const orgNombre = organizacion.nombre || 'Comité de Agua Potable';
-  const sidebarColapsado = (await cookies()).get(SIDEBAR_COOKIE)?.value === 'true';
+  // Por defecto la píldora vertical inicia compacta (collapsed = true) salvo que la cookie indique 'false'
+  const cookieVal = (await cookies()).get(SIDEBAR_COOKIE)?.value;
+  const sidebarColapsado = cookieVal ? cookieVal !== 'false' : true;
 
   const rolLabel =
     perfil.rol === 'administrador'

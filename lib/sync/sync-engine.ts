@@ -455,18 +455,43 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
               folio: folioFinal,
               sincronizado_en: new Date().toISOString(),
             });
-          } else if (item.tabla === 'pagos' && item.accion === 'INSERT') {
-            const { error } = await supabase.from('pagos').insert(item.datos);
-            if (error && !error.message.includes('duplicate key')) throw error;
-          } else if (item.tabla === 'pago_detalles' && item.accion === 'INSERT') {
-            const { error } = await supabase.from('pago_detalles').insert(item.datos);
-            if (error && !error.message.includes('duplicate key')) throw error;
-          } else if (item.tabla === 'personas' && item.accion === 'INSERT') {
-            const { error } = await supabase.from('personas').insert(item.datos);
-            if (error && !error.message.includes('duplicate key')) throw error;
-          } else if (item.tabla === 'tomas' && item.accion === 'INSERT') {
-            const { error } = await supabase.from('tomas').insert(item.datos);
-            if (error && !error.message.includes('duplicate key')) throw error;
+          } else if (
+            item.tabla === 'pagos' ||
+            item.tabla === 'pago_detalles' ||
+            item.tabla === 'personas' ||
+            item.tabla === 'tomas' ||
+            item.tabla === 'manzanas'
+          ) {
+            if (item.accion === 'INSERT') {
+              const { error } = await supabase
+                .from(item.tabla)
+                .insert(item.datos as Record<string, unknown>);
+              if (error && !error.message.includes('duplicate key')) throw error;
+            } else if (item.accion === 'UPDATE') {
+              const { error } = await supabase
+                .from(item.tabla)
+                .update(item.datos as Record<string, unknown>)
+                .eq('id', item.registro_id);
+              if (error) throw error;
+            } else if (item.accion === 'DELETE') {
+              if (
+                item.tabla === 'personas' ||
+                item.tabla === 'tomas' ||
+                item.tabla === 'manzanas'
+              ) {
+                const { error } = await supabase
+                  .from(item.tabla)
+                  .update({ deleted_at: new Date().toISOString() })
+                  .eq('id', item.registro_id);
+                if (error) throw error;
+              } else {
+                const { error } = await supabase
+                  .from(item.tabla)
+                  .delete()
+                  .eq('id', item.registro_id);
+                if (error) throw error;
+              }
+            }
           }
 
           // Si el envío concluyó con éxito, retirar de la cola local
@@ -476,8 +501,13 @@ export async function sincronizarConNube(): Promise<ResultadoSincronizacion> {
           }
         } catch (err: unknown) {
           const mensajeError = obtenerMensajeError(err);
+          const errMeta = err as {
+            details?: string;
+            hint?: string;
+            code?: string;
+          } | null;
           const detalleError =
-            (err as any)?.details || (err as any)?.hint || (err as any)?.code || '';
+            errMeta?.details || errMeta?.hint || errMeta?.code || '';
           console.error(
             `[SyncEngine] Error sincronizando item #${item.id} (${item.tabla}): ${mensajeError}${
               detalleError ? ` | Detalle: ${detalleError}` : ''

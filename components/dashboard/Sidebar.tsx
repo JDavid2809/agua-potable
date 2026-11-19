@@ -9,7 +9,6 @@ import {
   Droplets,
   Users,
   CreditCard,
-  Gauge,
   BarChart3,
   ShieldCheck,
   SlidersHorizontal,
@@ -97,12 +96,6 @@ const operacionItems: NavItem[] = [
   },
 ];
 
-const medicionItems: NavItem[] = [
-  { href: '/lecturas', label: 'Lecturas de Medidor', short: 'Lecturas', icon: Gauge },
-  { href: '/reportes', label: 'Reportes e Ingresos', short: 'Reportes', icon: BarChart3 },
-];
-void medicionItems;
-
 const adminItems: NavItem[] = [
   {
     href: '/usuarios',
@@ -168,9 +161,13 @@ const css = `
 function DesktopVerticalPill({
   groups,
   activeHref,
+  expanded,
+  onToggleExpand,
 }: {
   groups: ReturnType<typeof getGroups>;
   activeHref: string | null;
+  expanded: boolean;
+  onToggleExpand: () => void;
 }) {
   const navRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -180,7 +177,6 @@ function DesktopVerticalPill({
 
   const [pos, setPos] = useState<{ top: number; height: number } | null>(null);
   const [ready, setReady] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
   // Estado de la extensión líquida que emerge del propio sidebar al pasar el cursor
   const [hoverData, setHoverData] = useState<{
@@ -194,9 +190,18 @@ function DesktopVerticalPill({
   } | null>(null);
   const [isHovering, setIsHovering] = useState(false);
   const [glideVertical, setGlideVertical] = useState(false);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLeaveTimer = useCallback(() => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+  }, []);
 
   const handleRowEnter = useCallback(
     (key: string, label: string, active: boolean) => {
+      clearLeaveTimer();
       if (expanded) return;
       const navEl = navRef.current;
       const rowEl = rowRefs.current[key];
@@ -241,13 +246,26 @@ function DesktopVerticalPill({
         });
       }
     },
-    [expanded, isHovering]
+    [clearLeaveTimer, expanded, isHovering]
   );
 
+  const handleRowLeave = useCallback(() => {
+    clearLeaveTimer();
+    leaveTimerRef.current = setTimeout(() => {
+      setIsHovering(false);
+      setGlideVertical(false);
+    }, 55);
+  }, [clearLeaveTimer]);
+
   const handleNavLeave = useCallback(() => {
+    clearLeaveTimer();
     setIsHovering(false);
     setGlideVertical(false);
-  }, []);
+  }, [clearLeaveTimer]);
+
+  useEffect(() => {
+    return () => clearLeaveTimer();
+  }, [clearLeaveTimer]);
 
   useEffect(() => {
     if (expanded) {
@@ -435,10 +453,8 @@ function DesktopVerticalPill({
               onMouseEnter={() =>
                 handleRowEnter('__toggle__', 'Mostrar menú', false)
               }
-              onFocus={() =>
-                handleRowEnter('__toggle__', 'Mostrar menú', false)
-              }
-              onClick={() => setExpanded((prev) => !prev)}
+              onMouseLeave={handleRowLeave}
+              onClick={onToggleExpand}
               aria-expanded={expanded}
               aria-label={
                 expanded
@@ -524,9 +540,7 @@ function DesktopVerticalPill({
                           onMouseEnter={() =>
                             handleRowEnter(item.href, item.label, active)
                           }
-                          onFocus={() =>
-                            handleRowEnter(item.href, item.label, active)
-                          }
+                          onMouseLeave={handleRowLeave}
                           aria-label={item.label}
                           aria-current={active ? 'page' : undefined}
                           className="group/item relative z-10 flex h-11 w-full items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#2F6BFF]/50"
@@ -918,9 +932,6 @@ export function Sidebar({
   esAdmin,
   permisos = [],
 }: SidebarProps) {
-  void collapsed;
-  void onToggleCollapse;
-
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -939,8 +950,13 @@ export function Sidebar({
     <>
       <style>{css}</style>
 
-      {/* Píldora vertical para ESCRITORIO (md+) */}
-      <DesktopVerticalPill groups={groups} activeHref={activeHref} />
+      {/* Píldora vertical para ESCRITORIO (md+), conectada al atajo Ctrl+B y cookie de estado */}
+      <DesktopVerticalPill
+        groups={groups}
+        activeHref={activeHref}
+        expanded={!collapsed}
+        onToggleExpand={onToggleCollapse}
+      />
 
       {/* Tabs inferiores para MÓVIL */}
       <MobileTabBar

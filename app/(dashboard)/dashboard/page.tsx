@@ -29,7 +29,7 @@ export default async function DashboardPage() {
     { count: usuariosCount },
     pagosData,
   ] = await Promise.all([
-    fetchAllRows<any>((from, to) =>
+    fetchAllRows<Record<string, unknown>>((from, to) =>
       supabase
         .from('tomas')
         .select('id, codigo_toma, tipo_toma, estado, saldo_pendiente, persona:personas(nombre_completo)')
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
       .from('perfiles')
       .select('*', { count: 'exact', head: true })
       .eq('organizacion_id', orgId),
-    fetchAllRows<any>((from, to) =>
+    fetchAllRows<Record<string, unknown>>((from, to) =>
       supabase
         .from('pagos')
         .select(`

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   sincronizarConNube,
   obtenerEstadoSincronizacion,
+  obtenerElementosConError,
+  reintentarElementoError,
   type ResumenSincronizacion,
 } from '@/lib/sync/sync-engine';
 
@@ -78,7 +80,9 @@ export function useOfflineSync() {
     if (!conectado) return;
 
     const estadoPrevio = await obtenerEstadoSincronizacion();
-    const hayPendientesReales = estadoPrevio.pendientes > 0;
+    // Los elementos con error permanente no cuentan como trabajo activo de sincronización
+    const hayPendientesReales =
+      Math.max(0, estadoPrevio.pendientes - estadoPrevio.conError) > 0;
 
     isSyncingRef.current = true;
     if (hayPendientesReales) {
@@ -169,10 +173,36 @@ export function useOfflineSync() {
     };
   }, [actualizarEstado, sincronizar, verificarYActualizarConectividad]);
 
+  // Reintenta manualmente los registros que superaron el máximo de intentos
+  const reintentarErrores = useCallback(async () => {
+    if (isSyncingRef.current) return;
+    const conectado = await verificarYActualizarConectividad();
+    if (!conectado) return;
+
+    isSyncingRef.current = true;
+    setIsSyncing(true);
+    try {
+      const fallidos = await obtenerElementosConError();
+      for (const item of fallidos) {
+        if (item.id !== undefined) {
+          await reintentarElementoError(item.id);
+        }
+      }
+      await actualizarEstado();
+    } catch {
+      await verificarYActualizarConectividad();
+    } finally {
+      isSyncingRef.current = false;
+      setIsSyncing(false);
+    }
+  }, [actualizarEstado, verificarYActualizarConectividad]);
+
   return {
     enLinea: estado.enLinea,
-    pendientes: estado.pendientes,
+    // Solo registros activos pendientes; los fallidos se reportan aparte en `conError`
+    pendientes: Math.max(0, estado.pendientes - estado.conError),
     conError: estado.conError,
+    reintentarErrores,
     ultimaSincronizacion: estado.ultimaSincronizacion,
     isSyncing: isSyncing || estado.sincronizando,
     sincronizar,

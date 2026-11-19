@@ -8,6 +8,7 @@ import {
   Moon,
   RefreshCw,
   WifiOff,
+  AlertTriangle,
   Droplets,
   ChevronRight,
 } from 'lucide-react';
@@ -25,6 +26,9 @@ interface DashboardHeaderProps {
   pendientesSync?: number;
   isSyncing?: boolean;
   onSyncNow?: () => void;
+  /** Registros que superaron el máximo de reintentos y siguen sin subirse */
+  conErrores?: number;
+  onRetryErrors?: () => void;
 }
 
 interface SectionMeta {
@@ -104,11 +108,14 @@ export function DashboardHeader({
   pendientesSync = 0,
   isSyncing = false,
   onSyncNow,
+  conErrores = 0,
+  onRetryErrors,
 }: DashboardHeaderProps) {
   void onToggleMobileMenu;
   const pathname = usePathname();
   const { isDark, toggleTheme } = useTheme();
   const pageHeaderCtx = usePageHeaderSlot();
+  const slotState = pageHeaderCtx?.slotState;
 
   const matchedIndex = SECTIONS.findIndex(
     (s) => pathname === s.href || pathname.startsWith(`${s.href}/`)
@@ -117,11 +124,31 @@ export function DashboardHeader({
     matchedIndex >= 0 ? SECTIONS[matchedIndex] : SECTIONS[0];
 
   const displayTitle = activeSection.label;
+  // Título específico de la vista (p. ej. nombre de una obra) si difiere del nombre de la sección
+  const detalleTitulo =
+    slotState?.title && slotState.title !== displayTitle ? slotState.title : null;
+  const statusLabel = !enLinea ? 'Modo sin conexión' : slotState?.status || null;
   const statusTone = !enLinea
     ? 'amber'
     : isSyncing && pendientesSync > 0
       ? 'blue'
-      : 'green';
+      : slotState?.statusTone || 'green';
+  const statusDotClass =
+    statusTone === 'amber'
+      ? 'bg-amber-500'
+      : statusTone === 'blue'
+        ? 'bg-[#2F6BFF]'
+        : statusTone === 'red'
+          ? 'bg-red-500'
+          : 'bg-emerald-500';
+  const statusTextClass =
+    statusTone === 'amber'
+      ? 'text-amber-600 dark:text-amber-400'
+      : statusTone === 'blue'
+        ? 'text-[#2F6BFF] dark:text-[#6C97FF]'
+        : statusTone === 'red'
+          ? 'text-red-600 dark:text-red-400'
+          : 'text-emerald-600 dark:text-emerald-400';
 
   const iniciales = obtenerIniciales(userName);
 
@@ -178,22 +205,32 @@ export function DashboardHeader({
 
         {/* Derecha: Botones circulares flotantes (Sync solo cuando hay pendientes o sin red, PWA, Tema, Iniciales Usuario, Salir) */}
         <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-          {(!enLinea || pendientesSync > 0) && (
+          {(!enLinea || pendientesSync > 0 || conErrores > 0) && (
             <button
               type="button"
-              onClick={enLinea && !isSyncing ? onSyncNow : undefined}
+              onClick={
+                enLinea && !isSyncing
+                  ? conErrores > 0 && pendientesSync === 0
+                    ? onRetryErrors
+                    : onSyncNow
+                  : undefined
+              }
               disabled={!enLinea || isSyncing}
               title={
                 !enLinea
                   ? `Modo sin conexión (${pendientesSync} pendientes)`
                   : isSyncing
                     ? `Sincronizando ${pendientesSync} pendiente(s)...`
-                    : `Sincronizar ahora (${pendientesSync} pendientes)`
+                    : conErrores > 0 && pendientesSync === 0
+                      ? `${conErrores} registro(s) no se pudieron subir. Clic para reintentar`
+                      : `Sincronizar ahora (${pendientesSync} pendientes)`
               }
               className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-slate-700 shadow-[0_2px_10px_-3px_rgba(15,23,42,0.08)] transition-colors hover:text-slate-950 disabled:cursor-default dark:bg-[#0B1224] dark:text-slate-200 dark:shadow-black/35"
             >
               {!enLinea ? (
                 <WifiOff className="h-3.5 w-3.5 text-amber-500" />
+              ) : conErrores > 0 && pendientesSync === 0 ? (
+                <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
               ) : (
                 <RefreshCw
                   className={`h-3.5 w-3.5 text-[#2F6BFF] ${isSyncing ? 'animate-spin' : ''}`}
@@ -202,6 +239,11 @@ export function DashboardHeader({
               {pendientesSync > 0 && (
                 <span className="tabular-nums font-bold text-[#2F6BFF] dark:text-[#6C97FF]">
                   {pendientesSync}
+                </span>
+              )}
+              {conErrores > 0 && (
+                <span className="tabular-nums font-bold text-red-600 dark:text-red-400">
+                  {conErrores}
                 </span>
               )}
             </button>
@@ -254,9 +296,23 @@ export function DashboardHeader({
               {activeSection.category}
             </span>
             <ChevronRight className="h-3 w-3 shrink-0 text-slate-300 dark:text-slate-600" />
-            <span className="truncate font-semibold text-[#2F6BFF] dark:text-[#6C97FF]">
+            <span
+              className={`truncate ${
+                detalleTitulo
+                  ? 'text-slate-400 dark:text-slate-500'
+                  : 'font-semibold text-[#2F6BFF] dark:text-[#6C97FF]'
+              }`}
+            >
               {displayTitle}
             </span>
+            {detalleTitulo && (
+              <>
+                <ChevronRight className="h-3 w-3 shrink-0 text-slate-300 dark:text-slate-600" />
+                <span className="truncate font-semibold text-[#2F6BFF] dark:text-[#6C97FF]">
+                  {detalleTitulo}
+                </span>
+              </>
+            )}
           </div>
 
           {/* Título Grande de la Sección */}
@@ -278,12 +334,26 @@ export function DashboardHeader({
               ))}
             </h1>
           </div>
+
+          {/* Estado de la vista (y descripción como tooltip) */}
+          {statusLabel && (
+            <p
+              title={slotState?.subtitle}
+              className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${statusTextClass}`}
+            >
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDotClass}`}
+              />
+              <span className="truncate">{statusLabel}</span>
+            </p>
+          )}
         </div>
 
         {/* Derecha: Todos los botones de acción de la sección activa, todos con el mismo tamaño */}
         <div
           ref={pageHeaderCtx?.setActionNode ?? undefined}
-          className="flex flex-wrap items-center gap-2.5 empty:hidden lg:justify-end [&_.flex]:gap-2.5 [&_button]:h-10 [&_button]:w-[192px] [&_button]:px-4 [&_button]:py-0 [&_button]:text-[13px] [&_button]:whitespace-nowrap"
+          className="flex flex-wrap items-center gap-2.5 empty:hidden lg:justify-end [&_.flex]:gap-2.5 [&_button]:h-10 [&_button]:w-full [&_button]:px-4 [&_button]:py-0 [&_button]:text-[13px] [&_button]:whitespace-nowrap sm:[&_button]:w-[192px]"
         />
       </div>
     </header>
