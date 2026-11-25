@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, UserCheck, Shield, Phone, Lock, Key, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, UserCheck, Phone, Lock, Key, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -37,8 +37,10 @@ export function ModalEditarUsuario({
   const [permisosSeleccionados, setPermisosSeleccionados] = useState<string[]>([]);
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [prevUsuario, setPrevUsuario] = useState<UsuarioAEditar | null>(null);
 
-  useEffect(() => {
+  if (usuario !== prevUsuario) {
+    setPrevUsuario(usuario);
     if (usuario) {
       setNombreCompleto(usuario.nombre_completo || '');
       setTelefono(usuario.telefono || '');
@@ -46,7 +48,7 @@ export function ModalEditarUsuario({
       setPermisosSeleccionados(usuario.permisos || []);
       setNuevaPassword('');
     }
-  }, [usuario]);
+  }
 
   if (!usuario) return null;
 

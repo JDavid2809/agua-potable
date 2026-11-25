@@ -268,13 +268,6 @@ function DesktopVerticalPill({
   }, [clearLeaveTimer]);
 
   useEffect(() => {
-    if (expanded) {
-      setIsHovering(false);
-      setGlideVertical(false);
-    }
-  }, [expanded]);
-
-  useEffect(() => {
     const updatePos = () => {
       const container = containerRef.current;
       const el = activeHref ? itemRefs.current[activeHref] : null;
@@ -454,7 +447,10 @@ function DesktopVerticalPill({
                 handleRowEnter('__toggle__', 'Mostrar menú', false)
               }
               onMouseLeave={handleRowLeave}
-              onClick={onToggleExpand}
+              onClick={() => {
+                handleNavLeave();
+                onToggleExpand();
+              }}
               aria-expanded={expanded}
               aria-label={
                 expanded

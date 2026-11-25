@@ -25,6 +25,7 @@ import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { dbLocal } from '@/lib/db/offline-db';
+import { guardarTomaLocal, eliminarTomaLocal } from '@/lib/sync/sync-engine';
 import { Button } from '@/components/ui/Button';
 import { StatusMark } from '@/components/ui/StatusMark';
 import { usePermisosUsuario } from '@/hooks/use-permisos-usuario';
@@ -109,6 +110,10 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        throw new Error('offline');
+      }
+
       // 1. Cargar tomas con persona y manzana sin truncamiento a 1,000 filas
       const dataTomas = await fetchAllRows<TomaDetallada>((from, to) =>
         supabase
@@ -147,6 +152,27 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
 
       if (errManzanas) throw errManzanas;
       setManzanas(dataManzanas || []);
+
+      // Actualizar caché local en IndexedDB sin bloquear la interfaz
+      try {
+        const tomasLimpias: Toma[] = (dataTomas || []).map((t) => {
+          const { persona: _p, manzana: _m, ...tomaBase } = t;
+          void _p;
+          void _m;
+          return tomaBase;
+        });
+        await Promise.all([
+          tomasLimpias.length > 0 ? dbLocal.tomas.bulkPut(tomasLimpias) : Promise.resolve(),
+          dataPersonas && dataPersonas.length > 0
+            ? dbLocal.personas.bulkPut(dataPersonas)
+            : Promise.resolve(),
+          dataManzanas && dataManzanas.length > 0
+            ? dbLocal.manzanas.bulkPut(dataManzanas)
+            : Promise.resolve(),
+        ]);
+      } catch {
+        // Ignorar errores de caché local
+      }
     } catch (err: unknown) {
       // Fallback offline desde IndexedDB (Dexie)
       try {
@@ -155,7 +181,8 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
           dbLocal.personas.toArray(),
           dbLocal.manzanas.toArray(),
         ]);
-        if (tomasLocal.length > 0 || personasLocal.length > 0) {
+        const estaOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+        if (estaOffline || tomasLocal.length > 0 || personasLocal.length > 0) {
           const mapaPersonas = new Map(personasLocal.map((p) => [p.id, p]));
           const mapaManzanas = new Map(manzanasLocal.map((m) => [m.id, m]));
           setManzanas(manzanasLocal.filter((m) => !m.deleted_at));
@@ -190,7 +217,13 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
   }, []);
 
   useEffect(() => {
-    cargarDatos();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void cargarDatos();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [cargarDatos]);
 
   const barriosDisponibles = useMemo(() => {
@@ -314,52 +347,40 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
 
     setGuardando(true);
     try {
+      const { sincronizado } = await guardarTomaLocal({
+        tomaEnEdicion,
+        personaId,
+        manzanaId: manzanaId || null,
+        codigoToma,
+        tipoToma,
+        estado: estadoToma,
+        direccionReferencia,
+        numeroMedidor,
+        saldoPendiente: saldoNum,
+      });
+
       if (tomaEnEdicion) {
-        const { error } = await supabase
-          .from('tomas')
-          .update({
-            persona_id: personaId,
-            manzana_id: manzanaId || null,
-            codigo_toma: codigoToma.trim().toUpperCase(),
-            tipo_toma: tipoToma,
-            estado: estadoToma,
-            direccion_referencia: direccionReferencia.trim(),
-            numero_medidor: numeroMedidor.trim() || null,
-            saldo_pendiente: saldoNum,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', tomaEnEdicion.id);
-
-        if (error) throw error;
-        sileo.success({ title: 'Toma actualizada', description: `Se actualizaron los datos de ${codigoToma}.` });
-      } else {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) throw new Error('Usuario no autenticado.');
-
-        const { data: perfil } = await supabase
-          .from('perfiles')
-          .select('organizacion_id')
-          .eq('id', user.id)
-          .single();
-
-        if (!perfil?.organizacion_id) throw new Error('Organización no detectada.');
-
-        const { error } = await supabase.from('tomas').insert({
-          organizacion_id: perfil.organizacion_id,
-          persona_id: personaId,
-          manzana_id: manzanaId || null,
-          codigo_toma: codigoToma.trim().toUpperCase(),
-          tipo_toma: tipoToma,
-          estado: estadoToma,
-          direccion_referencia: direccionReferencia.trim(),
-          numero_medidor: numeroMedidor.trim() || null,
-          saldo_pendiente: saldoNum,
+        if (sincronizado) {
+          sileo.success({
+            title: 'Toma actualizada',
+            description: `Se actualizaron los datos de ${codigoToma}.`,
+          });
+        } else {
+          sileo.info({
+            title: 'Toma actualizada sin conexión',
+            description: `Los cambios de ${codigoToma} quedaron guardados localmente. Se sincronizarán al volver internet.`,
+          });
+        }
+      } else if (sincronizado) {
+        sileo.success({
+          title: 'Toma registrada',
+          description: `La toma ${codigoToma} fue creada exitosamente.`,
         });
-
-        if (error) throw error;
-        sileo.success({ title: 'Toma registrada', description: `La toma ${codigoToma} fue creada exitosamente.` });
+      } else {
+        sileo.info({
+          title: 'Toma guardada sin conexión',
+          description: `La toma ${codigoToma} quedó guardada localmente. Se sincronizará al volver internet.`,
+        });
       }
 
       setVista('lista');
@@ -388,13 +409,18 @@ export function TomasManager({ onVistaChange }: TomasManagerProps = {}) {
     if (!confirmar) return;
 
     try {
-      const { error } = await supabase
-        .from('tomas')
-        .update({ deleted_at: new Date().toISOString(), estado: 'inactiva' })
-        .eq('id', t.id);
-
-      if (error) throw error;
-      sileo.success({ title: 'Toma dada de baja', description: `La toma ${t.codigo_toma} fue removida.` });
+      const { sincronizado } = await eliminarTomaLocal(t.id);
+      if (sincronizado) {
+        sileo.success({
+          title: 'Toma dada de baja',
+          description: `La toma ${t.codigo_toma} fue removida.`,
+        });
+      } else {
+        sileo.info({
+          title: 'Baja guardada sin conexión',
+          description: `La toma ${t.codigo_toma} fue removida localmente. Se sincronizará al volver internet.`,
+        });
+      }
       cargarDatos();
     } catch (err: unknown) {
       sileo.error({

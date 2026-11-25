@@ -21,18 +21,24 @@ export function ModalProrroga({
   onConfirmar,
   guardando,
 }: ModalProrrogaProps) {
+  const syncKey =
+    isOpen && cooperacion
+      ? `${cooperacion.id}:${cooperacion.fecha_prorroga || cooperacion.fecha_limite || ''}`
+      : '';
+  const [prevSyncKey, setPrevSyncKey] = useState(syncKey);
   const [nuevaFecha, setNuevaFecha] = useState(
     cooperacion?.fecha_prorroga || cooperacion?.fecha_limite || ''
   );
   const [motivo, setMotivo] = useState(cooperacion?.motivo_prorroga || '');
 
   // Sincronizar campos cuando cambie la cooperación o al abrirse
-  useEffect(() => {
+  if (syncKey !== prevSyncKey) {
+    setPrevSyncKey(syncKey);
     if (cooperacion) {
       setNuevaFecha(cooperacion.fecha_prorroga || cooperacion.fecha_limite || '');
       setMotivo(cooperacion.motivo_prorroga || '');
     }
-  }, [cooperacion, isOpen]);
+  }
 
   // Cerrar al presionar tecla Escape
   useEffect(() => {

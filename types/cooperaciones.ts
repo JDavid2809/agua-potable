@@ -26,6 +26,7 @@ export interface Cooperacion {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface CooperacionPadronItem {
@@ -63,5 +64,6 @@ export interface CooperacionAbono {
   cajero_id?: string;
   cajero?: Perfil;
   notas?: string;
+  created_at?: string;
 }
 

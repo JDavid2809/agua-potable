@@ -180,14 +180,46 @@ export interface TransaccionPagoData {
   detalles: PagoDetalle[];
 }
 
+export interface TransaccionAbonoCoopData {
+  abono_id: string;
+  organizacion_id: string;
+  padron_id: string;
+  folio_recibo: string;
+  monto_abono: number;
+  saldo_anterior: number;
+  saldo_restante: number;
+  metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta' | 'otro';
+  cajero_id?: string | null;
+  notas?: string | null;
+  fecha_pago: string;
+  nuevo_total_pagado: number;
+  nuevo_estado: 'pendiente' | 'parcial' | 'liquidado' | 'exento_faena';
+  fecha_liquidacion?: string | null;
+}
+
+export interface TransaccionFaenaCoopData {
+  padron_id: string;
+  fecha_faena: string;
+}
+
 /** Objeto en la cola de sincronización para enviar a Supabase cuando vuelva internet */
 export interface ElementoColaSync {
   id?: number; // Autoincremental en IndexedDB
-  tabla: 'transaccion_pago' | 'pagos' | 'pago_detalles' | 'personas' | 'tomas' | 'manzanas';
+  tabla:
+    | 'transaccion_pago'
+    | 'cooperacion_abono'
+    | 'cooperacion_faena'
+    | 'pagos'
+    | 'pago_detalles'
+    | 'personas'
+    | 'tomas'
+    | 'manzanas';
   accion: 'INSERT' | 'UPDATE' | 'DELETE';
   registro_id: string;
   datos:
     | TransaccionPagoData
+    | TransaccionAbonoCoopData
+    | TransaccionFaenaCoopData
     | Pago
     | PagoDetalle
     | Persona

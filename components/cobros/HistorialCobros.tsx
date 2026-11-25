@@ -155,7 +155,7 @@ export function HistorialCobros({
         <FilterSelect
           label="Método:"
           value={filtroMetodo}
-          onChange={(e) => setFiltroMetodo(e.target.value as any)}
+          onChange={(e) => setFiltroMetodo(e.target.value as typeof filtroMetodo)}
         >
           <option value="todos">Todos los métodos</option>
           <option value="efectivo">Efectivo</option>
@@ -166,7 +166,7 @@ export function HistorialCobros({
         <FilterSelect
           label="Estado:"
           value={filtroEstado}
-          onChange={(e) => setFiltroEstado(e.target.value as any)}
+          onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)}
         >
           <option value="todos">Todos los recibos</option>
           <option value="completado">Vigentes</option>

@@ -12,7 +12,9 @@ import { VentanillaCobro } from './VentanillaCobro';
 import { HistorialCobros } from './HistorialCobros';
 import { CorteCajaDiario } from './CorteCajaDiario';
 import { obtenerMensajeError } from '@/lib/utils/errors';
-import type { Persona, Toma, Pago, Organizacion } from '@/types/database';
+import type { Persona, Toma, Pago, Organizacion, Manzana, PagoDetalle } from '@/types/database';
+
+type TomaCobro = Toma & { persona?: Persona; manzana?: Partial<Manzana> };
 
 export function CobrosManager() {
   const searchParams = useSearchParams();
@@ -21,7 +23,7 @@ export function CobrosManager() {
 
   // Estados de datos
   const [personas, setPersonas] = useState<Persona[]>([]);
-  const [tomas, setTomas] = useState<(Toma & { persona?: Persona; manzana?: any })[]>([]);
+  const [tomas, setTomas] = useState<TomaCobro[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
   const [cajeroId, setCajeroId] = useState<string | undefined>(undefined);
@@ -68,7 +70,7 @@ export function CobrosManager() {
       }
 
       // 2. Cargar Tomas activas con su persona y manzana asociada sin límite de 1,000
-      const dataTomas = await fetchAllRows<any>((from, to) =>
+      const dataTomas = await fetchAllRows<TomaCobro>((from, to) =>
         supabase
           .from('tomas')
           .select(`
@@ -157,7 +159,7 @@ export function CobrosManager() {
           const mapaPersonas = new Map(personasLocal.map((p) => [p.id, p]));
           const mapaManzanas = new Map(manzanasLocal.map((m) => [m.id, m]));
           const mapaTomas = new Map(tomasLocal.map((t) => [t.id, t]));
-          const detallesPorPago = new Map<string, any[]>();
+          const detallesPorPago = new Map<string, PagoDetalle[]>();
           detallesLocal.forEach((d) => {
             const lista = detallesPorPago.get(d.pago_id) || [];
             lista.push({
@@ -204,7 +206,13 @@ export function CobrosManager() {
   }, []);
 
   useEffect(() => {
-    cargarDatos();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void cargarDatos();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [cargarDatos]);
 
   // Actualización rápida de cuota base
@@ -234,7 +242,7 @@ export function CobrosManager() {
         action={
           <PageTabs
             value={tabActiva}
-            onChange={(val) => setTabActiva(val as any)}
+            onChange={(val) => setTabActiva(val as 'ventanilla' | 'historial' | 'corte')}
             items={[
               {
                 value: 'ventanilla',

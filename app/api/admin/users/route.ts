@@ -161,6 +161,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Impedir que un usuario no administrador cree cuentas con rol de administrador
+    if (rol === 'administrador' && perfilAdmin.rol !== 'administrador') {
+      return NextResponse.json(
+        { error: 'Solo un administrador puede crear cuentas con rol de administrador.' },
+        { status: 403 }
+      );
+    }
+
     if (typeof password !== 'string' || password.length < 6) {
       return NextResponse.json(
         { error: 'La contraseña debe tener al menos 6 caracteres.' },
@@ -383,10 +391,32 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Si se modifica el propio usuario admin, evitar que se degrade a un rol inferior
-    if (userId === user.id && rol !== 'administrador') {
+    // Impedir escalada de privilegios: un no-administrador no puede modificar administradores ni asignar rol administrador
+    if (usuarioObjetivo.rol === 'administrador' && perfilAdmin.rol !== 'administrador') {
+      return NextResponse.json(
+        { error: 'Solo un administrador puede modificar la cuenta de otro administrador.' },
+        { status: 403 }
+      );
+    }
+
+    if (rol === 'administrador' && perfilAdmin.rol !== 'administrador') {
+      return NextResponse.json(
+        { error: 'Solo un administrador puede asignar el rol de administrador.' },
+        { status: 403 }
+      );
+    }
+
+    // Si un administrador se modifica a sí mismo, evitar que se degrade a un rol inferior
+    if (userId === user.id && perfilAdmin.rol === 'administrador' && rol !== 'administrador') {
       return NextResponse.json(
         { error: 'No puedes cambiar tu propio rol de administrador.' },
+        { status: 400 }
+      );
+    }
+
+    if (typeof password === 'string' && password.trim().length > 0 && password.trim().length < 6) {
+      return NextResponse.json(
+        { error: 'La nueva contraseña debe tener al menos 6 caracteres.' },
         { status: 400 }
       );
     }
@@ -395,8 +425,10 @@ export async function PUT(request: Request) {
     if (rol === 'administrador') {
       permisosFinales = ['*'] as unknown as PermisoSistema[];
     } else if (Array.isArray(permisos)) {
-      permisosFinales = permisos.filter((p: PermisoSistema) =>
-        PERMISOS_PERMITIDOS.includes(p)
+      permisosFinales = Array.from(
+        new Set(
+          permisos.filter((p: PermisoSistema) => PERMISOS_PERMITIDOS.includes(p))
+        )
       );
     }
 

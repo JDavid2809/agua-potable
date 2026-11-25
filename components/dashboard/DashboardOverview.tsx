@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import {
   Droplets,
@@ -56,6 +56,8 @@ const METODO_COLORES: Record<string, { label: string; color: string }> = {
   otro: { label: 'Otro', color: '#F59E0B' },
 };
 
+const emptySubscribe = () => () => {};
+
 export function DashboardOverview({
   tomas,
   totalTomasCount,
@@ -66,13 +68,13 @@ export function DashboardOverview({
   perfil,
   esAdmin,
 }: DashboardOverviewProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
   const [periodoVista, setPeriodoVista] = useState<'6m' | 'anio'>('6m');
   const [tipoGrafica, setTipoGrafica] = useState<'area' | 'barras'>('area');
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const moneda = organizacion?.config?.moneda || 'MXN';
 

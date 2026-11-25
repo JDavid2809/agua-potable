@@ -164,8 +164,9 @@ export function FilterSelect({
     const items: FilterSelectOption[] = [];
     React.Children.forEach(children, (child) => {
       if (React.isValidElement(child)) {
-        const val = (child.props as any).value ?? '';
-        const lbl = (child.props as any).children ?? val;
+        const childProps = child.props as { value?: unknown; children?: unknown };
+        const val = childProps.value ?? '';
+        const lbl = childProps.children ?? val;
         items.push({ value: String(val), label: String(lbl) });
       }
     });

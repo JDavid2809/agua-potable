@@ -27,7 +27,7 @@ import {
 import { exportarMultiplesHojasAExcel } from '@/lib/utils/export-excel';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 import { sileo } from 'sileo';
-import type { Toma, Pago } from '@/types/database';
+import type { Toma, Pago, PagoDetalle } from '@/types/database';
 
 const MESES_CORTOS = [
   'Ene',
@@ -128,7 +128,7 @@ export function ModalEstadoCuenta({
         ]);
 
         const mapaTomas = new Map(tomasLocal.map((t) => [t.id, t]));
-        const detallesPorPago = new Map<string, any[]>();
+        const detallesPorPago = new Map<string, PagoDetalle[]>();
         for (const d of detallesLocal) {
           const arr = detallesPorPago.get(d.pago_id) || [];
           arr.push({ ...d, toma: mapaTomas.get(d.toma_id) });
@@ -162,7 +162,13 @@ export function ModalEstadoCuenta({
   }, [personaId, tomasIniciales]);
 
   useEffect(() => {
-    cargarEstadoCuenta();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void cargarEstadoCuenta();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [cargarEstadoCuenta]);
 
   // Años disponibles en el selector (año actual, anterior y años con pagos)

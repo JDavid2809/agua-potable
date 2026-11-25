@@ -450,7 +450,7 @@ export function ImportadorCensoExcel({
       for (let offset = 0; offset < seleccionados.length; offset += TAMANIO_LOTE) {
         const lote = seleccionados.slice(offset, offset + TAMANIO_LOTE);
 
-        const registrosNuevos: { indexEnLote: number; payload: any }[] = [];
+        const registrosNuevos: { indexEnLote: number; payload: Record<string, unknown> }[] = [];
         const personaIdPorIndex = new Map<number, string>();
 
         lote.forEach((r, idx) => {
@@ -491,7 +491,7 @@ export function ImportadorCensoExcel({
           totalPersonasCreadas += personasGuardadas.length;
         }
 
-        const tomasPayload: any[] = [];
+        const tomasPayload: Record<string, unknown>[] = [];
         lote.forEach((r, idx) => {
           const personaId = personaIdPorIndex.get(idx);
           if (!personaId) return;

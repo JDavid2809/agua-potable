@@ -41,6 +41,8 @@ export interface VentanillaCobroAbonosProps {
   }) => Promise<void>;
   onAcreditarFaena: (item: CooperacionPadronItem) => Promise<void>;
   guardando: boolean;
+  puedeCobrar?: boolean;
+  puedeAcreditarFaena?: boolean;
 }
 
 export function limpiarDireccion(direccion?: string | null): string {
@@ -67,6 +69,8 @@ export function VentanillaCobroAbonos({
   onRegistrarAbono,
   onAcreditarFaena,
   guardando,
+  puedeCobrar = true,
+  puedeAcreditarFaena = true,
 }: VentanillaCobroAbonosProps) {
   const [busqueda, setBusqueda] = useState('');
   const [dropdownAbierto, setDropdownAbierto] = useState(false);
@@ -79,9 +83,11 @@ export function VentanillaCobroAbonos({
   const [metodoPago, setMetodoPago] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [efectivoRecibido, setEfectivoRecibido] = useState('');
   const [notas, setNotas] = useState('');
+  const [prevItem, setPrevItem] = useState<CooperacionPadronItem | null>(itemSeleccionado);
 
   // Sincronizar monto por defecto al cambiar de aportante
-  useEffect(() => {
+  if (itemSeleccionado !== prevItem) {
+    setPrevItem(itemSeleccionado);
     if (itemSeleccionado) {
       if (itemSeleccionado.monto_pendiente > 0) {
         setTipoPago('total');
@@ -93,7 +99,7 @@ export function VentanillaCobroAbonos({
       setEfectivoRecibido('');
       setNotas('');
     }
-  }, [itemSeleccionado]);
+  }
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -454,7 +460,7 @@ export function VentanillaCobroAbonos({
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={guardando}
+                    disabled={!puedeAcreditarFaena || guardando}
                     onClick={() => onAcreditarFaena(itemSeleccionado)}
                     className="border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10 shrink-0"
                   >
@@ -736,19 +742,28 @@ export function VentanillaCobroAbonos({
                 />
               </div>
 
+              {!puedeCobrar && (
+                <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Solo tienes acceso de consulta en cooperaciones. No cuentas con permiso para registrar abonos.</span>
+                </div>
+              )}
+
               {/* Botón de Confirmación y Cobro */}
               <Button
                 type="submit"
                 variant="primary"
                 size="lg"
-                disabled={guardando || montoAbonar <= 0}
+                disabled={!puedeCobrar || guardando || montoAbonar <= 0}
                 className="w-full justify-center text-sm font-bold shadow-md"
               >
                 <Receipt className="w-4 h-4 mr-1.5" />
                 <span>
-                  {guardando
-                    ? 'Procesando cobro...'
-                    : `Cobrar $${montoAbonar.toFixed(2)} y Generar Recibo`}
+                  {!puedeCobrar
+                    ? 'Sin permiso para cobrar'
+                    : guardando
+                      ? 'Procesando cobro...'
+                      : `Cobrar $${montoAbonar.toFixed(2)} y Generar Recibo`}
                 </span>
               </Button>
             </form>

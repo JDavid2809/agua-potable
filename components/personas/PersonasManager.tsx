@@ -32,6 +32,11 @@ import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/fetch-all';
 import { dbLocal } from '@/lib/db/offline-db';
+import {
+  guardarPersonaLocal,
+  eliminarPersonaLocal,
+  guardarTomaLocal,
+} from '@/lib/sync/sync-engine';
 import { Button } from '@/components/ui/Button';
 import { StatusMark } from '@/components/ui/StatusMark';
 import { usePermisosUsuario } from '@/hooks/use-permisos-usuario';
@@ -132,6 +137,10 @@ export function PersonasManager() {
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        throw new Error('offline');
+      }
+
       // Cargar manzanas activas
       const { data: dataManzanas, error: errManzanas } = await supabase
         .from('manzanas')
@@ -144,7 +153,7 @@ export function PersonasManager() {
       setManzanas(dataManzanas || []);
 
       // Cargar 100% de personas con tomas y sus manzanas asociadas sin truncamiento a 1,000 filas
-      const dataPersonas = await fetchAllRows<any>((from, to) =>
+      const dataPersonas = await fetchAllRows<PersonaConTomas>((from, to) =>
         supabase
           .from('personas')
           .select(`
@@ -179,12 +188,41 @@ export function PersonasManager() {
       );
 
       // Limpiar tomas con baja lógica de la vista activa
-      const formateadas: PersonaConTomas[] = (dataPersonas || []).map((p: any) => ({
+      const formateadas: PersonaConTomas[] = (dataPersonas || []).map((p) => ({
         ...p,
-        tomas: (p.tomas || []).filter((t: any) => !t.deleted_at),
+        tomas: (p.tomas || []).filter((t) => !t.deleted_at),
       }));
 
       setPersonas(formateadas);
+
+      // Actualizar caché local Dexie en segundo plano sin bloquear la UI
+      try {
+        const personasLimpias: Persona[] = formateadas.map((p) => {
+          const { tomas: _t, ...personaBase } = p;
+          void _t;
+          return personaBase;
+        });
+        const tomasLimpias: Toma[] = [];
+        formateadas.forEach((p) => {
+          (p.tomas || []).forEach((t) => {
+            const { manzana: _m, ...tomaBase } = t;
+            void _m;
+            tomasLimpias.push(tomaBase);
+          });
+        });
+
+        await Promise.all([
+          dataManzanas && dataManzanas.length > 0
+            ? dbLocal.manzanas.bulkPut(dataManzanas)
+            : Promise.resolve(),
+          personasLimpias.length > 0
+            ? dbLocal.personas.bulkPut(personasLimpias)
+            : Promise.resolve(),
+          tomasLimpias.length > 0 ? dbLocal.tomas.bulkPut(tomasLimpias) : Promise.resolve(),
+        ]);
+      } catch {
+        // Ignorar errores de caché local
+      }
     } catch (err: unknown) {
       // Fallback offline desde IndexedDB (Dexie)
       try {
@@ -193,9 +231,10 @@ export function PersonasManager() {
           dbLocal.tomas.toArray(),
           dbLocal.manzanas.toArray(),
         ]);
-        if (personasLocal.length > 0 || manzanasLocal.length > 0) {
+        const estaOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+        if (estaOffline || personasLocal.length > 0 || manzanasLocal.length > 0) {
           const mapaManzanas = new Map(manzanasLocal.map((m) => [m.id, m]));
-          const tomasPorPersona = new Map<string, any[]>();
+          const tomasPorPersona = new Map<string, TomaConManzana[]>();
           tomasLocal.forEach((t) => {
             if (t.deleted_at) return;
             const lista = tomasPorPersona.get(t.persona_id) || [];
@@ -232,7 +271,13 @@ export function PersonasManager() {
   }, []);
 
   useEffect(() => {
-    cargarDatos();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void cargarDatos();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [cargarDatos]);
 
   // Lista única de barrios existentes en manzanas
@@ -403,94 +448,58 @@ export function PersonasManager() {
 
     setGuardando(true);
     try {
-      // 1. Obtener organización activa
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario no autenticado.');
-
-      const { data: perfil, error: errPerfil } = await supabase
-        .from('perfiles')
-        .select('organizacion_id')
-        .eq('id', user.id)
-        .single();
-
-      if (errPerfil || !perfil?.organizacion_id) {
-        throw new Error('No se detectó una organización activa vinculada a tu cuenta.');
-      }
-
-      const orgId = perfil.organizacion_id;
+      const resultado = await guardarPersonaLocal({
+        personaEnEdicion,
+        nombreCompleto,
+        documentoIdentidad,
+        telefono,
+        direccion,
+        notas,
+        activo,
+        tomaInicial:
+          !personaEnEdicion && incluirTomaInicial
+            ? {
+                manzanaId: manzanaIdSeleccionada || null,
+                codigoToma,
+                direccionReferencia,
+                tipoToma,
+                numeroMedidor,
+              }
+            : null,
+      });
 
       if (personaEnEdicion) {
-        // Actualizar persona
-        const { error: errUpdate } = await supabase
-          .from('personas')
-          .update({
-            nombre_completo: nombreCompleto.trim(),
-            documento_identidad: documentoIdentidad.trim() || null,
-            telefono: telefono.trim() || null,
-            direccion: direccion.trim() || null,
-            notas: notas.trim() || null,
-            activo,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', personaEnEdicion.id);
-
-        if (errUpdate) throw errUpdate;
-
-        sileo.success({
-          title: 'Datos actualizados',
-          description: `Se actualizaron los datos de ${nombreCompleto}.`,
-        });
-      } else {
-        // Crear persona
-        const { data: nuevaPersona, error: errPersona } = await supabase
-          .from('personas')
-          .insert({
-            organizacion_id: orgId,
-            nombre_completo: nombreCompleto.trim(),
-            documento_identidad: documentoIdentidad.trim() || null,
-            telefono: telefono.trim() || null,
-            direccion: direccion.trim() || null,
-            notas: notas.trim() || null,
-            activo: true,
-          })
-          .select()
-          .single();
-
-        if (errPersona || !nuevaPersona) throw errPersona || new Error('Error al registrar persona.');
-
-        // Crear toma inicial si se seleccionó
-        if (incluirTomaInicial) {
-          const { error: errToma } = await supabase.from('tomas').insert({
-            organizacion_id: orgId,
-            persona_id: nuevaPersona.id,
-            manzana_id: manzanaIdSeleccionada || null,
-            codigo_toma: codigoToma.trim().toUpperCase(),
-            direccion_referencia: direccionReferencia.trim(),
-            tipo_toma: tipoToma,
-            estado: 'activa',
-            numero_medidor: numeroMedidor.trim() || null,
-            saldo_pendiente: 0.0,
-          });
-
-          if (errToma) {
-            sileo.warning({
-              title: 'Persona creada con advertencia',
-              description: `Se creó la persona pero ocurrió un detalle con la toma: ${errToma.message}`,
-            });
-          } else {
-            sileo.success({
-              title: 'Titular y Toma registrados',
-              description: `${nombreCompleto} ha sido registrado con la toma ${codigoToma}.`,
-            });
-          }
-        } else {
+        if (resultado.sincronizado) {
           sileo.success({
-            title: 'Titular registrado',
-            description: `${nombreCompleto} ha sido dado de alta en el padrón.`,
+            title: 'Datos actualizados',
+            description: `Se actualizaron los datos de ${nombreCompleto}.`,
+          });
+        } else {
+          sileo.info({
+            title: 'Cambios guardados sin conexión',
+            description: `Se actualizaron los datos de ${nombreCompleto} localmente. Se sincronizarán al volver internet.`,
           });
         }
+      } else if (resultado.tomaError) {
+        sileo.warning({
+          title: 'Persona creada con advertencia',
+          description: `Se creó la persona pero ocurrió un detalle con la toma: ${resultado.tomaError}`,
+        });
+      } else if (!resultado.sincronizado) {
+        sileo.info({
+          title: incluirTomaInicial ? 'Titular y Toma guardados offline' : 'Titular guardado offline',
+          description: `${nombreCompleto} quedó guardado localmente. Se sincronizará al volver internet.`,
+        });
+      } else if (incluirTomaInicial) {
+        sileo.success({
+          title: 'Titular y Toma registrados',
+          description: `${nombreCompleto} ha sido registrado con la toma ${codigoToma}.`,
+        });
+      } else {
+        sileo.success({
+          title: 'Titular registrado',
+          description: `${nombreCompleto} ha sido dado de alta en el padrón.`,
+        });
       }
 
       setVista('lista');
@@ -540,37 +549,28 @@ export function PersonasManager() {
 
     setGuardando(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario no autenticado.');
-
-      const { data: perfil } = await supabase
-        .from('perfiles')
-        .select('organizacion_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!perfil?.organizacion_id) throw new Error('Organización no detectada.');
-
-      const { error } = await supabase.from('tomas').insert({
-        organizacion_id: perfil.organizacion_id,
-        persona_id: personaParaToma.id,
-        manzana_id: manzanaIdNuevaToma || null,
-        codigo_toma: codigoNuevaToma.trim().toUpperCase(),
-        direccion_referencia: referenciaNuevaToma.trim(),
-        tipo_toma: tipoNuevaToma,
+      const { sincronizado } = await guardarTomaLocal({
+        personaId: personaParaToma.id,
+        manzanaId: manzanaIdNuevaToma || null,
+        codigoToma: codigoNuevaToma,
+        tipoToma: tipoNuevaToma,
         estado: 'activa',
-        numero_medidor: medidorNuevaToma.trim() || null,
-        saldo_pendiente: 0.0,
+        direccionReferencia: referenciaNuevaToma,
+        numeroMedidor: medidorNuevaToma,
+        saldoPendiente: 0.0,
       });
 
-      if (error) throw error;
-
-      sileo.success({
-        title: 'Toma asignada',
-        description: `Se asignó la toma ${codigoNuevaToma} a ${personaParaToma.nombre_completo}.`,
-      });
+      if (sincronizado) {
+        sileo.success({
+          title: 'Toma asignada',
+          description: `Se asignó la toma ${codigoNuevaToma} a ${personaParaToma.nombre_completo}.`,
+        });
+      } else {
+        sileo.info({
+          title: 'Toma guardada sin conexión',
+          description: `La toma ${codigoNuevaToma} quedó guardada localmente para ${personaParaToma.nombre_completo}. Se sincronizará al volver internet.`,
+        });
+      }
 
       setVista('lista');
       setPersonaParaToma(null);
@@ -602,17 +602,19 @@ export function PersonasManager() {
     if (!confirmar) return;
 
     try {
-      const { error } = await supabase
-        .from('personas')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', p.id);
+      const { sincronizado } = await eliminarPersonaLocal(p.id);
 
-      if (error) throw error;
-
-      sileo.success({
-        title: 'Titular eliminado',
-        description: `${p.nombre_completo} fue dado de baja correctamente.`,
-      });
+      if (sincronizado) {
+        sileo.success({
+          title: 'Titular eliminado',
+          description: `${p.nombre_completo} fue dado de baja correctamente.`,
+        });
+      } else {
+        sileo.info({
+          title: 'Baja guardada sin conexión',
+          description: `${p.nombre_completo} fue retirado localmente. Se sincronizará al volver internet.`,
+        });
+      }
 
       cargarDatos();
     } catch (err: unknown) {

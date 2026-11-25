@@ -1,6 +1,14 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Download, Share, PlusSquare, X, Smartphone } from 'lucide-react';
 import { sileo } from 'sileo';
 import { Button } from '@/components/ui/Button';
@@ -32,24 +40,38 @@ export function usePwa() {
   return useContext(PwaContext);
 }
 
+const emptySubscribe = () => () => {};
+
+function detectarIOSCliente(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    /iPad|iPhone|iPod/.test(window.navigator.userAgent) &&
+    !(window as unknown as { MSStream?: unknown }).MSStream
+  );
+}
+
+function detectarStandaloneCliente(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  );
+}
+
 export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const isIOS = useSyncExternalStore(emptySubscribe, detectarIOSCliente, () => false);
+  const isStandalone = useSyncExternalStore(
+    emptySubscribe,
+    detectarStandaloneCliente,
+    () => false
+  );
+  const [installedByEvent, setInstalledByEvent] = useState(false);
+  const isInstalled = isStandalone || installedByEvent;
   const [iosGuideOpen, setIosGuideOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const standaloneMatch =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-    setIsInstalled(standaloneMatch);
-
-    const ua = window.navigator.userAgent;
-    const iosDetected =
-      /iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream;
-    setIsIOS(iosDetected);
 
     // Registrar Service Worker
     if ('serviceWorker' in navigator) {
@@ -85,7 +107,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
 
     const handleAppInstalled = () => {
       setDeferredPrompt(null);
-      setIsInstalled(true);
+      setInstalledByEvent(true);
       setIosGuideOpen(false);
       sileo.success({
         title: '¡Aplicación instalada!',

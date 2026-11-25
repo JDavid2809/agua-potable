@@ -36,16 +36,17 @@ import {
 import { ModalEstadoCuenta } from '@/components/cobros/ModalEstadoCuenta';
 import { exportarAExcel, exportarMultiplesHojasAExcel } from '@/lib/utils/export-excel';
 import { obtenerMensajeError } from '@/lib/utils/errors';
-import type { Toma, Persona, Pago } from '@/types/database';
+import type { Toma, Persona, Pago, Manzana, PagoDetalle } from '@/types/database';
 import type { Cooperacion } from '@/types/cooperaciones';
 
 type RangoPredefinido = 'hoy' | 'semana' | 'mes' | 'anio' | 'todo' | 'personalizado';
+type TomaReporte = Toma & { persona?: Persona; manzana?: Partial<Manzana> };
 
 export function ReportesManager() {
   const [tabActiva, setTabActiva] = useState<'ingresos' | 'deudores' | 'obras'>('ingresos');
   const [cargando, setCargando] = useState(true);
 
-  const [tomas, setTomas] = useState<(Toma & { persona?: Persona; manzana?: any })[]>([]);
+  const [tomas, setTomas] = useState<TomaReporte[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [cooperaciones, setCooperaciones] = useState<Cooperacion[]>([]);
   const [recaudadoPorCoop, setRecaudadoPorCoop] = useState<Record<string, number>>({});
@@ -75,7 +76,7 @@ export function ReportesManager() {
       setCargando(true);
 
       const [dataTomas, dataPagos, resCoops, resPadronCoop] = await Promise.all([
-        fetchAllRows<any>((from, to) =>
+        fetchAllRows<TomaReporte>((from, to) =>
           supabase
             .from('tomas')
             .select(`
@@ -88,7 +89,7 @@ export function ReportesManager() {
             .order('id', { ascending: true })
             .range(from, to)
         ),
-        fetchAllRows<any>((from, to) =>
+        fetchAllRows<Pago>((from, to) =>
           supabase
             .from('pagos')
             .select(`
@@ -144,7 +145,7 @@ export function ReportesManager() {
         const mapaPersonas = new Map(personasLocal.map((p) => [p.id, p]));
         const mapaManzanas = new Map(manzanasLocal.map((m) => [m.id, m]));
         const mapaTomas = new Map(tomasLocal.map((t) => [t.id, t]));
-        const detallesPorPago = new Map<string, any[]>();
+        const detallesPorPago = new Map<string, PagoDetalle[]>();
         detallesLocal.forEach((d) => {
           const arr = detallesPorPago.get(d.pago_id) || [];
           arr.push({ ...d, toma: mapaTomas.get(d.toma_id) });
@@ -177,7 +178,13 @@ export function ReportesManager() {
   }, []);
 
   useEffect(() => {
-    cargarDatos();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void cargarDatos();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [cargarDatos]);
 
   // Barrios disponibles
@@ -279,7 +286,7 @@ export function ReportesManager() {
       {
         key: string;
         persona?: Persona;
-        tomasConDeuda: (Toma & { manzana?: any })[];
+        tomasConDeuda: TomaReporte[];
         todasLasTomas: Toma[];
         adeudoTotal: number;
         barrios: string[];

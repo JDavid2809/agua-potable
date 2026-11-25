@@ -27,6 +27,12 @@ import {
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
 import { fetchAllRows, insertInBatches } from '@/lib/supabase/fetch-all';
+import { dbLocal } from '@/lib/db/offline-db';
+import {
+  registrarAbonoCooperacionLocal,
+  acreditarFaenaCooperacionLocal,
+  esErrorDeRed,
+} from '@/lib/sync/sync-engine';
 import { PageHeader, PageTabs } from '@/components/ui/PageHeader';
 import { Card, CardGroup } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -58,7 +64,11 @@ import { obtenerMensajeError } from '@/lib/utils/errors';
 export function CooperacionesManager() {
   const { puede } = usePermisosUsuario();
   const puedeGestionarCoop = puede('cooperaciones.gestionar');
-  void puedeGestionarCoop;
+  const puedeCobrarCoop =
+    puede('cooperaciones.cobrar') ||
+    puede('cooperaciones.gestionar') ||
+    puede('cobros.crear');
+  const puedeAcreditarFaena = puedeGestionarCoop || puedeCobrarCoop;
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
@@ -113,11 +123,116 @@ export function CooperacionesManager() {
   }, [cooperaciones, coopSeleccionadaId]);
 
   /* ─────────────────────────────────────────────────────────────
-     CARGA DE DATOS 100% REALES DESDE SUPABASE
+     CARGA DE DATOS (ONLINE-FIRST CON FALLBACK OFFLINE EN DEXIE)
   ───────────────────────────────────────────────────────────── */
+  const cargarDesdeCacheLocal = useCallback(async () => {
+    const [
+      regOrgCache,
+      personasLocal,
+      tomasLocal,
+      coopsLocal,
+      padronLocal,
+      abonosLocal,
+    ] = await Promise.all([
+      dbLocal.config_sync.get('organizacion_cache'),
+      dbLocal.personas.toArray(),
+      dbLocal.tomas.toArray(),
+      dbLocal.cooperaciones.toArray(),
+      dbLocal.cooperacion_padron.toArray(),
+      dbLocal.cooperacion_abonos.toArray(),
+    ]);
+
+    if (regOrgCache?.valor) {
+      try {
+        setOrganizacion(JSON.parse(regOrgCache.valor) as Organizacion);
+      } catch {
+        // Ignorar caché de organización inválida
+      }
+    }
+
+    const personasActivas = personasLocal
+      .filter((p) => !p.deleted_at)
+      .sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo, 'es'));
+    const mapaPersonas = new Map(personasActivas.map((p) => [p.id, p]));
+
+    const tomasActivas = tomasLocal
+      .filter((t) => !t.deleted_at)
+      .sort((a, b) => (a.codigo_toma || '').localeCompare(b.codigo_toma || '', 'es'))
+      .map((t) => ({
+        ...t,
+        persona: mapaPersonas.get(t.persona_id),
+      }));
+
+    const coopsActivas = coopsLocal
+      .filter((c) => !c.deleted_at)
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
+    const padronPorId = new Map(padronLocal.map((p) => [p.id, p]));
+    const mapaTotales: Record<string, number> = {};
+    abonosLocal.forEach((ab) => {
+      const padronRow = padronPorId.get(ab.padron_id);
+      if (padronRow?.cooperacion_id) {
+        mapaTotales[padronRow.cooperacion_id] =
+          (mapaTotales[padronRow.cooperacion_id] || 0) + Number(ab.monto_abono || 0);
+      }
+    });
+
+    setPersonas(personasActivas);
+    setTomas(tomasActivas);
+    setCooperaciones(coopsActivas);
+    setRecaudadoPorCoop(mapaTotales);
+
+    return {
+      tieneDatos: coopsActivas.length > 0 || personasActivas.length > 0,
+    };
+  }, []);
+
+  const cargarPadronDesdeCacheLocal = useCallback(async (coopId: string) => {
+    const [padronLocal, personasLocal, tomasLocal, abonosLocal] = await Promise.all([
+      dbLocal.cooperacion_padron.where('cooperacion_id').equals(coopId).toArray(),
+      dbLocal.personas.toArray(),
+      dbLocal.tomas.toArray(),
+      dbLocal.cooperacion_abonos.toArray(),
+    ]);
+
+    const mapaPersonas = new Map(personasLocal.map((p) => [p.id, p]));
+    const mapaTomas = new Map(tomasLocal.map((t) => [t.id, t]));
+    const abonosPorPadron = new Map<string, CooperacionAbono[]>();
+
+    abonosLocal.forEach((ab) => {
+      const lista = abonosPorPadron.get(ab.padron_id) || [];
+      lista.push(ab);
+      abonosPorPadron.set(ab.padron_id, lista);
+    });
+
+    const hidratados: CooperacionPadronItem[] = padronLocal
+      .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+      .map((item) => ({
+        ...item,
+        persona: mapaPersonas.get(item.persona_id),
+        toma: item.toma_id ? mapaTomas.get(item.toma_id) : undefined,
+        abonos: (abonosPorPadron.get(item.id) || []).sort((a, b) =>
+          (b.fecha_pago || '').localeCompare(a.fecha_pago || '')
+        ),
+      }));
+
+    setPadron(hidratados);
+  }, []);
+
   const cargarDatos = useCallback(async () => {
     try {
       setCargando(true);
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const { tieneDatos } = await cargarDesdeCacheLocal();
+        if (tieneDatos) {
+          sileo.info({
+            title: 'Modo sin conexión',
+            description: 'Mostrando cooperaciones guardadas en este dispositivo.',
+          });
+        }
+        return;
+      }
 
       // 1. Obtener usuario y organización de sesión
       const {
@@ -187,9 +302,42 @@ export function CooperacionesManager() {
         const listaCoops = (coopsRes.data || []) as unknown as Cooperacion[];
         setCooperaciones(listaCoops);
 
+        // Cachear catálogo base en IndexedDB para operación offline
+        try {
+          const tomasLimpias: Toma[] = tomasCargadas.map((t) => {
+            const { persona: _p, manzana: _m, ...tomaBase } = t;
+            void _p;
+            void _m;
+            return tomaBase;
+          });
+          await Promise.all([
+            org
+              ? dbLocal.config_sync.put({
+                  clave: 'organizacion_cache',
+                  valor: JSON.stringify(org),
+                })
+              : Promise.resolve(),
+            personasCargadas.length > 0
+              ? dbLocal.personas.bulkPut(personasCargadas)
+              : Promise.resolve(),
+            tomasLimpias.length > 0 ? dbLocal.tomas.bulkPut(tomasLimpias) : Promise.resolve(),
+            listaCoops.length > 0 ? dbLocal.cooperaciones.bulkPut(listaCoops) : Promise.resolve(),
+          ]);
+        } catch {
+          // Ignorar errores de caché local
+        }
+
         // 3. Cargar recaudación real de todas las cooperaciones sin límite de 1,000 filas
         if (listaCoops.length > 0) {
-          const abonosData = await fetchAllRows<any>((from, to) =>
+          interface AbonoResumenRow {
+            monto_abono?: number | null;
+            padron?:
+              | { cooperacion_id?: string }
+              | { cooperacion_id?: string }[]
+              | null;
+          }
+
+          const abonosData = await fetchAllRows<AbonoResumenRow>((from, to) =>
             supabase
               .from('cooperacion_abonos')
               .select('monto_abono, padron:cooperacion_padron!inner(cooperacion_id)')
@@ -198,8 +346,9 @@ export function CooperacionesManager() {
           );
 
           const mapaTotales: Record<string, number> = {};
-          (abonosData || []).forEach((ab: any) => {
-            const coopId = ab.padron?.cooperacion_id;
+          (abonosData || []).forEach((ab) => {
+            const padronObj = Array.isArray(ab.padron) ? ab.padron[0] : ab.padron;
+            const coopId = padronObj?.cooperacion_id;
             if (coopId) {
               mapaTotales[coopId] = (mapaTotales[coopId] || 0) + Number(ab.monto_abono || 0);
             }
@@ -208,6 +357,19 @@ export function CooperacionesManager() {
         }
       }
     } catch (err: unknown) {
+      try {
+        const { tieneDatos } = await cargarDesdeCacheLocal();
+        if (tieneDatos || esErrorDeRed(err)) {
+          sileo.info({
+            title: 'Modo sin conexión',
+            description: 'Mostrando cooperaciones guardadas en este dispositivo.',
+          });
+          return;
+        }
+      } catch {
+        // Ignorar fallo de caché local
+      }
+
       sileo.error({
         title: 'Error de carga',
         description: obtenerMensajeError(err, 'No se pudieron consultar los datos de cooperaciones.'),
@@ -215,19 +377,64 @@ export function CooperacionesManager() {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [cargarDesdeCacheLocal]);
 
   useEffect(() => {
-    cargarDatos();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void cargarDatos();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [cargarDatos]);
 
   /* ─────────────────────────────────────────────────────────────
      CARGA DEL PADRÓN REAL AL ENTRAR A UNA COOPERACIÓN
   ───────────────────────────────────────────────────────────── */
+  const cachearPadronLocalmente = async (lista: CooperacionPadronItem[]) => {
+    try {
+      if (lista.length === 0) return;
+      const padronLimpio: CooperacionPadronItem[] = lista.map((row) => {
+        const { persona: _p, toma: _t, abonos: _a, ...base } = row;
+        void _p;
+        void _t;
+        void _a;
+        return base;
+      });
+      const abonosLista: CooperacionAbono[] = [];
+      lista.forEach((row) => {
+        (row.abonos || []).forEach((ab) => {
+          const { cajero: _c, ...abonoBase } = ab;
+          void _c;
+          abonosLista.push(abonoBase);
+        });
+      });
+      await dbLocal.transaction(
+        'rw',
+        [dbLocal.cooperacion_padron, dbLocal.cooperacion_abonos],
+        async () => {
+          await dbLocal.cooperacion_padron.bulkPut(padronLimpio);
+          if (abonosLista.length > 0) {
+            await dbLocal.cooperacion_abonos.bulkPut(abonosLista);
+          }
+        }
+      );
+    } catch {
+      // Ignorar fallo de caché local
+    }
+  };
+
   const cargarPadronDeCoop = useCallback(
     async (coop: Cooperacion) => {
       try {
         setCargandoPadron(true);
+
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          await cargarPadronDesdeCacheLocal(coop.id);
+          return;
+        }
+
         // Cargar 100% de los aportantes del padrón real paginando sin truncamiento a 1,000
         const padronData = await fetchAllRows<CooperacionPadronItem>((from, to) =>
           supabase
@@ -247,6 +454,7 @@ export function CooperacionesManager() {
         if (padronData && padronData.length > 0) {
           // Padrón real existente en la base de datos
           setPadron(padronData);
+          await cachearPadronLocalmente(padronData);
         } else {
           // Si el padrón de esta cooperación no se ha poblado aún en la BD,
           // lo generamos a partir de las tomas o personas reales de la organización
@@ -286,18 +494,23 @@ export function CooperacionesManager() {
                 .range(from, to)
             );
             setPadron(padronRecargado);
+            await cachearPadronLocalmente(padronRecargado);
           } else {
             setPadron([]);
           }
         }
       } catch (err: unknown) {
         console.error('Error cargando padrón:', err);
-        setPadron([]);
+        try {
+          await cargarPadronDesdeCacheLocal(coop.id);
+        } catch {
+          setPadron([]);
+        }
       } finally {
         setCargandoPadron(false);
       }
     },
-    [tomas, personas]
+    [tomas, personas, cargarPadronDesdeCacheLocal]
   );
 
   // Al seleccionar una cooperación para entrar a su vista detalle
@@ -440,11 +653,12 @@ export function CooperacionesManager() {
         p_valor_equivalente_faena: datos.cuota_requerida,
       });
 
-      if (!rpcErr && (rpcRes as any)?.cooperacion_id) {
+      const rpcCrear = rpcRes as { cooperacion_id?: string } | null;
+      if (!rpcErr && rpcCrear?.cooperacion_id) {
         const { data: cData } = await supabase
           .from('cooperaciones')
           .select('*')
-          .eq('id', (rpcRes as any).cooperacion_id)
+          .eq('id', rpcCrear.cooperacion_id)
           .single();
         if (cData) {
           nuevaCoop = cData as unknown as Cooperacion;
@@ -607,7 +821,7 @@ export function CooperacionesManager() {
     }
   };
 
-  // Registrar abono real en la BD
+  // Registrar abono real (online-first con respaldo offline en Dexie)
   const handleRegistrarAbono = async ({
     item,
     monto,
@@ -621,86 +835,28 @@ export function CooperacionesManager() {
     efectivoRecibido?: number;
     notas?: string;
   }) => {
-    if (!item || !coopActiva || !organizacion?.id) return;
+    const orgId = organizacion?.id || coopActiva?.organizacion_id;
+    if (!item || !coopActiva || !orgId) return;
     setGuardando(true);
 
     try {
-      const nuevoSaldoRestante = Math.max(0, item.monto_pendiente - monto);
-      const nuevoTotalPagado = item.monto_pagado + monto;
-      const nuevoEstado: EstadoPadronCooperacion =
-        nuevoSaldoRestante <= 0 ? 'liquidado' : 'parcial';
+      const resultado = await registrarAbonoCooperacionLocal({
+        organizacionId: orgId,
+        item,
+        monto,
+        metodoPago,
+        notas,
+        cajeroId: usuarioActualId,
+      });
 
-      const folioGenerado = `COOP-${Date.now().toString().slice(-6)}`;
-
-      // 1. Intentar registrar a través de la función RPC transaccional
-      let nuevoAbono: CooperacionAbono | null = null;
-      const { data: rpcAbono, error: errRpcAbono } = await supabase.rpc(
-        'registrar_abono_cooperacion',
-        {
-          p_padron_id: item.id,
-          p_monto_abono: monto,
-          p_metodo_pago: metodoPago,
-          p_notas: notas || null,
-        }
-      );
-
-      if (!errRpcAbono && (rpcAbono as any)?.abono_id) {
-        nuevoAbono = {
-          id: (rpcAbono as any).abono_id,
-          organizacion_id: organizacion.id,
-          padron_id: item.id,
-          folio_recibo: (rpcAbono as any).folio_recibo,
-          monto_abono: monto,
-          saldo_anterior: item.monto_pendiente,
-          saldo_restante: nuevoSaldoRestante,
-          metodo_pago: metodoPago,
-          cajero_id: usuarioActualId || undefined,
-          notas: notas || undefined,
-          fecha_pago: new Date().toISOString(),
-        };
-      } else {
-        // Fallback transaccional directo por tablas
-        const { data: abonoGuardado, error: errAbono } = await supabase
-          .from('cooperacion_abonos')
-          .insert([
-            {
-              organizacion_id: organizacion.id,
-              padron_id: item.id,
-              folio_recibo: folioGenerado,
-              monto_abono: monto,
-              saldo_anterior: item.monto_pendiente,
-              saldo_restante: nuevoSaldoRestante,
-              metodo_pago: metodoPago,
-              cajero_id: usuarioActualId || null,
-              notas: notas || null,
-              fecha_pago: new Date().toISOString(),
-            },
-          ])
-          .select()
-          .single();
-
-        if (errAbono || !abonoGuardado) {
-          throw errAbono || new Error('Error al registrar el abono.');
-        }
-
-        // 2. Actualizar el saldo del aportante en el padrón
-        const { error: errUpdatePadron } = await supabase
-          .from('cooperacion_padron')
-          .update({
-            monto_pagado: nuevoTotalPagado,
-            monto_pendiente: nuevoSaldoRestante,
-            estado: nuevoEstado,
-            fecha_liquidacion: nuevoEstado === 'liquidado' ? new Date().toISOString() : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', item.id);
-
-        if (errUpdatePadron) {
-          throw errUpdatePadron;
-        }
-
-        nuevoAbono = abonoGuardado as unknown as CooperacionAbono;
-      }
+      const {
+        abono: nuevoAbono,
+        sincronizado,
+        nuevoTotalPagado,
+        nuevoSaldoRestante,
+        nuevoEstado,
+        fechaLiquidacion,
+      } = resultado;
 
       // Actualizar estado local
       const padronActualizado = padron.map((p) => {
@@ -710,7 +866,7 @@ export function CooperacionesManager() {
             monto_pagado: nuevoTotalPagado,
             monto_pendiente: nuevoSaldoRestante,
             estado: nuevoEstado,
-            fecha_liquidacion: nuevoEstado === 'liquidado' ? new Date().toISOString() : null,
+            fecha_liquidacion: fechaLiquidacion,
             abonos: [nuevoAbono, ...(p.abonos || [])],
           };
         }
@@ -736,11 +892,18 @@ export function CooperacionesManager() {
       setItemSeleccionado(null);
       setModalReciboOpen(true);
 
-      const folioFinal = nuevoAbono?.folio_recibo || folioGenerado;
-      sileo.success({
-        title: nuevoEstado === 'liquidado' ? 'Aportación liquidada' : 'Abono registrado',
-        description: `Folio ${folioFinal} generado correctamente por $${monto.toFixed(2)} MXN.`,
-      });
+      const folioFinal = nuevoAbono.folio_recibo;
+      if (sincronizado) {
+        sileo.success({
+          title: nuevoEstado === 'liquidado' ? 'Aportación liquidada' : 'Abono registrado',
+          description: `Folio ${folioFinal} generado correctamente por $${monto.toFixed(2)} MXN.`,
+        });
+      } else {
+        sileo.info({
+          title: 'Abono guardado sin conexión',
+          description: `Folio ${folioFinal} guardado localmente ($${monto.toFixed(2)} MXN). Se sincronizará automáticamente al volver internet.`,
+        });
+      }
     } catch (err: unknown) {
       sileo.error({
         title: 'Error de cobro',
@@ -751,7 +914,7 @@ export function CooperacionesManager() {
     }
   };
 
-  // Acreditar faena comunitaria real en la BD
+  // Acreditar faena comunitaria real (online-first con respaldo offline en Dexie)
   const handleAcreditarFaena = async (item: CooperacionPadronItem) => {
     if (!coopActiva?.permite_faena) {
       sileo.warning({
@@ -762,29 +925,9 @@ export function CooperacionesManager() {
     }
 
     try {
-      const fechaHoy = new Date().toISOString().split('T')[0];
-
-      // 1. Intentar registrar a través de la función RPC
-      const { error: errRpcFaena } = await supabase.rpc('acreditar_faena_cooperacion', {
-        p_padron_id: item.id,
-        p_fecha_faena: fechaHoy,
+      const { sincronizado, fechaFaena: fechaHoy } = await acreditarFaenaCooperacionLocal({
+        item,
       });
-
-      if (errRpcFaena) {
-        // Fallback directo en tabla
-        const { error: errFaena } = await supabase
-          .from('cooperacion_padron')
-          .update({
-            cumplio_con_faena: true,
-            fecha_faena: fechaHoy,
-            monto_pendiente: 0,
-            estado: 'exento_faena',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', item.id);
-
-        if (errFaena) throw errFaena;
-      }
 
       const padronActualizado = padron.map((p) => {
         if (p.id === item.id) {
@@ -805,10 +948,17 @@ export function CooperacionesManager() {
         setItemSeleccionado(null);
       }
 
-      sileo.success({
-        title: 'Faena comunitaria registrada',
-        description: `Se acreditó el cumplimiento de faena para ${item.persona?.nombre_completo || 'el aportante'}.`,
-      });
+      if (sincronizado) {
+        sileo.success({
+          title: 'Faena comunitaria registrada',
+          description: `Se acreditó el cumplimiento de faena para ${item.persona?.nombre_completo || 'el aportante'}.`,
+        });
+      } else {
+        sileo.info({
+          title: 'Faena guardada sin conexión',
+          description: `Se acreditó localmente para ${item.persona?.nombre_completo || 'el aportante'}. Se sincronizará al volver internet.`,
+        });
+      }
     } catch (err: unknown) {
       sileo.error({
         title: 'Error al registrar faena',
@@ -878,15 +1028,17 @@ export function CooperacionesManager() {
           status={`${metricasGlobales.total} obras registradas`}
           statusTone="blue"
           action={
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={() => setModalNuevaOpen(true)}
-            >
-              Nueva Cooperación
-            </Button>
+            puedeGestionarCoop ? (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                icon={<Plus className="w-4 h-4" />}
+                onClick={() => setModalNuevaOpen(true)}
+              >
+                Nueva Cooperación
+              </Button>
+            ) : undefined
           }
         />
 
@@ -1155,25 +1307,29 @@ export function CooperacionesManager() {
                 { value: 'asamblea', label: 'Corte y Asamblea', icon: <FileText className="w-4 h-4" /> },
               ]}
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              icon={<Clock className="w-4 h-4 text-purple-500" />}
-              onClick={() => setModalProrrogaOpen(true)}
-            >
-              Aplazar / Prórroga
-            </Button>
+            {puedeGestionarCoop && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  icon={<Clock className="w-4 h-4 text-purple-500" />}
+                  onClick={() => setModalProrrogaOpen(true)}
+                >
+                  Aplazar / Prórroga
+                </Button>
 
-            <Button
-              type="button"
-              variant={coopActiva.estado === 'concluida' ? 'outline' : 'secondary'}
-              size="md"
-              onClick={handleAlternarEstadoConcluida}
-              disabled={guardando}
-            >
-              {coopActiva.estado === 'concluida' ? 'Reabrir Obra' : 'Concluir Obra'}
-            </Button>
+                <Button
+                  type="button"
+                  variant={coopActiva.estado === 'concluida' ? 'outline' : 'secondary'}
+                  size="md"
+                  onClick={handleAlternarEstadoConcluida}
+                  disabled={guardando}
+                >
+                  {coopActiva.estado === 'concluida' ? 'Reabrir Obra' : 'Concluir Obra'}
+                </Button>
+              </>
+            )}
           </>
         }
       />
@@ -1232,6 +1388,8 @@ export function CooperacionesManager() {
           onRegistrarAbono={handleRegistrarAbono}
           onAcreditarFaena={handleAcreditarFaena}
           guardando={guardando}
+          puedeCobrar={puedeCobrarCoop}
+          puedeAcreditarFaena={puedeAcreditarFaena}
         />
       )}
 

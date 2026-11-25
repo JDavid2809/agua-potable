@@ -33,6 +33,7 @@ import {
 import { registrarPagoLocal } from '@/lib/sync/sync-engine';
 import { obtenerMensajeError } from '@/lib/utils/errors';
 import { useRegistrosPorPagina } from '@/hooks/use-registros-por-pagina';
+import { usePermisosUsuario } from '@/hooks/use-permisos-usuario';
 import { ReciboTicketModal } from './ReciboTicketModal';
 import { ModalEstadoCuenta } from './ModalEstadoCuenta';
 import type {
@@ -42,9 +43,11 @@ import type {
   PagoDetalle,
   MetodoPago,
   Organizacion,
+  Manzana,
+  Perfil,
 } from '@/types/database';
 
-type TomaExtendida = Toma & { persona?: Persona; manzana?: any };
+type TomaExtendida = Toma & { persona?: Persona; manzana?: Partial<Manzana> };
 
 interface ContribuyenteConTomas {
   key: string;
@@ -87,6 +90,8 @@ export function VentanillaCobro({
   onCuotaActualizada,
 }: VentanillaCobroProps) {
   void onCuotaActualizada;
+  const { puede } = usePermisosUsuario();
+  const puedeCrearCobro = puede('cobros.crear');
 
   // Estado de búsqueda, filtros y paginación en la tabla
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
@@ -248,8 +253,13 @@ export function VentanillaCobro({
       );
       if (match) {
         codigoPreseleccionadoRef.current = initialCodigoToma;
-        inicializarSeleccionContribuyente(grupo, match.id);
-        break;
+        let cancelled = false;
+        Promise.resolve().then(() => {
+          if (!cancelled) inicializarSeleccionContribuyente(grupo, match.id);
+        });
+        return () => {
+          cancelled = true;
+        };
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -492,6 +502,14 @@ export function VentanillaCobro({
   const handleCobrar = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!puedeCrearCobro) {
+      sileo.error({
+        title: 'Permiso requerido',
+        description: 'Tu rol solo tiene acceso de consulta y no puede emitir cobros.',
+      });
+      return;
+    }
+
     if (!contribuyenteSeleccionado || calculos.totalTomasSeleccionadas === 0) {
       sileo.error({
         title: 'Selecciona al menos una toma',
@@ -615,7 +633,7 @@ export function VentanillaCobro({
         created_at: timestamp,
         updated_at: timestamp,
         persona: contribuyenteSeleccionado.persona,
-        cajero: cajeroNombre ? ({ nombre_completo: cajeroNombre } as any) : undefined,
+        cajero: cajeroNombre ? ({ nombre_completo: cajeroNombre } as Perfil) : undefined,
         detalles,
       };
 
@@ -1180,16 +1198,22 @@ export function VentanillaCobro({
 
               {/* Botones de acción */}
               <div className="space-y-2 pt-1">
+                {!puedeCrearCobro && (
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Tu usuario solo tiene acceso de consulta en caja (requiere permiso cobros.crear).
+                  </p>
+                )}
+
                 <Button
                   type="submit"
                   variant="primary"
                   size="lg"
                   isLoading={procesando}
-                  disabled={calculos.cobrables.length === 0 || calculos.total <= 0}
+                  disabled={!puedeCrearCobro || calculos.cobrables.length === 0 || calculos.total <= 0}
                   className="w-full justify-center"
                   icon={<Receipt className="w-4 h-4" />}
                 >
-                  Cobrar y Emitir Recibo
+                  {puedeCrearCobro ? 'Cobrar y Emitir Recibo' : 'Sin permiso para cobrar'}
                 </Button>
 
                 <Button

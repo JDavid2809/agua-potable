@@ -17,6 +17,12 @@ import {
 } from 'lucide-react';
 import { sileo } from 'sileo';
 import { supabase } from '@/lib/supabase/client';
+import { dbLocal } from '@/lib/db/offline-db';
+import {
+  guardarManzanaLocal,
+  eliminarManzanaLocal,
+  esErrorDeRed,
+} from '@/lib/sync/sync-engine';
 import { Button } from '@/components/ui/Button';
 import { StatusMark } from '@/components/ui/StatusMark';
 import { usePermisosUsuario } from '@/hooks/use-permisos-usuario';
@@ -69,10 +75,46 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
   const [descripcion, setDescripcion] = useState('');
   const [activo, setActivo] = useState(true);
 
-  // Cargar lista de manzanas
+  // Cargar lista de manzanas (online-first con fallback offline en Dexie)
   const cargarManzanas = useCallback(async () => {
+    const cargarDesdeCache = async (): Promise<boolean> => {
+      const [manzanasLocal, tomasLocal] = await Promise.all([
+        dbLocal.manzanas.toArray(),
+        dbLocal.tomas.toArray(),
+      ]);
+      const estaOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (!estaOffline && manzanasLocal.length === 0) return false;
+
+      const conteoPorManzana = new Map<string, number>();
+      tomasLocal.forEach((t) => {
+        if (!t.deleted_at && t.manzana_id) {
+          conteoPorManzana.set(t.manzana_id, (conteoPorManzana.get(t.manzana_id) || 0) + 1);
+        }
+      });
+
+      const formateadas: ManzanaConConteo[] = manzanasLocal
+        .filter((m) => !m.deleted_at)
+        .sort((a, b) => {
+          const cmpBarrio = (a.barrio || '').localeCompare(b.barrio || '', 'es');
+          if (cmpBarrio !== 0) return cmpBarrio;
+          return (a.numero_manzana || '').localeCompare(b.numero_manzana || '', 'es');
+        })
+        .map((m) => ({
+          ...m,
+          tomas_count: conteoPorManzana.get(m.id) || 0,
+        }));
+
+      setManzanas(formateadas);
+      return true;
+    };
+
     setCargando(true);
     try {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        await cargarDesdeCache();
+        return;
+      }
+
       const { data, error } = await supabase
         .from('manzanas')
         .select('*, tomas:tomas(count)')
@@ -82,13 +124,43 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
 
       if (error) throw error;
 
-      const formateadas: ManzanaConConteo[] = (data || []).map((item: any) => ({
-        ...item,
-        tomas_count: item.tomas?.[0]?.count || 0,
-      }));
+      const formateadas: ManzanaConConteo[] = (data || []).map(
+        (item: Manzana & { tomas?: { count?: number }[] }) => ({
+          ...item,
+          tomas_count: item.tomas?.[0]?.count || 0,
+        })
+      );
 
       setManzanas(formateadas);
+
+      try {
+        const limpias: Manzana[] = (data || []).map(
+          (item: Manzana & { tomas?: { count?: number }[] }) => {
+            const { tomas: _t, ...manzanaBase } = item;
+            void _t;
+            return manzanaBase;
+          }
+        );
+        if (limpias.length > 0) {
+          await dbLocal.manzanas.bulkPut(limpias);
+        }
+      } catch {
+        // Ignorar errores de caché local
+      }
     } catch (err: unknown) {
+      try {
+        const cargoLocal = await cargarDesdeCache();
+        if (cargoLocal || esErrorDeRed(err)) {
+          sileo.info({
+            title: 'Modo sin conexión',
+            description: 'Mostrando manzanas guardadas en este dispositivo.',
+          });
+          return;
+        }
+      } catch {
+        // Ignorar error de caché local
+      }
+
       sileo.error({
         title: 'Error de carga',
         description: obtenerMensajeError(err, 'No se pudieron cargar las manzanas'),
@@ -99,7 +171,13 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
   }, []);
 
   useEffect(() => {
-    cargarManzanas();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void cargarManzanas();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [cargarManzanas]);
 
   // Lista única de barrios para autocompletar / filtrar
@@ -176,57 +254,37 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
 
     setGuardando(true);
     try {
+      const { sincronizado } = await guardarManzanaLocal({
+        manzanaEnEdicion,
+        barrio,
+        seccion,
+        numeroManzana,
+        cuadra,
+        descripcion,
+        activo,
+      });
+
       if (manzanaEnEdicion) {
-        // Editar
-        const { error } = await supabase
-          .from('manzanas')
-          .update({
-            barrio: barrio.trim(),
-            seccion: seccion.trim() || '1',
-            numero_manzana: numeroManzana.trim(),
-            cuadra: cuadra.trim() || null,
-            descripcion: descripcion.trim() || null,
-            activo,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', manzanaEnEdicion.id);
-
-        if (error) throw error;
-
-        sileo.success({
-          title: 'Manzana actualizada',
-          description: `Se guardaron los cambios de ${numeroManzana}.`,
-        });
-      } else {
-        // Crear: Obtener la organización del usuario autenticado
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Usuario no autenticado.');
-
-        const { data: perfil, error: errPerfil } = await supabase
-          .from('perfiles')
-          .select('organizacion_id')
-          .eq('id', user.id)
-          .single();
-
-        if (errPerfil || !perfil?.organizacion_id) {
-          throw new Error('No se detectó una organización activa vinculada a tu cuenta.');
+        if (sincronizado) {
+          sileo.success({
+            title: 'Manzana actualizada',
+            description: `Se guardaron los cambios de ${numeroManzana}.`,
+          });
+        } else {
+          sileo.info({
+            title: 'Manzana actualizada sin conexión',
+            description: `Los cambios de ${numeroManzana} quedaron guardados localmente. Se sincronizarán al volver internet.`,
+          });
         }
-
-        const { error } = await supabase.from('manzanas').insert({
-          organizacion_id: perfil.organizacion_id,
-          barrio: barrio.trim(),
-          seccion: seccion.trim() || '1',
-          numero_manzana: numeroManzana.trim(),
-          cuadra: cuadra.trim() || null,
-          descripcion: descripcion.trim() || null,
-          activo: true,
-        });
-
-        if (error) throw error;
-
+      } else if (sincronizado) {
         sileo.success({
           title: 'Manzana registrada',
           description: `La ${numeroManzana} fue agregada exitosamente al padrón.`,
+        });
+      } else {
+        sileo.info({
+          title: 'Manzana guardada sin conexión',
+          description: `La ${numeroManzana} quedó guardada localmente. Se sincronizará al volver internet.`,
         });
       }
 
@@ -259,21 +317,19 @@ export function ManzanasManager({ onVistaChange }: ManzanasManagerProps = {}) {
     if (!confirmar) return;
 
     try {
-      const { error } = await supabase
-        .from('manzanas')
-        .update({
-          deleted_at: new Date().toISOString(),
-          activo: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', m.id);
+      const { sincronizado } = await eliminarManzanaLocal(m.id);
 
-      if (error) throw error;
-
-      sileo.success({
-        title: 'Manzana eliminada',
-        description: `La ${m.numero_manzana} fue retirada del padrón.`,
-      });
+      if (sincronizado) {
+        sileo.success({
+          title: 'Manzana eliminada',
+          description: `La ${m.numero_manzana} fue retirada del padrón.`,
+        });
+      } else {
+        sileo.info({
+          title: 'Baja guardada sin conexión',
+          description: `La ${m.numero_manzana} fue retirada localmente. Se sincronizará al volver internet.`,
+        });
+      }
       cargarManzanas();
     } catch (err: unknown) {
       sileo.error({

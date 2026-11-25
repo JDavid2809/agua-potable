@@ -11,6 +11,7 @@ import { useOfflineSync } from '@/hooks/use-offline-sync';
 import { PresenceProvider } from '@/hooks/use-presence-tracker';
 import { PermisosProvider, usePermisosUsuario } from '@/hooks/use-permisos-usuario';
 import { usePwa } from '@/components/pwa/PwaManager';
+import { aislarOrganizacionLocal } from '@/lib/db/offline-db';
 
 export { usePermisosUsuario };
 
@@ -68,6 +69,13 @@ export function DashboardShell({
   useEffect(() => {
     warmRoutes(['/dashboard', '/cobros', '/personas', '/tomas', '/cooperaciones']);
   }, [warmRoutes]);
+
+  // Persistir organizacion_activa_id en IndexedDB y aislar caché multi-organización al montar
+  useEffect(() => {
+    if (organizacionId) {
+      void aislarOrganizacionLocal(organizacionId).catch(() => {});
+    }
+  }, [organizacionId]);
 
   const handleToggleCollapse = useCallback(() => {
     setCollapsed((prev) => {

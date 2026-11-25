@@ -230,7 +230,13 @@ export function TarifasManager() {
   }, []);
 
   useEffect(() => {
-    cargarDatos();
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) void cargarDatos();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [cargarDatos]);
 
   // Actualizar concepto y monto sugerido al cambiar tipo, mes o año de cargo
@@ -618,11 +624,15 @@ export function TarifasManager() {
         await Promise.all([
           dbLocal.pagos.clear(),
           dbLocal.pago_detalles.clear(),
+          dbLocal.cooperaciones.clear(),
+          dbLocal.cooperacion_padron.clear(),
+          dbLocal.cooperacion_abonos.clear(),
           dbLocal.tomas.clear(),
           dbLocal.personas.clear(),
           dbLocal.manzanas.clear(),
           dbLocal.cola_sync.clear(),
           dbLocal.config_sync.delete('ultima_sincronizacion'),
+          dbLocal.config_sync.delete('ultima_sincronizacion_cooperaciones'),
         ]);
 
         sileo.success({
@@ -724,6 +734,9 @@ export function TarifasManager() {
           await Promise.all([
             dbLocal.pago_detalles.clear(),
             dbLocal.pagos.clear(),
+            dbLocal.cooperacion_abonos.clear(),
+            dbLocal.cooperacion_padron.clear(),
+            dbLocal.cooperaciones.clear(),
             dbLocal.tomas.clear(),
             dbLocal.personas.clear(),
             dbLocal.manzanas.clear(),

@@ -8,6 +8,11 @@ import type {
   PagoDetalle,
   ElementoColaSync,
 } from '@/types/database';
+import type {
+  Cooperacion,
+  CooperacionPadronItem,
+  CooperacionAbono,
+} from '@/types/cooperaciones';
 
 export interface MetadataSync {
   clave: string;
@@ -21,6 +26,9 @@ export class AguaPotableLocalDB extends Dexie {
   tarifas!: Table<Tarifa, string>;
   pagos!: Table<Pago, string>;
   pago_detalles!: Table<PagoDetalle, string>;
+  cooperaciones!: Table<Cooperacion, string>;
+  cooperacion_padron!: Table<CooperacionPadronItem, string>;
+  cooperacion_abonos!: Table<CooperacionAbono, string>;
   cola_sync!: Table<ElementoColaSync, number>;
   config_sync!: Table<MetadataSync, string>;
 
@@ -39,13 +47,18 @@ export class AguaPotableLocalDB extends Dexie {
     this.version(2).stores({
       cola_sync: '++id, tabla, accion, registro_id, estado, creado_en',
     });
+    this.version(3).stores({
+      cooperaciones: 'id, organizacion_id, estado, updated_at',
+      cooperacion_padron: 'id, organizacion_id, cooperacion_id, persona_id, toma_id, estado, updated_at',
+      cooperacion_abonos: 'id, organizacion_id, padron_id, folio_recibo, fecha_pago',
+    });
   }
 }
 
 export const dbLocal = new AguaPotableLocalDB();
 
 /**
- * Limpia todas las tablas de datos locales (personas, tomas, manzanas, tarifas, pagos locales)
+ * Limpia todas las tablas de datos locales (personas, tomas, manzanas, tarifas, pagos, cooperaciones)
  * garantizando que ningún dato de una organización permanezca en el navegador.
  * Conserva el device_id físico si existe.
  */
@@ -61,6 +74,9 @@ export async function limpiarDatosLocales(opciones: { limpiarCola?: boolean } = 
       dbLocal.tarifas,
       dbLocal.pagos,
       dbLocal.pago_detalles,
+      dbLocal.cooperaciones,
+      dbLocal.cooperacion_padron,
+      dbLocal.cooperacion_abonos,
       dbLocal.cola_sync,
       dbLocal.config_sync,
     ],
@@ -72,6 +88,9 @@ export async function limpiarDatosLocales(opciones: { limpiarCola?: boolean } = 
         dbLocal.tarifas.clear(),
         dbLocal.pagos.clear(),
         dbLocal.pago_detalles.clear(),
+        dbLocal.cooperaciones.clear(),
+        dbLocal.cooperacion_padron.clear(),
+        dbLocal.cooperacion_abonos.clear(),
       ]);
 
       if (limpiarCola) {
@@ -106,6 +125,30 @@ export async function aislarOrganizacionLocal(nuevaOrgId: string): Promise<boole
   });
 
   return true;
+}
+
+/**
+ * Obtiene el organizacion_id almacenado en caché local (IndexedDB) para operaciones offline.
+ */
+export async function obtenerOrganizacionIdLocal(): Promise<string | null> {
+  const regOrg = await dbLocal.config_sync.get('organizacion_activa_id');
+  if (regOrg?.valor?.trim()) {
+    return regOrg.valor.trim();
+  }
+
+  const regCache = await dbLocal.config_sync.get('organizacion_cache');
+  if (regCache?.valor) {
+    try {
+      const parsed = JSON.parse(regCache.valor) as { id?: unknown };
+      if (typeof parsed?.id === 'string' && parsed.id.trim()) {
+        return parsed.id.trim();
+      }
+    } catch {
+      // Ignorar caché corrupta
+    }
+  }
+
+  return null;
 }
 
 /**

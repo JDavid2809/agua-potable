@@ -119,8 +119,12 @@ export function ModalNuevaCooperacion({
   const universoActivo =
     tipoSujeto === 'toma' ? statsUniverso.conteoTomas : statsUniverso.conteoPersonas;
 
-  // Sincronización automática de cálculos al cambiar valores o tipo de sujeto
-  useEffect(() => {
+  // Sincronización automática de cálculos al cambiar modalidad o universo activo
+  const syncKey = `${tipoSujeto}:${modoCalculo}:${universoActivo}`;
+  const [prevSyncKey, setPrevSyncKey] = useState(syncKey);
+
+  if (syncKey !== prevSyncKey) {
+    setPrevSyncKey(syncKey);
     const univ = universoActivo || 1;
     if (modoCalculo === 'cuota') {
       const c = Number(cuotaInput) || 0;
@@ -131,7 +135,7 @@ export function ModalNuevaCooperacion({
       const c = univ > 0 ? (m / univ).toFixed(2) : '0';
       setCuotaInput(c);
     }
-  }, [tipoSujeto, modoCalculo, universoActivo]);
+  }
 
   // Cuando el usuario escribe en la cuota
   const handleCuotaChange = (val: string) => {
